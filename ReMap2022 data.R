@@ -84,7 +84,13 @@ ReMapRPP5 <- ReMapRPP5[!ReMapRPP5$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3
 # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
 ReMapRPP5 <- ReMapRPP5[!grepl("mutant",ReMapRPP5$info) & !grepl("mature",ReMapRPP5$info) & !grepl("senescent",ReMapRPP5$info) & 
                          !grepl("inflorescence",ReMapRPP5$info) & !grepl("drought",ReMapRPP5$info) & !grepl("old",ReMapRPP5$info) & 
-                         !grepl("min",ReMapRPP5$info) & !grepl("endosperm",ReMapRPP5$info),] 
+                         !grepl("min",ReMapRPP5$info) & !grepl("endosperm",ReMapRPP5$info) & !grepl("-se-",ReMapRPP5$info) &
+                         !grepl("-TSA-",ReMapRPP5$info) & !grepl("-GSNO-",ReMapRPP5$info) & !grepl("flg22",ReMapRPP5$info) &
+                         !grepl("GSE79354",ReMapRPP5$exp.) & !grepl("transgenic",ReMapRPP5$info) & !grepl("GSH",ReMapRPP5$info) &
+                         !grepl("GSE93223",ReMapRPP5$exp.) & !grepl("-acc1",ReMapRPP5$info) & !grepl("GSE93875",ReMapRPP5$exp.) &
+                         !grepl("leaves_3w-K36M-homoz",ReMapRPP5$info) & !grepl("undef_seedling_10d-h3-1kd-1",ReMapRPP5$info) &
+                         !grepl("undef_seedling_10d-h3-1kd-2",ReMapRPP5$info) & !grepl("seedling_3d-wt-ehylene",ReMapRPP5$info) &
+                         !grepl("GSE77394",ReMapRPP5$exp.) & !grepl("GSE100965",ReMapRPP5$exp.),] 
 
 # Filter info column, checking written plant ages and removing BAD AGES
 
