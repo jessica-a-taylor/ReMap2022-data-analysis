@@ -135,3 +135,28 @@ for (row in nrow(ReMapRPP5):1) {
 
 # Tidy up 🧹
 rm(matches, badAge, maxWeeks, row, timeValue)
+
+# Create separate dataframes for each ecotype.
+ecotypes <- unique(ReMapRPP5$ecotype)
+ReMapRPP5_Col <- ReMapRPP5[ReMapRPP5$ecotype=="Col-0",]
+ReMapRPP5_Ler <- ReMapRPP5[ReMapRPP5$ecotype=="Ler",]
+
+# Create lists of WT and mutant conditions from the info column.
+allConditions <- unique(ReMapRPP5$info)
+WTonlyConditions <- allConditions[-c(4,5,8,10,12,17,18,19,22,23,24,26,32,33,35,36,37,39,40,41,43,44,45,46,49,50,51,52,53,55)]
+mutantsOnlyConditions <- allConditions[c(4,5,8,10,12,17,18,19,22,23,24,26,32,33,35,36,37,39,40,41,43,44,45,46,49,50,51,52,53,55)]
+
+# Create a ReMapRPP5 dataset for Col-0 WT only.
+WTonly_Col <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% c(WTonlyConditions),]
+
+# Merge start and end coordinates columns to create a ranges column.
+WTonly_Col$ranges = paste(WTonly_Col$start,"-",WTonly_Col$end, sep = "")
+
+# Create a bed file for the Col-0 WT only dataset.
+WTonly_Col_Bed <- GRanges(
+  seqnames=Rle("chr4",nrow(WTonly_Col)),
+  ranges=IRanges(WTonly_Col$ranges),
+  name=WTonly_Col$name)
+
+# Export bed file.
+rtracklayer::export.bed(WTonly_Col_Bed, "~/WTonly_Col.bed")
