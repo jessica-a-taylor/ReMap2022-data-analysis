@@ -249,8 +249,7 @@ for (m in unique(WTonly_Col$epiMod)) {
   }
 }
 
-
-
+# Create dataframes with the information needed in the bed file.
 for (p in unique(WTonly_Col$epiMod)) {
   df <- data.frame(seqname = numeric(),
                    range = character(),
@@ -268,3 +267,23 @@ for (p in unique(WTonly_Col$epiMod)) {
   modData[[p]] <- df
 }
 
+# Combine the dataframes for each epigenetic modification into one dataframe.
+modBed <- data.frame(seqname = numeric(),
+                     range = character(),
+                     strand = character(),
+                     name = character(),
+                     colour = character())
+
+for (g in unique(WTonly_Col$epiMod)) {
+  modBed <- rbind(modBed, modData[[g]])
+}
+
+# Create bed file.
+modBed <- GRanges(
+  seqnames=Rle("chr4",nrow(modBed)),
+  ranges=IRanges(modBed$range),
+  name=modBed$name,
+  itemRgb=modBed$colour)
+
+# Export bed file.
+rtracklayer::export.bed(modBed, "~/WTonlyRPP5.bed")
