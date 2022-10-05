@@ -144,7 +144,6 @@ ReMapRPP5_Ler <- ReMapRPP5[ReMapRPP5$ecotype=="Ler",]
 # Create lists of WT and mutant conditions from the info column.
 allConditions <- unique(ReMapRPP5$info)
 WTonlyConditions <- allConditions[-c(1,3,6,9,13,14,16,22,23,24,27,30,34,35,36,38,40,43,44,45,46,47,48,49,51,52,53,54,55,56,57)]
-mutantsOnlyConditions <- allConditions[c(1,3,6,9,13,14,16,22,23,24,27,30,34,35,36,38,40,43,44,45,46,47,48,49,51,52,53,54,55,56,57)]
 
 # Create a ReMapRPP5 dataset for Col-0 WT only.
 WTonly_Col <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% c(WTonlyConditions),]
@@ -287,3 +286,32 @@ modBed <- GRanges(
 
 # Export bed file.
 rtracklayer::export.bed(modBed, "~/WTonlyRPP5.bed")
+
+
+mutantsOnlyConditions <- allConditions[c(1,3,6,9,13,14,16,22,23,24,27,30,34,35,36,38,40,43,44,45,46,47,48,49,51,52,53,54,55,56,57)]
+
+mutantData <- hash()
+
+for (m in mutantsOnlyConditions) {
+  mutantDF <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% m,]
+  
+  # Merge start and end coordinates columns to create a ranges column.
+  mutantDF$ranges = paste(mutantDF$start,"-",mutantDF$end, sep = "")
+  
+  # Store each mutant dataframe in the mutantData hash.
+  mutantData[[m]] <- mutantDF
+}
+
+for (g in mutantsOnlyConditions) {
+    
+    # Create bed file.
+    mutantBed <- GRanges(
+      seqnames=Rle("chr4",nrow(mutantData[[g]])),
+      ranges=IRanges(mutantData[[g]]$ranges),
+      name=mutantData[[g]]$epiMod,
+      itemRgb=mutantData[[g]]$itemRgb,
+      info=mutantData[[g]]$info)
+    
+    # Export bed file.
+    rtracklayer::export.bed(mutantBed, paste("~/",g, ".bed", sep = ""))
+}
