@@ -152,11 +152,86 @@ WTonly_Col <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% c(WTonlyConditions),]
 # Merge start and end coordinates columns to create a ranges column.
 WTonly_Col$ranges = paste(WTonly_Col$start,"-",WTonly_Col$end, sep = "")
 
-# Create a bed file for the Col-0 WT only dataset.
-WTonly_Col_Bed <- GRanges(
-  seqnames=Rle("chr4",nrow(WTonly_Col)),
-  ranges=IRanges(WTonly_Col$ranges),
-  name=WTonly_Col$name)
+# Create function that determines whether value a is between values b and c.
+betweenFunction <- function(a,b,c) {
+  return(b<a & a<c)
+}
 
-# Export bed file.
-rtracklayer::export.bed(WTonly_Col_Bed, "~/WTonly_Col.bed")
+# Create a function that determines whether two ranges overlap using the between function.
+overlapsFunction <- function(S1, E1, S2, E2) {
+  if (betweenFunction(S1, S2, E2)) {
+    return (TRUE)
+  }
+  if (betweenFunction(E1, S2, E2)) {
+    return (TRUE)
+  }
+  if (betweenFunction(S2, S1, E1)) {
+    return (TRUE)
+  }
+  if (betweenFunction(E2, S1, E1)) {
+    return (TRUE)
+  }
+  return(FALSE)
+}
+
+# Function to return the index of the set containing "item" in "overlapSets"
+findItem <- function(item, overlapSets) {
+  
+  # For each set in overlapSets
+  for (setIndex in 1:length(overlapSets)) {
+    
+    # If item is contained within that set, return the index of that set
+    if (item %in% overlapSets[[setIndex]]) {
+      return(setIndex)
+    }
+  }
+}
+
+install.packages("hash")
+library(hash)
+
+modOverlaps <- hash()
+
+# For each epigenetic modification name
+for (mod in unique(WTonly_Col$epiMod)) {
+  
+  # Grab all entries for that modification
+  modDF <- WTonly_Col[WTonly_Col$epiMod==mod,]
+ 
+  # Generate overlapSets as a list of single-item sets
+  # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
+  overlapSets <- list()
+  for (l in 1:nrow(modDF)) {
+    overlapSets <- append(overlapSets, list(set(as.numeric(l))))
+  }
+  
+  # For each gene co-ordinate comparison [k, l] in modDF
+  for (k in 1:nrow(modDF)) {
+    for (l in 1:k) {
+      
+      # If the co-ordinate ranges overlap
+      if (overlapsFunction(modDF[k, "start"], modDF[k, "end"], 
+                           modDF[l, "start"], modDF[l, "end"])==TRUE) {
+        
+        # Find the indexes of the sets containing each range
+        kIndex <- findItem(k, overlapSets)
+        lIndex <- findItem(l, overlapSets)
+        
+        # No need to merge if the co-ordinate ranges are already in the same sets
+        if (kIndex!=lIndex) {
+          
+          # If they are in different sets, merge the two sets, replacing the old ones
+          newSet <- set_union(overlapSets[[kIndex]], overlapSets[[lIndex]])
+          overlapSets <- overlapSets[-c(kIndex, lIndex)]
+          overlapSets <- append(overlapSets, list(newSet))
+        }
+      }
+    }
+  }
+  modOverlaps[[mod]] <- overlapSets
+}
+
+# Barnaby says clean up your shit
+
+# To do: find out the min & max for each overlap set for each mod
+#        then plot it!!!!
