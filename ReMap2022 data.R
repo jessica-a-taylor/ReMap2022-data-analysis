@@ -235,7 +235,7 @@ for (mod in unique(WTonly_Col$epiMod)) {
   modOverlaps[[mod]] <- overlapSets
 }
 
-
+# Find the maximum range for the overlapping epigenetic modifications.
 for (m in unique(WTonly_Col$epiMod)) {
   for (n in 1:length(modOverlaps[[m]])) {
     modStart <- c()
@@ -249,7 +249,22 @@ for (m in unique(WTonly_Col$epiMod)) {
   }
 }
 
-# Barnaby says clean up your shit
 
-# To do: find out the min & max for each overlap set for each mod
-#        then plot it!!!!
+
+for (p in unique(WTonly_Col$epiMod)) {
+  df <- data.frame(seqname = numeric(),
+                   range = character(),
+                   strand = character(),
+                   name = character(),
+                   colour = character())
+  
+  for (q in 1:length(modOverlaps[[p]])) {
+    df <- rbind(df, data.frame(seqname = 4,
+                               range = modOverlaps[[p]][[q]],
+                               strand = "*",
+                               name = p,
+                               colour = modData[[p]][1,"itemRgb"]))
+  }
+  modData[[p]] <- df
+}
+
