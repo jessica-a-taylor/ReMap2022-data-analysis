@@ -152,6 +152,7 @@ WTonly_Col <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% c(WTonlyConditions),]
 # Merge start and end coordinates columns to create a ranges column.
 WTonly_Col$ranges = paste(WTonly_Col$start,"-",WTonly_Col$end, sep = "")
 
+
 # Create function that determines whether value a is between values b and c.
 betweenFunction <- function(a,b,c) {
   return(b<a & a<c)
@@ -187,16 +188,19 @@ findItem <- function(item, overlapSets) {
   }
 }
 
-install.packages("hash")
+install.packages(c("hash", "sets"))
 library(hash)
+library(sets)
 
+modData <- hash()
 modOverlaps <- hash()
 
 # For each epigenetic modification name
 for (mod in unique(WTonly_Col$epiMod)) {
   
-  # Grab all entries for that modification
+  # Grab all entries for that modification and store in the hash.
   modDF <- WTonly_Col[WTonly_Col$epiMod==mod,]
+  modData[[mod]] <- modDF
  
   # Generate overlapSets as a list of single-item sets
   # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
@@ -229,6 +233,20 @@ for (mod in unique(WTonly_Col$epiMod)) {
     }
   }
   modOverlaps[[mod]] <- overlapSets
+}
+
+
+for (m in unique(WTonly_Col$epiMod)) {
+  for (n in 1:length(modOverlaps[[m]])) {
+    modStart <- c()
+    modEnd <- c()
+    
+    for (o in modOverlaps[[m]][[n]]) {
+      modStart <- append(modStart, modData[[m]][as.numeric(o), "start"])
+      modEnd <- append(modEnd, modData[[m]][as.numeric(o), "end"])
+    }
+    modOverlaps[[m]][n] <- paste(min(modStart), max(modEnd), sep = "-")
+  }
 }
 
 # Barnaby says clean up your shit
