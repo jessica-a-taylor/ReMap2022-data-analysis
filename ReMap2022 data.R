@@ -19,6 +19,50 @@ chromStatesBed <- GRanges(
 # Export bed file.
 rtracklayer::export.bed(chromStatesBed, "~/CS.bed")
 
+
+# Import chromatin states dataset, sheet 2.
+WTacr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 2))
+
+# Merge start and end coordinates columns to create a ranges column.
+WTacr$ranges = paste(WTacr$start,"-",WTacr$end, sep = "")
+
+# Create a bed file for WT ACR dataset.
+WTacrBed <- GRanges(
+  seqnames=Rle("chr4",nrow(WTacr)),
+  ranges=IRanges(WTacr$ranges))
+
+# Export bed file.
+rtracklayer::export.bed(WTacrBed, "~/WTacr.bed")
+
+# Import chromatin states dataset, sheet 3.
+Macr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 3))
+
+# Merge start and end coordinates columns to create a ranges column.
+Macr$ranges = paste(Macr$start,"-",Macr$end, sep = "")
+
+# Create a bed file for WT ACR dataset.
+MacrBed <- GRanges(
+  seqnames=Rle("chr4",nrow(Macr)),
+  ranges=IRanges(Macr$ranges))
+
+# Export bed file.
+rtracklayer::export.bed(MacrBed, "~/Mutant acr.bed")
+
+# Import chromatin states dataset, sheet 4.
+RootNEassociation <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 4))
+
+# Merge start and end coordinates columns to create a ranges column.
+RootNEassociation$ranges = paste(RootNEassociation$start,"-",RootNEassociation$end, sep = "")
+
+# Create a bed file for WT ACR dataset.
+RootNEassociationBed <- GRanges(
+  seqnames=Rle("chr4",nrow(RootNEassociation)),
+  ranges=IRanges(RootNEassociation$ranges))
+
+# Export bed file.
+rtracklayer::export.bed(RootNEassociationBed, "~/RootNEassociation.bed")
+
+
 # Import RPP5 gene coordinates dataset.
 RPP5 <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5.xlsx"))
 
@@ -60,17 +104,32 @@ ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",
                                            "strand", "name", "score", "itemRgb",
                                            "thick.start", "thick.end", "thick.width"))
 
-# Filter for chromosome 4.
-ReMapRPP5 <- ReMap[ReMap$seqnames==4,]
+ChromosomeToUse = 5
 
-# Remove original dataset.
-rm(ReMap)
+if (ChromosomeToUse == 4) {
+  # Filter for chromosome 4.
+  ReMapRPP5 <- ReMap[ReMap$seqnames==4,]
+  
+  # Filter for the coordinates of the RPP5 gene cluster.
+  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$start>9480000,]
+  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$end<9570000,]
+} else if (ChromosomeToUse == 1) {
+  # Filter for chromosome 1.
+  ReMapRPP5 <- ReMap[ReMap$seqnames==1,]
+  
+  # Filter for the coordinates of the BIGBOI gene cluster.
+  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$start>27744790,]
+  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$end<28074118,]
+} else if (ChromosomeToUse == 5) {
+  # Filter for chromosome 5.
+  ReMapRPP5 <- ReMap[ReMap$seqnames==5,]
+  
+  # Filter for the coordinates of the CBP60g.
+  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$start>9475679,]
+  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$end<9478777,]
+}
 
-# Filter for the coordinates of the RPP5 gene cluster.
-ReMapRPP5 <- ReMapRPP5[ReMapRPP5$start>9480000,]
-ReMapRPP5 <- ReMapRPP5[ReMapRPP5$end<9570000,]
 
-install.packages(c("dplyr", "stringr"))
 library(dplyr)
 library(stringr)
 
@@ -92,12 +151,23 @@ ReMapRPP5 <- ReMapRPP5[!grepl("mutant",ReMapRPP5$info) & !grepl("mature",ReMapRP
                          !grepl("undef_seedling_10d-h3-1kd-2",ReMapRPP5$info) & !grepl("seedling_3d-wt-ehylene",ReMapRPP5$info) &
                          !grepl("GSE77394",ReMapRPP5$exp.) & !grepl("GSE100965",ReMapRPP5$exp.),] 
 
+# Filter for leaves and roots
+RootsReMapRPP5 <- ReMapRPP5[grepl("roots",ReMapRPP5$info),]
+WT_RootsReMapRPP5 <- RootsReMapRPP5[!grepl("OTU5",RootsReMapRPP5$info),]
+
+# Remove roots data from ReMapRPP5
+ReMapRPP5 <- ReMapRPP5[!grepl("roots",ReMapRPP5$info),]
+
 # Filter info column, checking written plant ages and removing BAD AGES
 
 # For each row
 for (row in nrow(ReMapRPP5):1) {
   # Find the age if it exists (in the format 1w / 8d / 10h)
   matches <- str_match(ReMapRPP5[row, "info"], "_([0-9]+)([dwh])")
+  
+  if (row %% 1000 == 0) {
+    print(row)
+  }
   
   # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
   
@@ -143,7 +213,7 @@ ReMapRPP5_Ler <- ReMapRPP5[ReMapRPP5$ecotype=="Ler",]
 
 # Create lists of WT and mutant conditions from the info column.
 allConditions <- unique(ReMapRPP5$info)
-WTonlyConditions <- allConditions[-c(1,3,6,9,13,14,16,22,23,24,27,30,34,35,36,38,40,43,44,45,46,47,48,49,51,52,53,54,55,56,57)]
+WTonlyConditions <- allConditions[-c(2,3,11,12,14,15,17,18,19,21,22,26,28,29,30,32,33,35,36,37)]
 
 # Create a ReMapRPP5 dataset for Col-0 WT only.
 WTonly_Col <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% c(WTonlyConditions),]
@@ -187,7 +257,6 @@ findItem <- function(item, overlapSets) {
   }
 }
 
-install.packages(c("hash", "sets"))
 library(hash)
 library(sets)
 
@@ -279,13 +348,13 @@ for (g in unique(WTonly_Col$epiMod)) {
 
 # Create bed file.
 modBed <- GRanges(
-  seqnames=Rle("chr4",nrow(modBed)),
+  seqnames=Rle("chr5",nrow(modBed)),
   ranges=IRanges(modBed$range),
   name=modBed$name,
   itemRgb=modBed$colour)
 
 # Export bed file.
-rtracklayer::export.bed(modBed, "~/WTonlyRPP5.bed")
+rtracklayer::export.bed(modBed, "~/WTonlychr5.bed")
 
 
 mutantsOnlyConditions <- allConditions[c(1,3,6,9,13,14,16,22,23,24,27,30,34,35,36,38,40,43,44,45,46,47,48,49,51,52,53,54,55,56,57)]
@@ -315,3 +384,13 @@ for (g in mutantsOnlyConditions) {
     # Export bed file.
     rtracklayer::export.bed(mutantBed, paste("~/",g, ".bed", sep = ""))
 }
+
+
+methylationBed <- modBed[modBed$name %in% c("H3K27me3", "H3K4me3", "H3K36me3", "H3K4me1", "H3K9me2"),]
+rtracklayer::export.bed(methylationBed, "~/methylationChr5.bed")
+
+acetylationBed <- modBed[modBed$name %in% c("H3K9ac", "H3K14ac", "H3K36ac", "H3K56ac"),]
+rtracklayer::export.bed(acetylationBed, "~/acetylationChr5.bed")
+
+
+
