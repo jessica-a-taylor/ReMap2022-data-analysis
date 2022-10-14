@@ -7,7 +7,7 @@ library(rtracklayer)
 chromStates <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx"))
 
 # Merge start and end coordinates columns to create a ranges column.
-chromStates$ranges = paste(chromStates$start,"-",chromStates$end, sep = "")
+chromStates$ranges <- paste(chromStates$start,"-",chromStates$end, sep = "")
 chromStates
 
 # Create a bed file for chromatin states dataset.
@@ -63,37 +63,6 @@ RootNEassociationBed <- GRanges(
 rtracklayer::export.bed(RootNEassociationBed, "~/RootNEassociation.bed")
 
 
-# Import RPP5 gene coordinates dataset.
-RPP5 <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5.xlsx"))
-
-# Merge start and end coordinates columns to create a ranges column.
-RPP5$ranges = paste(RPP5$start,"-",RPP5$end, sep = "")
-RPP5
-
-# Create a bed file for the RPP5 gene coordinates dataset.
-RPP5Bed <- GRanges(
-  seqnames=Rle("chr4",nrow(RPP5)),
-  ranges=IRanges(RPP5$ranges),
-  name=RPP5$name)
-
-# Export bed file.
-rtracklayer::export.bed(RPP5Bed, "~/RPP5.bed")
-
-# Import ReMap2022 ChIP dataset for SNC1, RPP4 and RPP5 only.
-epiMods <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\ReMap2022 data.xlsx"))
-
-# Merge start and end coordinates columns to create a ranges column.
-epiMods$ranges = paste(epiMods$Start,"-",epiMods$End, sep = "")
-epiMods
-
-# Create a bed file for the SNC1, RPP4 and RPP5 data.
-epiModsBed <- GRanges(
-  seqnames=Rle("chr4",nrow(epiMods)),
-  ranges=IRanges(epiMods$ranges),
-  name=epiMods$`Epigenetic modifications (ReMap2022)`)
-
-# Export bed file.
-rtracklayer::export.bed(epiMods_foo, "~/epiMods.bed")
 
 
 # Import all ReMap2022 ChIP data (bed file).
@@ -104,119 +73,167 @@ ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",
                                            "strand", "name", "score", "itemRgb",
                                            "thick.start", "thick.end", "thick.width"))
 
-ChromosomeToUse = 5
+# Remove unwanted columns.
+ReMap <- ReMap[,-c(9:11)]
 
-if (ChromosomeToUse == 4) {
-  # Filter for chromosome 4.
-  ReMapRPP5 <- ReMap[ReMap$seqnames==4,]
-  
-  # Filter for the coordinates of the RPP5 gene cluster.
-  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$start>9480000,]
-  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$end<9570000,]
-} else if (ChromosomeToUse == 1) {
-  # Filter for chromosome 1.
-  ReMapRPP5 <- ReMap[ReMap$seqnames==1,]
-  
-  # Filter for the coordinates of the BIGBOI gene cluster.
-  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$start>27744790,]
-  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$end<28074118,]
-} else if (ChromosomeToUse == 5) {
-  # Filter for chromosome 5.
-  ReMapRPP5 <- ReMap[ReMap$seqnames==5,]
-  
-  # Filter for the coordinates of the CBP60g.
-  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$start>9475679,]
-  ReMapRPP5 <- ReMapRPP5[ReMapRPP5$end<9478777,]
-}
-
+# Import coordainated of all NLRs/clusters and store in a dataframe.
+allNLRs <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 2))
 
 library(dplyr)
 library(stringr)
 
-# Run regex on name column, extracting each section
-# (experiment, epigenetic modification, ecotype, other info)
-ReMapRPP5[c("exp.", "epiMod", "ecotype", "info")] <- str_match(ReMapRPP5$name, "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
 
-# Filter epiMod column, excluding unwanted modifications
-ReMapRPP5 <- ReMapRPP5[!ReMapRPP5$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1") & !ReMapRPP5$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
+# Create a hash to store ReMap data for each NLR/cluster.
+NLR_hash <- hash()
 
-# Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
-ReMapRPP5 <- ReMapRPP5[!grepl("mutant",ReMapRPP5$info) & !grepl("mature",ReMapRPP5$info) & !grepl("senescent",ReMapRPP5$info) & 
-                         !grepl("inflorescence",ReMapRPP5$info) & !grepl("drought",ReMapRPP5$info) & !grepl("old",ReMapRPP5$info) & 
-                         !grepl("min",ReMapRPP5$info) & !grepl("endosperm",ReMapRPP5$info) & !grepl("-se-",ReMapRPP5$info) &
-                         !grepl("-TSA-",ReMapRPP5$info) & !grepl("-GSNO-",ReMapRPP5$info) & !grepl("flg22",ReMapRPP5$info) &
-                         !grepl("GSE79354",ReMapRPP5$exp.) & !grepl("transgenic",ReMapRPP5$info) & !grepl("GSH",ReMapRPP5$info) &
-                         !grepl("GSE93223",ReMapRPP5$exp.) & !grepl("-acc1",ReMapRPP5$info) & !grepl("GSE93875",ReMapRPP5$exp.) &
-                         !grepl("leaves_3w-K36M-homoz",ReMapRPP5$info) & !grepl("undef_seedling_10d-h3-1kd-1",ReMapRPP5$info) &
-                         !grepl("undef_seedling_10d-h3-1kd-2",ReMapRPP5$info) & !grepl("seedling_3d-wt-ehylene",ReMapRPP5$info) &
-                         !grepl("GSE77394",ReMapRPP5$exp.) & !grepl("GSE100965",ReMapRPP5$exp.),] 
-
-# Filter for leaves and roots
-RootsReMapRPP5 <- ReMapRPP5[grepl("roots",ReMapRPP5$info),]
-WT_RootsReMapRPP5 <- RootsReMapRPP5[!grepl("OTU5",RootsReMapRPP5$info),]
-
-# Remove roots data from ReMapRPP5
-ReMapRPP5 <- ReMapRPP5[!grepl("roots",ReMapRPP5$info),]
-
-# Filter info column, checking written plant ages and removing BAD AGES
-
-# For each row
-for (row in nrow(ReMapRPP5):1) {
-  # Find the age if it exists (in the format 1w / 8d / 10h)
-  matches <- str_match(ReMapRPP5[row, "info"], "_([0-9]+)([dwh])")
-  
-  if (row %% 1000 == 0) {
-    print(row)
-  }
-  
-  # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
-  
-  # If we found an age (ie, matches[1] is not NA)
-  if (!is.na(matches[1])) {
-    # Convert string number into integer
-    timeValue <- as.numeric(matches[2])
-    
-    # Maximum allowed age in weeks
-    maxWeeks <- 3
-    
-    badAge <- FALSE
-    
-    if (matches[3]=="h") {
-      # If the age is measured in hours, it's too young. BAD AGE.
-      badAge <- TRUE
-    }
-    
-    else if (matches[3]=="d" & timeValue > maxWeeks*7) {
-      # If the age is measured in days and it's longer than maxWeeks (converting maxWeeks to days), it's too old. BAD AGE.
-      badAge <- TRUE
-    }
-    
-    else if (matches[3]=="w" & timeValue > maxWeeks) {
-      # If the age is measured in weeks and it's longer than maxWeeks, it's too old. BAD AGE.
-      badAge <- TRUE
-    }
-    
-    # If we had a BAD AGE, delete the corresponding row. (Otherwise, move on to the next row without deleting.)
-    if (badAge) {
-      ReMapRPP5 <- ReMapRPP5[-row,]
-    }
-  }
+for (row in 1:nrow(allNLRs)) {
+  ReMapRows <- c(which(ReMap[,"start"] > allNLRs[row, "start"]-5000 & ReMap[,"end"] < allNLRs[row, "end"]+5000))
+  NLR_hash[[allNLRs[row,"name"]]] <- ReMap[ReMapRows,]
 }
 
-# Tidy up 🧹
-rm(matches, badAge, maxWeeks, row, timeValue)
+rm(ReMapRows, allNLRs)
 
-# Create separate dataframes for each ecotype.
-ecotypes <- unique(ReMapRPP5$ecotype)
-ReMapRPP5_Col <- ReMapRPP5[ReMapRPP5$ecotype=="Col-0",]
-ReMapRPP5_Ler <- ReMapRPP5[ReMapRPP5$ecotype=="Ler",]
+for(n in names(NLR_hash)) {
+  # Run regex on name column, extracting each section
+  # (experiment, epigenetic modification, ecotype, other info)
+  NLR_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(NLR_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
+  
+  # Filter epiMod column, excluding unwanted modifications
+  NLR_hash[[n]] <- NLR_hash[[n]][!NLR_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H2AV") & !NLR_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
+  NLR_hash[[n]] <- NLR_hash[[n]][,-6]
+  
+  # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
+  NLR_hash[[n]] <- NLR_hash[[n]][!grepl("mutant",NLR_hash[[n]]$info) & !grepl("mature",NLR_hash[[n]]$info) & !grepl("senescent",NLR_hash[[n]]$info) & 
+                                   !grepl("inflorescence",NLR_hash[[n]]$info) & !grepl("drought",NLR_hash[[n]]$info) & !grepl("old",NLR_hash[[n]]$info) & 
+                                   !grepl("min",NLR_hash[[n]]$info) & !grepl("endosperm",NLR_hash[[n]]$info) & !grepl("-se-",NLR_hash[[n]]$info) &
+                                   !grepl("-TSA-",NLR_hash[[n]]$info) & !grepl("-GSNO-",NLR_hash[[n]]$info) & !grepl("flg22",NLR_hash[[n]]$info) &
+                                   !grepl("transgenic",NLR_hash[[n]]$info) & !grepl("GSH",NLR_hash[[n]]$info) &
+                                   !grepl("-acc1",NLR_hash[[n]]$info) & !grepl("-ethylene",NLR_hash[[n]]$info) & !grepl("-C2H4",NLR_hash[[n]]$info) &
+                                   !grepl("leaves_3w-K36M-homoz",NLR_hash[[n]]$info) & !grepl("undef_seedling_10d-h3-1kd-1",NLR_hash[[n]]$info) &
+                                   !grepl("-air",NLR_hash[[n]]$info) & !grepl("-ehylene",NLR_hash[[n]]$info) & !grepl("-swap",NLR_hash[[n]]$info) &
+                                   !grepl("-K36M",NLR_hash[[n]]$info) & !grepl("-H3-KD",NLR_hash[[n]]$info) & !grepl("-water",NLR_hash[[n]]$info) &
+                                   !grepl("undef_seedling_10d-h3-1kd-2",NLR_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",NLR_hash[[n]]$info),] 
+  
+  # Filter info column, checking written plant ages and removing BAD AGES
+  
+  # For each row
+  for (row in nrow(NLR_hash[[n]]):1) {
+    # Find the age if it exists (in the format 1w / 8d / 10h)
+    matches <- str_match(NLR_hash[[n]][row, "info"], "_([0-9]+)([dwh])")
+    
+    if (row %% 1000 == 0) {
+      print(row)
+    }
+    
+    # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
+    
+    # If we found an age (ie, matches[1] is not NA)
+    if (!is.na(matches[1])) {
+      # Convert string number into integer
+      timeValue <- as.numeric(matches[2])
+      
+      # Maximum allowed age in weeks
+      maxWeeks <- 3
+      
+      badAge <- FALSE
+      
+      if (matches[3]=="h") {
+        # If the age is measured in hours, it's too young. BAD AGE.
+        badAge <- TRUE
+      }
+      
+      else if (matches[3]=="d" & timeValue > maxWeeks*7) {
+        # If the age is measured in days and it's longer than maxWeeks (converting maxWeeks to days), it's too old. BAD AGE.
+        badAge <- TRUE
+      }
+      
+      else if (matches[3]=="w" & timeValue > maxWeeks) {
+        # If the age is measured in weeks and it's longer than maxWeeks, it's too old. BAD AGE.
+        badAge <- TRUE
+      }
+      
+      # If we had a BAD AGE, delete the corresponding row. (Otherwise, move on to the next row without deleting.)
+      if (badAge) {
+        NLR_hash[[n]] <- NLR_hash[[n]][-row,]
+      }
+    }
+  }
+  
+  # Tidy up 🧹
+  rm(matches, badAge, maxWeeks, row, timeValue)
+}
 
-# Create lists of WT and mutant conditions from the info column.
-allConditions <- unique(ReMapRPP5$info)
-WTonlyConditions <- allConditions[-c(2,3,11,12,14,15,17,18,19,21,22,26,28,29,30,32,33,35,36,37)]
 
-# Create a ReMapRPP5 dataset for Col-0 WT only.
-WTonly_Col <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% c(WTonlyConditions),]
+# Create hash for root data.
+RootNLRs <- hash()
+
+for(n in names(NLR_hash)) {
+  # Extract root data from NLR_hash and store in RootNLRs.
+  RootNLRs[[n]] <- NLR_hash[[n]][grepl("roots",NLR_hash[[n]]$info),]
+  # Remove root data from NLR_hash.
+  LeafNLRs[[n]] <- NLR_hash[[n]][!grepl("roots",NLR_hash[[n]]$info),]
+}
+
+# Delete NLR_hash.
+rm(NLR_hash)
+
+# Create hashes for WT and mutant root data.
+mutantRootNLRs <- hash()
+WTRootNLRs <- hash()
+
+for (n in names(RootNLRs)) {
+  WTRootNLRs[[n]] <- RootNLRs[[n]][!grepl("-hag1",RootNLRs[[n]]$info) & !grepl("-OTU5",RootNLRs[[n]]$info),]
+  mutantRootNLRs[[n]] <- RootNLRs[[n]][grepl("-hag1",RootNLRs[[n]]$info) & grepl("-OTU5",RootNLRs[[n]]$info),]
+}
+
+rm(RootNLRs)
+
+# Create hashes for WT and mutant leaf data.
+mutantLeafNLRs <- hash()
+WTLeafNLRs <- hash()
+
+allConditions <- c()
+for (n in names(LeafNLRs)) {
+  allConditions <- append(allConditions, unique(LeafNLRs[[n]]$info))
+}
+
+allConditions <- unique(allConditions)
+WTConditions <- allConditions[c(1,2,4:7,13,14,16:18,21,23:25,28,31,32,36,44,48,49)]
+mutantConditions <- allConditions[-c(1,2,4:7,13,14,16:18,21,23:25,28,31,32,36,44,48,49)]
+rm(allConditions)
+
+for (n in names(LeafNLRs)) {
+  WTLeafNLRs[[n]] <- LeafNLRs[[n]][LeafNLRs[[n]]$info %in% c(WTConditions),]
+  mutantLeafNLRs[[n]] <- LeafNLRs[[n]][LeafNLRs[[n]]$info %in% c(mutantConditions),]
+}
+
+rm(LeafNLRs, WTConditions, mutantConditions)
+
+# Create hashes for leaf data in Col and Ler ecotypes.
+ColWTLeafNLRs <- hash()
+LerWTLeafNLRs <- hash()
+
+for (n in names(WTLeafNLRs)) {
+  ColWTLeafNLRs[[n]] <- WTLeafNLRs[[n]][grepl("Col-0",WTLeafNLRs[[n]]$ecotype),]
+  LerWTLeafNLRs[[n]] <- WTLeafNLRs[[n]][grepl("Ler",WTLeafNLRs[[n]]$ecotype),]
+}
+
+rm(WTLeafNLRs)
+
+# Create a dictionary (hash containing hashes) with dataframes for each epiMod for each NLR.
+ColWTLeafData <- hash()
+
+for (n in names(ColWTLeafNLRs)) {
+  epiMods <- unique(ColWTLeafNLRs[[n]]$epiMod)
+  
+  modHash <- hash()
+  for (mod in epiMods) {
+    modHash[[mod]] <- ColWTLeafNLRs[[n]][ColWTLeafNLRs[[n]]$epiMod==mod,]
+  }
+  ColWTLeafData[[n]] <- modHash
+}
+
+
 
 # Merge start and end coordinates columns to create a ranges column.
 WTonly_Col$ranges = paste(WTonly_Col$start,"-",WTonly_Col$end, sep = "")
