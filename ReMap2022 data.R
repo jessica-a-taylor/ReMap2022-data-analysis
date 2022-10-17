@@ -51,7 +51,10 @@ for(n in names(NLR_hash)) {
                                    !grepl("-air",NLR_hash[[n]]$info) & !grepl("-ehylene",NLR_hash[[n]]$info) & !grepl("-swap",NLR_hash[[n]]$info) &
                                    !grepl("-K36M",NLR_hash[[n]]$info) & !grepl("-H3-KD",NLR_hash[[n]]$info) & !grepl("-water",NLR_hash[[n]]$info) &
                                    !grepl("undef_seedling_10d-h3-1kd-2",NLR_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",NLR_hash[[n]]$info) &
-                                   !grepl("GSE67322",NLR_hash[[n]]$exp.) & !grepl("GSE42695",NLR_hash[[n]]$exp.),] 
+                                   !grepl("GSE67322",NLR_hash[[n]]$exp.) & !grepl("GSE42695",NLR_hash[[n]]$exp.) & !grepl("GSE75071",NLR_hash[[n]]$exp.) &
+                                   !grepl("GSE62615",NLR_hash[[n]]$exp.) & !grepl("GSE103361",NLR_hash[[n]]$exp.) & !grepl("GSE50636",NLR_hash[[n]]$exp.) &
+                                   !grepl("GSE93223",NLR_hash[[n]]$exp.) & !grepl("GSE37644",NLR_hash[[n]]$exp.) & !grepl("GSE108414",NLR_hash[[n]]$exp.) &
+                                   !grepl("GSE22276",NLR_hash[[n]]$exp.) & !grepl("GSE89768",NLR_hash[[n]]$exp.) & !grepl("GSE117391",NLR_hash[[n]]$exp.),] 
   
   # Filter info column, checking written plant ages and removing BAD AGES
   
@@ -200,12 +203,12 @@ for(n in names(ColWTLeafData)) {
       seqnames=Rle(ColWTLeafData[[n]][[mod]]$seqname),
       ranges=IRanges(ColWTLeafData[[n]][[mod]]$ranges),
       name=ColWTLeafData[[n]][[mod]]$epiMod,
-      itemRgb=ColWTLeafData[[n]][[mod]]$itemRgb)
+      itemRgb=ColWTLeafData[[n]][[mod]]$itemRgb,
+      experiment =ColWTLeafData[[n]][[mod]]$exp.)
     
     rtracklayer::export.bed(modbed, paste("~/", n, "_", mod, ".bed", sep = ""))
   }
 }
-
 
 
 # Create function that determines whether value a is between values b and c.
