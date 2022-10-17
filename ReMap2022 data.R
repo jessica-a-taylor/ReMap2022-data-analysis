@@ -2,68 +2,10 @@ install.packages(c("readxl", "karyoploteR", "rtracklayer"))
 library(readxl)
 library(karyoploteR)
 library(rtracklayer)
-
-# Import chromatin states dataset.
-chromStates <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx"))
-
-# Merge start and end coordinates columns to create a ranges column.
-chromStates$ranges <- paste(chromStates$start,"-",chromStates$end, sep = "")
-chromStates
-
-# Create a bed file for chromatin states dataset.
-chromStatesBed <- GRanges(
-  seqnames=Rle("chr4",nrow(chromStates)),
-  ranges=IRanges(chromStates$ranges),
-  name=chromStates$state)
-
-# Export bed file.
-rtracklayer::export.bed(chromStatesBed, "~/CS.bed")
-
-
-# Import chromatin states dataset, sheet 2.
-WTacr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 2))
-
-# Merge start and end coordinates columns to create a ranges column.
-WTacr$ranges = paste(WTacr$start,"-",WTacr$end, sep = "")
-
-# Create a bed file for WT ACR dataset.
-WTacrBed <- GRanges(
-  seqnames=Rle("chr4",nrow(WTacr)),
-  ranges=IRanges(WTacr$ranges))
-
-# Export bed file.
-rtracklayer::export.bed(WTacrBed, "~/WTacr.bed")
-
-# Import chromatin states dataset, sheet 3.
-Macr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 3))
-
-# Merge start and end coordinates columns to create a ranges column.
-Macr$ranges = paste(Macr$start,"-",Macr$end, sep = "")
-
-# Create a bed file for WT ACR dataset.
-MacrBed <- GRanges(
-  seqnames=Rle("chr4",nrow(Macr)),
-  ranges=IRanges(Macr$ranges))
-
-# Export bed file.
-rtracklayer::export.bed(MacrBed, "~/Mutant acr.bed")
-
-# Import chromatin states dataset, sheet 4.
-RootNEassociation <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 4))
-
-# Merge start and end coordinates columns to create a ranges column.
-RootNEassociation$ranges = paste(RootNEassociation$start,"-",RootNEassociation$end, sep = "")
-
-# Create a bed file for WT ACR dataset.
-RootNEassociationBed <- GRanges(
-  seqnames=Rle("chr4",nrow(RootNEassociation)),
-  ranges=IRanges(RootNEassociation$ranges))
-
-# Export bed file.
-rtracklayer::export.bed(RootNEassociationBed, "~/RootNEassociation.bed")
-
-
-
+library(dplyr)
+library(stringr)
+library(hash)
+library(sets)
 
 # Import all ReMap2022 ChIP data (bed file).
 ReMap <- rtracklayer::import.bed("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
@@ -78,10 +20,6 @@ ReMap <- ReMap[,-c(9:11)]
 
 # Import coordainated of all NLRs/clusters and store in a dataframe.
 allNLRs <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 2))
-
-library(dplyr)
-library(stringr)
-
 
 # Create a hash to store ReMap data for each NLR/cluster.
 NLR_hash <- hash()
@@ -112,7 +50,8 @@ for(n in names(NLR_hash)) {
                                    !grepl("leaves_3w-K36M-homoz",NLR_hash[[n]]$info) & !grepl("undef_seedling_10d-h3-1kd-1",NLR_hash[[n]]$info) &
                                    !grepl("-air",NLR_hash[[n]]$info) & !grepl("-ehylene",NLR_hash[[n]]$info) & !grepl("-swap",NLR_hash[[n]]$info) &
                                    !grepl("-K36M",NLR_hash[[n]]$info) & !grepl("-H3-KD",NLR_hash[[n]]$info) & !grepl("-water",NLR_hash[[n]]$info) &
-                                   !grepl("undef_seedling_10d-h3-1kd-2",NLR_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",NLR_hash[[n]]$info),] 
+                                   !grepl("undef_seedling_10d-h3-1kd-2",NLR_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",NLR_hash[[n]]$info) &
+                                   !grepl("GSE67322",NLR_hash[[n]]$exp.) & !grepl("GSE42695",NLR_hash[[n]]$exp.),] 
   
   # Filter info column, checking written plant ages and removing BAD AGES
   
@@ -166,6 +105,8 @@ for(n in names(NLR_hash)) {
 
 # Create hash for root data.
 RootNLRs <- hash()
+LeafNLRs <- hash()
+
 
 for(n in names(NLR_hash)) {
   # Extract root data from NLR_hash and store in RootNLRs.
@@ -220,23 +161,51 @@ for (n in names(WTLeafNLRs)) {
 
 rm(WTLeafNLRs)
 
+# Create list of chromatin modifications.
+epiMods <- c()
+for (n in names(ColWTLeafNLRs)) {
+  epiMods <- append(epiMods, unique(ColWTLeafNLRs[[n]]$epiMod))
+}
+
+epiMods <- unique(epiMods)
+
 # Create a dictionary (hash containing hashes) with dataframes for each epiMod for each NLR.
 ColWTLeafData <- hash()
 
 for (n in names(ColWTLeafNLRs)) {
-  epiMods <- unique(ColWTLeafNLRs[[n]]$epiMod)
-  
   modHash <- hash()
+  
   for (mod in epiMods) {
     modHash[[mod]] <- ColWTLeafNLRs[[n]][ColWTLeafNLRs[[n]]$epiMod==mod,]
   }
   ColWTLeafData[[n]] <- modHash
 }
 
-
+rm(ColWTLeafNLRs)
 
 # Merge start and end coordinates columns to create a ranges column.
-WTonly_Col$ranges = paste(WTonly_Col$start,"-",WTonly_Col$end, sep = "")
+for (n in names(ColWTLeafData)) {
+  for (mod in epiMods) {
+    if (nrow(ColWTLeafData[[n]][[mod]]) >= 1) {
+      ColWTLeafData[[n]][[mod]]$ranges <- paste(ColWTLeafData[[n]][[mod]]$start,"-",ColWTLeafData[[n]][[mod]]$end, sep = "")
+    }
+    else next
+  }
+}
+
+# Create a bed file for each chromatin modification for each NLR/cluster.
+for(n in names(ColWTLeafData)) {
+  for (mod in epiMods) {
+    modbed <- GRanges(
+      seqnames=Rle(ColWTLeafData[[n]][[mod]]$seqname),
+      ranges=IRanges(ColWTLeafData[[n]][[mod]]$ranges),
+      name=ColWTLeafData[[n]][[mod]]$epiMod,
+      itemRgb=ColWTLeafData[[n]][[mod]]$itemRgb)
+    
+    rtracklayer::export.bed(modbed, paste("~/", n, "_", mod, ".bed", sep = ""))
+  }
+}
+
 
 
 # Create function that determines whether value a is between values b and c.
@@ -274,8 +243,7 @@ findItem <- function(item, overlapSets) {
   }
 }
 
-library(hash)
-library(sets)
+
 
 modData <- hash()
 modOverlaps <- hash()
@@ -410,4 +378,61 @@ acetylationBed <- modBed[modBed$name %in% c("H3K9ac", "H3K14ac", "H3K36ac", "H3K
 rtracklayer::export.bed(acetylationBed, "~/acetylationChr5.bed")
 
 
+# Import chromatin states dataset.
+chromStates <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx"))
 
+# Merge start and end coordinates columns to create a ranges column.
+chromStates$ranges <- paste(chromStates$start,"-",chromStates$end, sep = "")
+chromStates
+
+# Create a bed file for chromatin states dataset.
+chromStatesBed <- GRanges(
+  seqnames=Rle("chr4",nrow(chromStates)),
+  ranges=IRanges(chromStates$ranges),
+  name=chromStates$state)
+
+# Export bed file.
+rtracklayer::export.bed(chromStatesBed, "~/CS.bed")
+
+
+# Import chromatin states dataset, sheet 2.
+WTacr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 2))
+
+# Merge start and end coordinates columns to create a ranges column.
+WTacr$ranges = paste(WTacr$start,"-",WTacr$end, sep = "")
+
+# Create a bed file for WT ACR dataset.
+WTacrBed <- GRanges(
+  seqnames=Rle("chr4",nrow(WTacr)),
+  ranges=IRanges(WTacr$ranges))
+
+# Export bed file.
+rtracklayer::export.bed(WTacrBed, "~/WTacr.bed")
+
+# Import chromatin states dataset, sheet 3.
+Macr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 3))
+
+# Merge start and end coordinates columns to create a ranges column.
+Macr$ranges = paste(Macr$start,"-",Macr$end, sep = "")
+
+# Create a bed file for WT ACR dataset.
+MacrBed <- GRanges(
+  seqnames=Rle("chr4",nrow(Macr)),
+  ranges=IRanges(Macr$ranges))
+
+# Export bed file.
+rtracklayer::export.bed(MacrBed, "~/Mutant acr.bed")
+
+# Import chromatin states dataset, sheet 4.
+RootNEassociation <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 4))
+
+# Merge start and end coordinates columns to create a ranges column.
+RootNEassociation$ranges = paste(RootNEassociation$start,"-",RootNEassociation$end, sep = "")
+
+# Create a bed file for WT ACR dataset.
+RootNEassociationBed <- GRanges(
+  seqnames=Rle("chr4",nrow(RootNEassociation)),
+  ranges=IRanges(RootNEassociation$ranges))
+
+# Export bed file.
+rtracklayer::export.bed(RootNEassociationBed, "~/RootNEassociation.bed")
