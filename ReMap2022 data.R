@@ -63,10 +63,6 @@ for(n in names(NLR_hash)) {
     # Find the age if it exists (in the format 1w / 8d / 10h)
     matches <- str_match(NLR_hash[[n]][row, "info"], "_([0-9]+)([dwh])")
     
-    if (row %% 1000 == 0) {
-      print(row)
-    }
-    
     # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
     
     # If we found an age (ie, matches[1] is not NA)
@@ -142,8 +138,8 @@ for (n in names(LeafNLRs)) {
 }
 
 allConditions <- unique(allConditions)
-WTConditions <- allConditions[c(1,2,4:7,13,14,16:18,21,23:25,28,31,32,36,44,48,49)]
-mutantConditions <- allConditions[-c(1,2,4:7,13,14,16:18,21,23:25,28,31,32,36,44,48,49)]
+WTConditions <- allConditions[c(1,2,4,6,10,11,14,16,19,20,22,23,27,28)]
+mutantConditions <- allConditions[-c(1,2,4,6,10,11,14,16,19,20,22,23,27,28)]
 rm(allConditions)
 
 for (n in names(LeafNLRs)) {
@@ -206,7 +202,7 @@ for(n in names(ColWTLeafData)) {
       itemRgb=ColWTLeafData[[n]][[mod]]$itemRgb,
       experiment =ColWTLeafData[[n]][[mod]]$exp.)
     
-    rtracklayer::export.bed(modbed, paste("~/", n, "_", mod, ".bed", sep = ""))
+    #rtracklayer::export.bed(modbed, paste("~/", n, "_", mod, ".bed", sep = ""))
   }
 }
 
@@ -247,61 +243,67 @@ findItem <- function(item, overlapSets) {
 }
 
 
-
-modData <- hash()
-modOverlaps <- hash()
+allOverlaps <- hash()
 
 # For each epigenetic modification name
-for (mod in unique(WTonly_Col$epiMod)) {
+for (n in names(ColWTLeafData)) {
+  modOverlaps <- hash()
   
-  # Grab all entries for that modification and store in the hash.
-  modDF <- WTonly_Col[WTonly_Col$epiMod==mod,]
-  modData[[mod]] <- modDF
- 
-  # Generate overlapSets as a list of single-item sets
-  # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
-  overlapSets <- list()
-  for (l in 1:nrow(modDF)) {
-    overlapSets <- append(overlapSets, list(set(as.numeric(l))))
-  }
-  
-  # For each gene co-ordinate comparison [k, l] in modDF
-  for (k in 1:nrow(modDF)) {
-    for (l in 1:k) {
+  for (mod in epiMods) {
+
+    # Generate overlapSets as a list of single-item sets
+    # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
+    overlapSets <- list()
+    if (nrow(ColWTLeafData[[n]][[mod]])>0) {
       
-      # If the co-ordinate ranges overlap
-      if (overlapsFunction(modDF[k, "start"], modDF[k, "end"], 
-                           modDF[l, "start"], modDF[l, "end"])==TRUE) {
-        
-        # Find the indexes of the sets containing each range
-        kIndex <- findItem(k, overlapSets)
-        lIndex <- findItem(l, overlapSets)
-        
-        # No need to merge if the co-ordinate ranges are already in the same sets
-        if (kIndex!=lIndex) {
+      for (r in 1:nrow(ColWTLeafData[[n]][[mod]])) {
+      overlapSets <- append(overlapSets, list(set(as.numeric(r))))
+      }
+      #For each gene co-ordinate comparison [k, l]
+      for (k in 1:nrow(ColWTLeafData[[n]][[mod]])) {
+        for (l in 1:k) {
           
-          # If they are in different sets, merge the two sets, replacing the old ones
-          newSet <- set_union(overlapSets[[kIndex]], overlapSets[[lIndex]])
-          overlapSets <- overlapSets[-c(kIndex, lIndex)]
-          overlapSets <- append(overlapSets, list(newSet))
+          # If the co-ordinate ranges overlap
+          if (overlapsFunction(ColWTLeafData[[n]][[mod]][k, "start"], ColWTLeafData[[n]][[mod]][k, "end"], 
+                               ColWTLeafData[[n]][[mod]][l, "start"], ColWTLeafData[[n]][[mod]][l, "end"])==TRUE) {
+            
+            # Find the indexes of the sets containing each range
+            kIndex <- findItem(k, overlapSets)
+            lIndex <- findItem(l, overlapSets)
+            
+            # No need to merge if the co-ordinate ranges are already in the same sets
+            if (kIndex!=lIndex) {
+              
+              # If they are in different sets, merge the two sets, replacing the old ones
+              newSet <- set_union(overlapSets[[kIndex]], overlapSets[[lIndex]])
+              overlapSets <- overlapSets[-c(kIndex, lIndex)]
+              overlapSets <- append(overlapSets, list(newSet))
+            }
+          }
         }
       }
-    }
+    } 
+    else next
+    modOverlaps[[mod]] <- overlapSets
   }
-  modOverlaps[[mod]] <- overlapSets
+  allOverlaps[[n]] <- modOverlaps
 }
 
+
 # Find the maximum range for the overlapping epigenetic modifications.
-for (m in unique(WTonly_Col$epiMod)) {
-  for (n in 1:length(modOverlaps[[m]])) {
-    modStart <- c()
-    modEnd <- c()
+for (n in names(allOverlaps)) {
+  for (mod in epiMods) {
     
-    for (o in modOverlaps[[m]][[n]]) {
-      modStart <- append(modStart, modData[[m]][as.numeric(o), "start"])
-      modEnd <- append(modEnd, modData[[m]][as.numeric(o), "end"])
+    for (l in 1:length(allOverlaps[[n]][[mod]])) {
+    modStart <- c()
+    modEnd <- c() 
+    
+    for (o in allOverlaps[[m]][[n]]) {
+      modStart <- append(modStart, ColWTLeafData[[n]][[mod]][as.numeric(o), "start"])
+      modEnd <- append(modEnd, ColWTLeafData[[n]][[mod]][as.numeric(o), "end"])
     }
-    modOverlaps[[m]][n] <- paste(min(modStart), max(modEnd), sep = "-")
+    allOverlaps[[m]][n] <- paste(min(modStart), max(modEnd), sep = "-")
+    }
   }
 }
 
