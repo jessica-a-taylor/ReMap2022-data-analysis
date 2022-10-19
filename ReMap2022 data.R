@@ -1,4 +1,3 @@
-install.packages(c("readxl", "karyoploteR", "rtracklayer"))
 library(readxl)
 library(karyoploteR)
 library(rtracklayer)
@@ -25,11 +24,12 @@ allNLRs <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\
 NLR_hash <- hash()
 
 for (row in 1:nrow(allNLRs)) {
-  ReMapRows <- c(which(ReMap[,"start"] > allNLRs[row, "start"]-5000 & ReMap[,"end"] < allNLRs[row, "end"]+5000))
+  # Select rows that are within the range of each NLR/cluster and on the same chromosome.
+  ReMapRows <- c(which(ReMap[,"start"] > allNLRs[row, "start"]-5000 & ReMap[,"end"] < allNLRs[row, "end"]+5000 & ReMap[,"seqnames"] == allNLRs[row, "Chromosome"]))
   NLR_hash[[allNLRs[row,"name"]]] <- ReMap[ReMapRows,]
 }
 
-rm(ReMapRows, allNLRs)
+rm(ReMap, ReMapRows, allNLRs)
 
 for(n in names(NLR_hash)) {
   # Run regex on name column, extracting each section
@@ -180,7 +180,7 @@ for (n in names(ColWTLeafNLRs)) {
   ColWTLeafData[[n]] <- modHash
 }
 
-rm(ColWTLeafNLRs)
+rm(ColWTLeafNLRs, modHash)
 
 # Merge start and end coordinates columns to create a ranges column.
 for (n in names(ColWTLeafData)) {
@@ -206,6 +206,7 @@ for(n in names(ColWTLeafData)) {
   }
 }
 
+rm(modbed)
 
 # Create function that determines whether value a is between values b and c.
 betweenFunction <- function(a,b,c) {
@@ -289,115 +290,114 @@ for (n in names(ColWTLeafData)) {
   allOverlaps[[n]] <- modOverlaps
 }
 
+rm(modOverlaps, overlapSets, kIndex, lIndex, newSet)
+
 
 # Find the maximum range for the overlapping epigenetic modifications.
 for (n in names(allOverlaps)) {
   for (mod in epiMods) {
-    
-    for (l in 1:length(allOverlaps[[n]][[mod]])) {
-    modStart <- c()
-    modEnd <- c() 
-    
-    for (o in allOverlaps[[m]][[n]]) {
-      modStart <- append(modStart, ColWTLeafData[[n]][[mod]][as.numeric(o), "start"])
-      modEnd <- append(modEnd, ColWTLeafData[[n]][[mod]][as.numeric(o), "end"])
-    }
-    allOverlaps[[m]][n] <- paste(min(modStart), max(modEnd), sep = "-")
+    if (length(allOverlaps[[n]][[mod]])>0) {
+      
+      for (l in 1:length(allOverlaps[[n]][[mod]])) {
+        modStart <- c()
+        modEnd <- c() 
+      
+        for (o in allOverlaps[[n]][[mod]][l]) {
+          modStart <- append(modStart, ColWTLeafData[[n]][[mod]][as.numeric(o), "start"])
+          modEnd <- append(modEnd, ColWTLeafData[[n]][[mod]][as.numeric(o), "end"])
+          
+          allOverlaps[[n]][[mod]][l] <- paste(min(modStart), max(modEnd), sep = "-")
+        }
+      }
     }
   }
 }
 
+rm(modStart, modEnd, o, l)
+
+
 # Create dataframes with the information needed in the bed file.
-for (p in unique(WTonly_Col$epiMod)) {
-  df <- data.frame(seqname = numeric(),
-                   range = character(),
-                   strand = character(),
-                   name = character(),
-                   colour = character())
-  
-  for (q in 1:length(modOverlaps[[p]])) {
-    df <- rbind(df, data.frame(seqname = 4,
-                               range = modOverlaps[[p]][[q]],
-                               strand = "*",
-                               name = p,
-                               colour = modData[[p]][1,"itemRgb"]))
+for (n in names(ColWTLeafData)) {
+  for (mod in epiMods) {
+    df <- data.frame(seqname = numeric(),
+                     ranges = character(),
+                     strand = factor(),
+                     epiMod = character(),
+                     colour = character())
+    
+    if (length(allOverlaps[[n]][[mod]])>0) {
+      for (l in 1:length(allOverlaps[[n]][[mod]])) {
+        df <- rbind(df, data.frame(seqname = ColWTLeafData[[n]][[mod]][1,"seqnames"],
+                                   ranges = allOverlaps[[n]][[mod]][[l]],
+                                   strand = ColWTLeafData[[n]][[mod]][1,"strand"],
+                                   epiMod = mod,
+                                   colour = ColWTLeafData[[n]][[mod]][1,"itemRgb"]))
+      }
+    }
+    allOverlaps[[n]][[mod]] <- df
   }
-  modData[[p]] <- df
 }
+
+rm(df, l)
+
 
 # Combine the dataframes for each epigenetic modification into one dataframe.
 modBed <- data.frame(seqname = numeric(),
-                     range = character(),
-                     strand = character(),
-                     name = character(),
+                     ranges = character(),
+                     strand = factor(),
+                     epiMod = character(),
                      colour = character())
 
-for (g in unique(WTonly_Col$epiMod)) {
-  modBed <- rbind(modBed, modData[[g]])
+for (n in names(allOverlaps)) {
+  for (mod in epiMods) {
+    modBed <- rbind(modBed, allOverlaps[[n]][[mod]])
+    
+  }
 }
 
 # Create bed file.
 modBed <- GRanges(
-  seqnames=Rle("chr5",nrow(modBed)),
-  ranges=IRanges(modBed$range),
-  name=modBed$name,
+  seqnames=Rle(modBed$seqname),
+  ranges=IRanges(modBed$ranges),
+  name=modBed$epiMod,
   itemRgb=modBed$colour)
 
 # Export bed file.
-rtracklayer::export.bed(modBed, "~/WTonlychr5.bed")
-
-
-mutantsOnlyConditions <- allConditions[c(1,3,6,9,13,14,16,22,23,24,27,30,34,35,36,38,40,43,44,45,46,47,48,49,51,52,53,54,55,56,57)]
-
-mutantData <- hash()
-
-for (m in mutantsOnlyConditions) {
-  mutantDF <- ReMapRPP5_Col[ReMapRPP5_Col$info %in% m,]
-  
-  # Merge start and end coordinates columns to create a ranges column.
-  mutantDF$ranges = paste(mutantDF$start,"-",mutantDF$end, sep = "")
-  
-  # Store each mutant dataframe in the mutantData hash.
-  mutantData[[m]] <- mutantDF
-}
-
-for (g in mutantsOnlyConditions) {
-    
-    # Create bed file.
-    mutantBed <- GRanges(
-      seqnames=Rle("chr4",nrow(mutantData[[g]])),
-      ranges=IRanges(mutantData[[g]]$ranges),
-      name=mutantData[[g]]$epiMod,
-      itemRgb=mutantData[[g]]$itemRgb,
-      info=mutantData[[g]]$info)
-    
-    # Export bed file.
-    rtracklayer::export.bed(mutantBed, paste("~/",g, ".bed", sep = ""))
-}
-
-
-methylationBed <- modBed[modBed$name %in% c("H3K27me3", "H3K4me3", "H3K36me3", "H3K4me1", "H3K9me2"),]
-rtracklayer::export.bed(methylationBed, "~/methylationChr5.bed")
-
-acetylationBed <- modBed[modBed$name %in% c("H3K9ac", "H3K14ac", "H3K36ac", "H3K56ac"),]
-rtracklayer::export.bed(acetylationBed, "~/acetylationChr5.bed")
+rtracklayer::export.bed(modBed, "~/allNLRs.bed")
 
 
 # Import chromatin states dataset.
-chromStates <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx"))
+chromStatesHash <- hash()
+for(i in 1:9) {
+  chromStatesHash[[paste("state", i, sep = "")]] <- read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Sequeira-Mendes ChromStates.xlsx", sheet = i)
+}
+
+chromStates <- data.frame(Chrom = numeric(),
+                          Start = character(),
+                          End = character(),
+                          State = numeric())
+
+for (n in names(chromStatesHash)) {
+  df <- data.frame(Chrom = chromStatesHash[[n]]$Chrom,
+                   Start = chromStatesHash[[n]]$start,
+                   End = chromStatesHash[[n]]$end,
+                   State = as.numeric(str_extract(n, "([0-9]+)")))
+  
+  chromStates <- rbind(chromStates, df)
+}
 
 # Merge start and end coordinates columns to create a ranges column.
-chromStates$ranges <- paste(chromStates$start,"-",chromStates$end, sep = "")
-chromStates
+chromStates$ranges <- paste(chromStates$Start,"-",chromStates$End, sep = "")
 
 # Create a bed file for chromatin states dataset.
 chromStatesBed <- GRanges(
-  seqnames=Rle("chr4",nrow(chromStates)),
+  seqnames=Rle(chromStates$Chrom),
   ranges=IRanges(chromStates$ranges),
-  name=chromStates$state)
+  name=chromStates$State)
 
 # Export bed file.
 rtracklayer::export.bed(chromStatesBed, "~/CS.bed")
+
 
 
 # Import chromatin states dataset, sheet 2.
