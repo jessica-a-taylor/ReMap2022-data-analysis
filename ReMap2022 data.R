@@ -37,7 +37,10 @@ for(n in names(NLR_hash)) {
   NLR_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(NLR_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
   
   # Filter epiMod column, excluding unwanted modifications
-  NLR_hash[[n]] <- NLR_hash[[n]][!NLR_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H2AV") & !NLR_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
+  NLR_hash[[n]] <- NLR_hash[[n]][!NLR_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H4K16ac", "H2A-X",
+                                                              "H2AV", "HTA6", "H3-1", "H4K12ac", "H4K8ac", "H3K5ac") & 
+                                   !NLR_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
+  
   NLR_hash[[n]] <- NLR_hash[[n]][,-6]
   
   # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
