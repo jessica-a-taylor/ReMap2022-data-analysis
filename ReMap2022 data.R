@@ -537,6 +537,20 @@ for (r in names(regions)) {
 rm(modFrequenciesDF, regions)
 
 
+# Make a big dataframe with the modification frequencies for each gene region.
+modFrequenciesDF <- data.frame(Region = character(),
+                               Modification = character(),
+                               Frequency = numeric())
+
+for (r in names(modsPerRegion)) {
+  modFrequenciesDF <- rbind(modFrequenciesDF, modsPerRegion[[r]])
+}
+
+# Plot the percentage of NLRs with each chromatin modification within the gene body.
+modFrequenciesPlot <- ggplot(modFrequenciesDF, aes(x=Modification, y=Frequency, fill=Region)) + 
+  geom_bar(stat = "identity", position = "dodge") + scale_fill_brewer(palette = "Spectral") +
+  theme_minimal() + labs(x = "Chromatin Modification", y = "Frequency of occurance in NLR gene bodies (%)")
+
 
 
 
