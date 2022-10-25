@@ -457,6 +457,85 @@ rtracklayer::export.bed(modBed, "~/allNLRs.bed")
 
 
 
+# Create a hash with the data on the coordinates of each gene region.
+# First rename the columns in each dataset so they can be indexed the same way.
+colnames(NLRpromotor)[9] ="Gene"
+colnames(NLRgenebody)[2] ="Gene"
+
+
+regions <- hash(Promotor = NLRpromotor, GeneBody = NLRgenebody, UpstreamIntergenic = as.data.frame(upstreamIntergenic), 
+                DownstreamIntergenic = as.data.frame(downstreamIntergenic))
+
+# Create a dictionary containing the frequency of each chromatin modification occurring in each region of each NLR.
+modsPerRegion <- hash()
+
+for (r in names(regions)) {
+  # Create a hash containing a list of chromatin modifications overlapping with the NLR region.
+  GBmod <- hash()
+  
+  for (n in names(ColWTLeafData)) {
+    modList <- c()
+    
+    for (mod in epiMods) {
+      modPresent <- FALSE
+      
+      if (nrow(ColWTLeafData[[n]][[mod]]) >= 1 & !is.na(regions[[r]][regions[[r]]$Gene==n,]$start) & regions[[r]][regions[[r]]$Gene==n,]$end) {
+        for (row in 1:nrow(ColWTLeafData[[n]][[mod]])) {
+          if (overlapsFunction(ColWTLeafData[[n]][[mod]][row, "start"], ColWTLeafData[[n]][[mod]][row, "end"],
+                               regions[[r]][regions[[r]]$Gene==n,]$start, regions[[r]][regions[[r]]$Gene==n,]$end)==TRUE) {
+            modPresent <- TRUE
+          }
+          else modPresent <- modPresent
+        }
+        if (modPresent == TRUE) {
+          modList <- append(modList, mod)
+        }
+        else modPresent <- modPresent
+      }
+      else next
+    }
+    GBmod[[n]] <- modList
+  }
+  
+  rm(modList, modPresent)
+  
+  # Calculate the percentage of NLRs with each chromatin modification within the gene body.
+  modFrequencies <- hash()
+  
+  for (mod in epiMods) {
+    modPresent <- 0
+    
+    for (n in names(GBmod)) {
+      if (mod %in% GBmod[[n]]) {
+        modPresent <- modPresent+1
+      }
+      else modPresent <- modPresent
+    }
+    modFrequencies[[mod]] <- modPresent/length(names(GBmod))*100
+  }
+  
+  rm(modPresent)
+  
+  # Create a dataframe containing the percentage of NLRs with each chromatin modification within the gene body.
+  modFrequenciesDF <- data.frame(Region = character(),
+                                 Modification = character(),
+                                 Frequency = numeric())
+  
+  for (n in names(modFrequencies)) {
+    df <- data.frame(Region = rep(r, times = length(modFrequencies[[n]])),
+                     Modification = n,
+                     Frequency = modFrequencies[[n]])
+    
+    modFrequenciesDF <- rbind(modFrequenciesDF, df)
+  }
+  
+  rm(df, modFrequencies)
+  
+  modsPerRegion[[r]] <- modFrequenciesDF
+}
+
+rm(modFrequenciesDF, regions)
+
 
 
 
