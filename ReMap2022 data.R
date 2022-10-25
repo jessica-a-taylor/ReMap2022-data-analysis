@@ -5,6 +5,91 @@ library(dplyr)
 library(stringr)
 library(hash)
 library(sets)
+library(TxDb.Athaliana.BioMart.plantsmart28)
+
+# Get the coordinates for the gene bodies of each NLR.
+NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
+
+Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
+
+NLRgenebody <- data.frame(seqnames = numeric(),
+                          start = numeric(),
+                          end = numeric(),
+                          width = numeric(),
+                          strand = factor(),
+                          tx_id = numeric(),
+                          tx_name = character())
+
+for (gene in NLRgenes$Gene) {
+  NLRgenebody <- rbind(NLRgenebody, as.data.frame(Atgenes[grepl(gene, Atgenes$tx_name),]))
+}
+
+NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
+
+genebodyBed <- GRanges(
+  seqnames=Rle(NLRgenebody$seqnames),
+  ranges=IRanges(NLRgenebody$ranges),
+  name=NLRgenebody$tx_name)
+
+rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
+
+# Get the coordinates for the promotors of each NLR.
+ATpromotors <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=200, use.names = TRUE)
+
+NLRpromotor <- data.frame(seqnames = numeric(),
+                          start = numeric(),
+                          end = numeric(),
+                          width = numeric(),
+                          strand = factor(),
+                          tx_id = numeric(),
+                          tx_name = character())
+
+for (gene in NLRgenes$Gene) {
+  NLRpromotor <- rbind(NLRpromotor, as.data.frame(ATpromotors[grepl(gene,ATpromotors$tx_name),]))
+}
+
+NLRpromotor$ranges <- paste(NLRpromotor$start,"-",NLRpromotor$end, sep = "")
+
+promotorsBed <- GRanges(
+  seqnames=Rle(NLRpromotor$seqnames),
+  ranges=IRanges(NLRpromotor$ranges),
+  name=NLRpromotor$tx_name)
+
+rtracklayer::export.bed(promotorsBed, "NLRpromotor.bed")
+
+# Get the coordinates for the upstream and downstream intergenic regions of each NLR.
+upstreamIntergenicBed <- data.frame(Chrom = intergenicRegions$Chromosome,
+                                    Start = intergenicRegions$`Upstream Intergenic Start`,
+                                    End = intergenicRegions$`Upstream Intergenic End`,
+                                    Gene = intergenicRegions$Gene)
+
+upstreamIntergenicBed <- upstreamIntergenicBed[-c(which(is.na(upstreamIntergenicBed$Start))),]
+
+upstreamIntergenicBed$upstreamRanges <- paste(upstreamIntergenicBed$Start,"-",upstreamIntergenicBed$End, sep = "")
+
+upstreamIntergenicBed <- GRanges(
+  seqnames=Rle(upstreamIntergenicBed$Chrom),
+  ranges=IRanges(upstreamIntergenicBed$upstreamRanges),
+  name=upstreamIntergenicBed$Gene)
+
+rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
+
+downstreamIntergenicBed <- data.frame(Chrom = intergenicRegions$Chromosome,
+                                      Start = intergenicRegions$`Downstream Intergenic Start`,
+                                      End = intergenicRegions$`Downstream Intergenic End`,
+                                      Gene = intergenicRegions$Gene)
+
+downstreamIntergenicBed <- downstreamIntergenicBed[-c(which(is.na(downstreamIntergenicBed$Start))),]
+
+downstreamIntergenicBed$downstreamRanges <- paste(downstreamIntergenicBed$Start,"-",downstreamIntergenicBed$End, sep = "")
+
+downstreamIntergenicBed <- GRanges(
+  seqnames=Rle(downstreamIntergenicBed$Chrom),
+  ranges=IRanges(downstreamIntergenicBed$downstreamRanges),
+  name=downstreamIntergenicBed$Gene)
+
+rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
+
 
 # Import all ReMap2022 ChIP data (bed file).
 ReMap <- rtracklayer::import.bed("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
