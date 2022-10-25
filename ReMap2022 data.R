@@ -6,6 +6,7 @@ library(stringr)
 library(hash)
 library(sets)
 library(TxDb.Athaliana.BioMart.plantsmart28)
+library(ggplot2)
 
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
@@ -24,7 +25,11 @@ for (gene in NLRgenes$Gene) {
   NLRgenebody <- rbind(NLRgenebody, as.data.frame(Atgenes[grepl(gene, Atgenes$tx_name),]))
 }
 
+# Create a ranges column by merging the start and end columns.
 NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
+
+# Remove duplicate genes.
+NLRgenebody <- NLRgenebody[-c(which(NLRgenebody$tx_name == str_match(NLRgenebody$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
 genebodyBed <- GRanges(
   seqnames=Rle(NLRgenebody$seqnames),
@@ -32,6 +37,8 @@ genebodyBed <- GRanges(
   name=NLRgenebody$tx_name)
 
 rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
+
+rm(Atgenes)
 
 # Get the coordinates for the promotors of each NLR.
 ATpromotors <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=200, use.names = TRUE)
@@ -48,7 +55,14 @@ for (gene in NLRgenes$Gene) {
   NLRpromotor <- rbind(NLRpromotor, as.data.frame(ATpromotors[grepl(gene,ATpromotors$tx_name),]))
 }
 
+# Create a ranges column by merging the start and end columns.
 NLRpromotor$ranges <- paste(NLRpromotor$start,"-",NLRpromotor$end, sep = "")
+
+# Remove duplicate genes.
+NLRpromotor <- NLRpromotor[-c(which(NLRpromotor$tx_name == str_match(NLRpromotor$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+
+# Add a new column for the gene name, removing ".1" from the end.
+NLRpromotor$group_name <- str_match(NLRpromotor$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
 
 promotorsBed <- GRanges(
   seqnames=Rle(NLRpromotor$seqnames),
@@ -57,15 +71,17 @@ promotorsBed <- GRanges(
 
 rtracklayer::export.bed(promotorsBed, "NLRpromotor.bed")
 
+rm(ATpromotors)
+
 # Get the coordinates for the upstream and downstream intergenic regions of each NLR.
-upstreamIntergenicBed <- data.frame(Chrom = intergenicRegions$Chromosome,
-                                    Start = intergenicRegions$`Upstream Intergenic Start`,
-                                    End = intergenicRegions$`Upstream Intergenic End`,
-                                    Gene = intergenicRegions$Gene)
+upstreamIntergenic <- data.frame(Chrom = NLRgenes$Chromosome,
+                                 start = NLRgenes$`Upstream Intergenic Start`,
+                                 end = NLRgenes$`Upstream Intergenic End`,
+                                 Gene = NLRgenes$Gene)
 
-upstreamIntergenicBed <- upstreamIntergenicBed[-c(which(is.na(upstreamIntergenicBed$Start))),]
+upstreamIntergenicBed <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$start))),]
 
-upstreamIntergenicBed$upstreamRanges <- paste(upstreamIntergenicBed$Start,"-",upstreamIntergenicBed$End, sep = "")
+upstreamIntergenicBed$upstreamRanges <- paste(upstreamIntergenicBed$start,"-",upstreamIntergenicBed$end, sep = "")
 
 upstreamIntergenicBed <- GRanges(
   seqnames=Rle(upstreamIntergenicBed$Chrom),
@@ -74,14 +90,14 @@ upstreamIntergenicBed <- GRanges(
 
 rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
 
-downstreamIntergenicBed <- data.frame(Chrom = intergenicRegions$Chromosome,
-                                      Start = intergenicRegions$`Downstream Intergenic Start`,
-                                      End = intergenicRegions$`Downstream Intergenic End`,
-                                      Gene = intergenicRegions$Gene)
+downstreamIntergenic <- data.frame(Chrom = NLRgenes$Chromosome,
+                                   start = NLRgenes$`Downstream Intergenic Start`,
+                                   end = NLRgenes$`Downstream Intergenic End`,
+                                   Gene = NLRgenes$Gene)
 
-downstreamIntergenicBed <- downstreamIntergenicBed[-c(which(is.na(downstreamIntergenicBed$Start))),]
+downstreamIntergenicBed <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$start))),]
 
-downstreamIntergenicBed$downstreamRanges <- paste(downstreamIntergenicBed$Start,"-",downstreamIntergenicBed$End, sep = "")
+downstreamIntergenicBed$downstreamRanges <- paste(downstreamIntergenicBed$start,"-",downstreamIntergenicBed$end, sep = "")
 
 downstreamIntergenicBed <- GRanges(
   seqnames=Rle(downstreamIntergenicBed$Chrom),
