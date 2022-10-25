@@ -107,7 +107,8 @@ downstreamIntergenicBed <- GRanges(
 rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
 
 
-# Import all ReMap2022 ChIP data (bed file).
+
+# Import ReMap2022 data.
 ReMap <- rtracklayer::import.bed("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
 
 # Convert to a dataframe and define column names.
@@ -118,91 +119,90 @@ ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",
 # Remove unwanted columns.
 ReMap <- ReMap[,-c(9:11)]
 
-# Import coordainated of all NLRs/clusters and store in a dataframe.
-allNLRs <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 2))
-
 # Create a hash to store ReMap data for each NLR/cluster.
 NLR_hash <- hash()
 
-for (row in 1:nrow(allNLRs)) {
+for (row in 1:nrow(NLRgenebody)) {
   # Select rows that are within the range of each NLR/cluster and on the same chromosome.
-  ReMapRows <- c(which(ReMap[,"start"] > allNLRs[row, "start"]-5000 & ReMap[,"end"] < allNLRs[row, "end"]+5000 & ReMap[,"seqnames"] == allNLRs[row, "Chromosome"]))
-  NLR_hash[[allNLRs[row,"name"]]] <- ReMap[ReMapRows,]
+  ReMapRows <- c(which(ReMap[,"start"] > NLRgenebody[row, "start"]-5000 & ReMap[,"end"] < NLRgenebody[row, "end"]+5000 & ReMap[,"seqnames"] == as.numeric(NLRgenebody[row, "seqnames"])))
+  NLR_hash[[NLRgenebody[row,"Gene"]]] <- ReMap[ReMapRows,]
 }
 
-rm(ReMap, ReMapRows, allNLRs)
+rm(ReMap, ReMapRows)
 
 for(n in names(NLR_hash)) {
-  # Run regex on name column, extracting each section
-  # (experiment, epigenetic modification, ecotype, other info)
-  NLR_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(NLR_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
-  
-  # Filter epiMod column, excluding unwanted modifications
-  NLR_hash[[n]] <- NLR_hash[[n]][!NLR_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H4K16ac", "H2A-X",
-                                                              "H2AV", "HTA6", "H3-1", "H4K12ac", "H4K8ac", "H3K5ac") & 
-                                   !NLR_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
-  
-  NLR_hash[[n]] <- NLR_hash[[n]][,-6]
-  
-  # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
-  NLR_hash[[n]] <- NLR_hash[[n]][!grepl("mutant",NLR_hash[[n]]$info) & !grepl("mature",NLR_hash[[n]]$info) & !grepl("senescent",NLR_hash[[n]]$info) & 
-                                   !grepl("inflorescence",NLR_hash[[n]]$info) & !grepl("drought",NLR_hash[[n]]$info) & !grepl("old",NLR_hash[[n]]$info) & 
-                                   !grepl("min",NLR_hash[[n]]$info) & !grepl("endosperm",NLR_hash[[n]]$info) & !grepl("-se-",NLR_hash[[n]]$info) &
-                                   !grepl("-TSA-",NLR_hash[[n]]$info) & !grepl("-GSNO-",NLR_hash[[n]]$info) & !grepl("flg22",NLR_hash[[n]]$info) &
-                                   !grepl("transgenic",NLR_hash[[n]]$info) & !grepl("GSH",NLR_hash[[n]]$info) &
-                                   !grepl("-acc1",NLR_hash[[n]]$info) & !grepl("-ethylene",NLR_hash[[n]]$info) & !grepl("-C2H4",NLR_hash[[n]]$info) &
-                                   !grepl("leaves_3w-K36M-homoz",NLR_hash[[n]]$info) & !grepl("undef_seedling_10d-h3-1kd-1",NLR_hash[[n]]$info) &
-                                   !grepl("-air",NLR_hash[[n]]$info) & !grepl("-ehylene",NLR_hash[[n]]$info) & !grepl("-swap",NLR_hash[[n]]$info) &
-                                   !grepl("-K36M",NLR_hash[[n]]$info) & !grepl("-H3-KD",NLR_hash[[n]]$info) & !grepl("-water",NLR_hash[[n]]$info) &
-                                   !grepl("undef_seedling_10d-h3-1kd-2",NLR_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",NLR_hash[[n]]$info) &
-                                   !grepl("GSE67322",NLR_hash[[n]]$exp.) & !grepl("GSE42695",NLR_hash[[n]]$exp.) & !grepl("GSE75071",NLR_hash[[n]]$exp.) &
-                                   !grepl("GSE62615",NLR_hash[[n]]$exp.) & !grepl("GSE103361",NLR_hash[[n]]$exp.) & !grepl("GSE50636",NLR_hash[[n]]$exp.) &
-                                   !grepl("GSE93223",NLR_hash[[n]]$exp.) & !grepl("GSE37644",NLR_hash[[n]]$exp.) & !grepl("GSE108414",NLR_hash[[n]]$exp.) &
-                                   !grepl("GSE22276",NLR_hash[[n]]$exp.) & !grepl("GSE89768",NLR_hash[[n]]$exp.) & !grepl("GSE117391",NLR_hash[[n]]$exp.),] 
-  
-  # Filter info column, checking written plant ages and removing BAD AGES
-  
-  # For each row
-  for (row in nrow(NLR_hash[[n]]):1) {
-    # Find the age if it exists (in the format 1w / 8d / 10h)
-    matches <- str_match(NLR_hash[[n]][row, "info"], "_([0-9]+)([dwh])")
+  if (nrow(NLR_hash[[n]])>=1) {
+    # Run regex on name column, extracting each section
+    # (experiment, epigenetic modification, ecotype, other info)
+    NLR_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(NLR_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
     
-    # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
+    # Filter epiMod column, excluding unwanted modifications
+    NLR_hash[[n]] <- NLR_hash[[n]][!NLR_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H4K16ac", "H2A-X",
+                                                                "H2AV", "HTA6", "H3-1", "H4K12ac", "H4K8ac", "H3K5ac", "H4K5ac") & 
+                                     !NLR_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
     
-    # If we found an age (ie, matches[1] is not NA)
-    if (!is.na(matches[1])) {
-      # Convert string number into integer
-      timeValue <- as.numeric(matches[2])
+    NLR_hash[[n]] <- NLR_hash[[n]][,-6]
+    
+    # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
+    NLR_hash[[n]] <- NLR_hash[[n]][!grepl("mutant",NLR_hash[[n]]$info) & !grepl("mature",NLR_hash[[n]]$info) & !grepl("senescent",NLR_hash[[n]]$info) & 
+                                     !grepl("inflorescence",NLR_hash[[n]]$info) & !grepl("drought",NLR_hash[[n]]$info) & !grepl("old",NLR_hash[[n]]$info) & 
+                                     !grepl("min",NLR_hash[[n]]$info) & !grepl("endosperm",NLR_hash[[n]]$info) & !grepl("-se-",NLR_hash[[n]]$info) &
+                                     !grepl("-TSA-",NLR_hash[[n]]$info) & !grepl("-GSNO-",NLR_hash[[n]]$info) & !grepl("flg22",NLR_hash[[n]]$info) &
+                                     !grepl("transgenic",NLR_hash[[n]]$info) & !grepl("GSH",NLR_hash[[n]]$info) &
+                                     !grepl("-acc1",NLR_hash[[n]]$info) & !grepl("-ethylene",NLR_hash[[n]]$info) & !grepl("-C2H4",NLR_hash[[n]]$info) &
+                                     !grepl("leaves_3w-K36M-homoz",NLR_hash[[n]]$info) & !grepl("undef_seedling_10d-h3-1kd-1",NLR_hash[[n]]$info) &
+                                     !grepl("-air",NLR_hash[[n]]$info) & !grepl("-ehylene",NLR_hash[[n]]$info) & !grepl("-swap",NLR_hash[[n]]$info) &
+                                     !grepl("-K36M",NLR_hash[[n]]$info) & !grepl("-H3-KD",NLR_hash[[n]]$info) & !grepl("-water",NLR_hash[[n]]$info) &
+                                     !grepl("undef_seedling_10d-h3-1kd-2",NLR_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",NLR_hash[[n]]$info) &
+                                     !grepl("GSE67322",NLR_hash[[n]]$exp.) & !grepl("GSE42695",NLR_hash[[n]]$exp.) & !grepl("GSE75071",NLR_hash[[n]]$exp.) &
+                                     !grepl("GSE62615",NLR_hash[[n]]$exp.) & !grepl("GSE103361",NLR_hash[[n]]$exp.) & !grepl("GSE50636",NLR_hash[[n]]$exp.) &
+                                     !grepl("GSE93223",NLR_hash[[n]]$exp.) & !grepl("GSE37644",NLR_hash[[n]]$exp.) & !grepl("GSE108414",NLR_hash[[n]]$exp.) &
+                                     !grepl("GSE22276",NLR_hash[[n]]$exp.) & !grepl("GSE89768",NLR_hash[[n]]$exp.) & !grepl("GSE117391",NLR_hash[[n]]$exp.),] 
+    
+    # Filter info column, checking written plant ages and removing BAD AGES
+    
+    # For each row
+    for (row in nrow(NLR_hash[[n]]):1) {
+      # Find the age if it exists (in the format 1w / 8d / 10h)
+      matches <- str_match(NLR_hash[[n]][row, "info"], "_([0-9]+)([dwh])")
       
-      # Maximum allowed age in weeks
-      maxWeeks <- 3
+      # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
       
-      badAge <- FALSE
-      
-      if (matches[3]=="h") {
-        # If the age is measured in hours, it's too young. BAD AGE.
-        badAge <- TRUE
-      }
-      
-      else if (matches[3]=="d" & timeValue > maxWeeks*7) {
-        # If the age is measured in days and it's longer than maxWeeks (converting maxWeeks to days), it's too old. BAD AGE.
-        badAge <- TRUE
-      }
-      
-      else if (matches[3]=="w" & timeValue > maxWeeks) {
-        # If the age is measured in weeks and it's longer than maxWeeks, it's too old. BAD AGE.
-        badAge <- TRUE
-      }
-      
-      # If we had a BAD AGE, delete the corresponding row. (Otherwise, move on to the next row without deleting.)
-      if (badAge) {
-        NLR_hash[[n]] <- NLR_hash[[n]][-row,]
+      # If we found an age (ie, matches[1] is not NA)
+      if (!is.na(matches[1])) {
+        # Convert string number into integer
+        timeValue <- as.numeric(matches[2])
+        
+        # Maximum allowed age in weeks
+        maxWeeks <- 3
+        
+        badAge <- FALSE
+        
+        if (matches[3]=="h") {
+          # If the age is measured in hours, it's too young. BAD AGE.
+          badAge <- TRUE
+        }
+        
+        else if (matches[3]=="d" & timeValue > maxWeeks*7) {
+          # If the age is measured in days and it's longer than maxWeeks (converting maxWeeks to days), it's too old. BAD AGE.
+          badAge <- TRUE
+        }
+        
+        else if (matches[3]=="w" & timeValue > maxWeeks) {
+          # If the age is measured in weeks and it's longer than maxWeeks, it's too old. BAD AGE.
+          badAge <- TRUE
+        }
+        
+        # If we had a BAD AGE, delete the corresponding row. (Otherwise, move on to the next row without deleting.)
+        if (badAge) {
+          NLR_hash[[n]] <- NLR_hash[[n]][-row,]
+        }
       }
     }
+    
+    # Tidy up 🧹
+    rm(matches, badAge, maxWeeks, row, timeValue)
   }
-  
-  # Tidy up 🧹
-  rm(matches, badAge, maxWeeks, row, timeValue)
 }
 
 
@@ -242,8 +242,8 @@ for (n in names(LeafNLRs)) {
 }
 
 allConditions <- unique(allConditions)
-WTConditions <- allConditions[c(1,2,4,6,10,11,14,16,19,20,22,23,27,28)]
-mutantConditions <- allConditions[-c(1,2,4,6,10,11,14,16,19,20,22,23,27,28)]
+WTConditions <- allConditions[c(1,2,3,5,6,7,9,12,13,14,15,17,19,20)]
+mutantConditions <- allConditions[-c(1,2,3,5,6,7,9,12,13,14,15,17,19,20)]
 rm(allConditions)
 
 for (n in names(LeafNLRs)) {
@@ -272,6 +272,7 @@ for (n in names(ColWTLeafNLRs)) {
 
 epiMods <- unique(epiMods)
 
+
 # Create a dictionary (hash containing hashes) with dataframes for each epiMod for each NLR.
 ColWTLeafData <- hash()
 
@@ -296,21 +297,6 @@ for (n in names(ColWTLeafData)) {
   }
 }
 
-# Create a bed file for each chromatin modification for each NLR/cluster.
-for(n in names(ColWTLeafData)) {
-  for (mod in epiMods) {
-    modbed <- GRanges(
-      seqnames=Rle(ColWTLeafData[[n]][[mod]]$seqname),
-      ranges=IRanges(ColWTLeafData[[n]][[mod]]$ranges),
-      name=ColWTLeafData[[n]][[mod]]$epiMod,
-      itemRgb=ColWTLeafData[[n]][[mod]]$itemRgb,
-      experiment =ColWTLeafData[[n]][[mod]]$exp.)
-    
-    #rtracklayer::export.bed(modbed, paste("~/", n, "_", mod, ".bed", sep = ""))
-  }
-}
-
-rm(modbed)
 
 # Create function that determines whether value a is between values b and c.
 betweenFunction <- function(a,b,c) {
@@ -355,14 +341,14 @@ for (n in names(ColWTLeafData)) {
   modOverlaps <- hash()
   
   for (mod in epiMods) {
-
+    
     # Generate overlapSets as a list of single-item sets
     # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
     overlapSets <- list()
     if (nrow(ColWTLeafData[[n]][[mod]])>0) {
       
       for (r in 1:nrow(ColWTLeafData[[n]][[mod]])) {
-      overlapSets <- append(overlapSets, list(set(as.numeric(r))))
+        overlapSets <- append(overlapSets, list(set(as.numeric(r))))
       }
       #For each gene co-ordinate comparison [k, l]
       for (k in 1:nrow(ColWTLeafData[[n]][[mod]])) {
@@ -405,7 +391,7 @@ for (n in names(allOverlaps)) {
       for (l in 1:length(allOverlaps[[n]][[mod]])) {
         modStart <- c()
         modEnd <- c() 
-      
+        
         for (o in allOverlaps[[n]][[mod]][l]) {
           modStart <- append(modStart, ColWTLeafData[[n]][[mod]][as.numeric(o), "start"])
           modEnd <- append(modEnd, ColWTLeafData[[n]][[mod]][as.numeric(o), "end"])
@@ -468,6 +454,11 @@ modBed <- GRanges(
 
 # Export bed file.
 rtracklayer::export.bed(modBed, "~/allNLRs.bed")
+
+
+
+
+
 
 
 # Import chromatin states dataset.
