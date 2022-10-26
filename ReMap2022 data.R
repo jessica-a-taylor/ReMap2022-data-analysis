@@ -25,11 +25,11 @@ for (gene in NLRgenes$Gene) {
   NLRgenebody <- rbind(NLRgenebody, as.data.frame(Atgenes[grepl(gene, Atgenes$tx_name),]))
 }
 
-# Create a ranges column by merging the start and end columns.
-NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
-
 # Remove duplicate genes.
 NLRgenebody <- NLRgenebody[-c(which(NLRgenebody$tx_name == str_match(NLRgenebody$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+
+# Create a ranges column by merging the start and end columns.
+NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
 
 genebodyBed <- GRanges(
   seqnames=Rle(NLRgenebody$seqnames),
@@ -39,6 +39,21 @@ genebodyBed <- GRanges(
 rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
 
 rm(Atgenes)
+
+
+# Create new dataframe for the coordinates of the regions 200bp downstream of the TTS.
+
+downstreamRegion <- c()
+for (row in 1:nrow(NLRgenebody)) {
+  downstreamRegion <- append(downstreamRegion, paste(NLRgenebody[row,"end"],"-",NLRgenebody[row,"end"]+200, sep = ""))
+}
+
+NLRgenebody$downstream <- downstreamRegion
+rm(downstreamRegion)
+
+NLRdownstream <- NLRgenebody[-c(4:6,10)]
+NLRdownstream$start <- str_match(NLRdownstream$downstream, "^([0-9]+)(-)([0-9]+)$")[,2]
+NLRdownstream$end <- str_match(NLRdownstream$downstream, "^([0-9]+)(-)([0-9]+)$")[,4]
 
 
 # Import ATAC-seq data (no treatment files). This will be used to determine the average size of promoter regions.
