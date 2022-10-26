@@ -40,6 +40,53 @@ rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
 
 rm(Atgenes)
 
+# Create new dataframes for chunks of the gene body (20% intervals of the gene length).
+geneChunks <- hash(width20 = NLRgenebody[-c(4:6,10)], 
+                  width40 = NLRgenebody[-c(4:6,10)], 
+                  width60 = NLRgenebody[-c(4:6,10)], 
+                  width80 = NLRgenebody[-c(4:6,10)], 
+                  width100 = NLRgenebody[-c(4:6,10)])
+
+geneWidth <- hash(width20 = c(), 
+                   width40 = c(), 
+                   width60 = c(), 
+                   width80 = c(), 
+                   width100 = c())
+
+for (row in 1:nrow(NLRgenebody)) {
+  geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(NLRgenebody[row,"start"],"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.2, sep = ""))
+  geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.2+1,"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.4, sep = ""))
+  geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.4+1,"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.6, sep = ""))
+  geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.6+1,"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.8, sep = ""))
+  geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.8+1,"-",NLRgenebody[row,"end"], sep = ""))
+}
+
+for (n in names(geneChunks)) {
+  geneChunks[[n]]$ranges <- geneWidth[[n]]
+}
+
+rm(geneWidth)
+
+for (n in names(geneChunks)) {
+  start <- c()
+  end <- c()
+  
+  for (row in 1:nrow(geneChunks[[n]])) {
+    start <- append(start, str_match(geneChunks[[n]][row,"ranges"], "^(\\d*\\.?\\d+)(-)(\\d*\\.?\\d+)$")[,2])
+    end <- append(end, str_match(geneChunks[[n]][row,"ranges"], "^(\\d*\\.?\\d+)(-)(\\d*\\.?\\d+)$")[,4])
+  }
+  geneChunks[[n]]$start <- start
+  geneChunks[[n]]$end <- end
+}
+
+for (n in names(geneChunks)) {
+  geneBed <- GRanges(
+    seqnames=Rle(geneChunks[[n]]$seqnames),
+    ranges=IRanges(geneChunks[[n]]$ranges),
+    name=geneChunks[[n]]$tx_name)
+  
+  rtracklayer::export.bed(geneBed, paste("NLR", n, ".bed", sep = ""))
+}
 
 # Create new dataframe for the coordinates of the regions 200bp downstream of the TTS.
 
@@ -54,6 +101,13 @@ rm(downstreamRegion)
 NLRdownstream <- NLRgenebody[-c(4:6,10)]
 NLRdownstream$start <- str_match(NLRdownstream$downstream, "^([0-9]+)(-)([0-9]+)$")[,2]
 NLRdownstream$end <- str_match(NLRdownstream$downstream, "^([0-9]+)(-)([0-9]+)$")[,4]
+
+downstreamBed <- GRanges(
+  seqnames=Rle(NLRdownstream$seqnames),
+  ranges=IRanges(NLRdownstream$downstream),
+  name=NLRdownstream$tx_name)
+
+rtracklayer::export.bed(downstreamBed, "NLRdownstream.bed")
 
 
 # Import ATAC-seq data (no treatment files). This will be used to determine the average size of promoter regions.
@@ -555,8 +609,10 @@ rtracklayer::export.bed(modBed, "~/allNLRs.bed")
 
 # Create a hash with the data on the coordinates of each gene region.
 # First rename the columns in each dataset so they can be indexed the same way.
-colnames(NLRpromotor)[9] ="Gene"
+colnames(NLRpromotor500)[9] ="Gene"
+colnames(NLRpromotor1000)[9] ="Gene"
 colnames(NLRgenebody)[2] ="Gene"
+colnames(NLRdownstream)[2] ="Gene"
 
 
 regions <- hash(Promotor = NLRpromotor, GeneBody = NLRgenebody, UpstreamIntergenic = as.data.frame(upstreamIntergenic), 
