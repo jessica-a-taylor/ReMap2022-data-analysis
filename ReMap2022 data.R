@@ -108,9 +108,9 @@ rtracklayer::export.bed(openPromotersBed, "~/openPromoters.bed")
 
 # Get the coordinates for the promotors of each NLR.
 ATpromotors500 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=0, use.names = TRUE)
+ATpromotors1000 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=1000, downstream=0, use.names = TRUE)
 
-
-NLRpromotor <- data.frame(seqnames = numeric(),
+NLRpromotor500 <- data.frame(seqnames = numeric(),
                           start = numeric(),
                           end = numeric(),
                           width = numeric(),
@@ -118,27 +118,41 @@ NLRpromotor <- data.frame(seqnames = numeric(),
                           tx_id = numeric(),
                           tx_name = character())
 
+NLRpromotor1000 <- NLRpromotor500
+
 for (gene in NLRgenes$Gene) {
-  NLRpromotor <- rbind(NLRpromotor, as.data.frame(ATpromotors[grepl(gene,ATpromotors$tx_name),]))
+  NLRpromotor500 <- rbind(NLRpromotor500, as.data.frame(ATpromotors500[grepl(gene,ATpromotors500$tx_name),]))
+  NLRpromotor1000 <- rbind(NLRpromotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
 }
 
 # Create a ranges column by merging the start and end columns.
-NLRpromotor$ranges <- paste(NLRpromotor$start,"-",NLRpromotor$end, sep = "")
+NLRpromotor500$ranges <- paste(NLRpromotor500$start,"-",NLRpromotor500$end, sep = "")
+NLRpromotor1000$ranges <- paste(NLRpromotor1000$start,"-",NLRpromotor1000$end, sep = "")
 
 # Remove duplicate genes.
-NLRpromotor <- NLRpromotor[-c(which(NLRpromotor$tx_name == str_match(NLRpromotor$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+NLRpromotor500 <- NLRpromotor500[-c(which(NLRpromotor500$tx_name == str_match(NLRpromotor500$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+NLRpromotor1000 <- NLRpromotor1000[-c(which(NLRpromotor1000$tx_name == str_match(NLRpromotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
 # Add a new column for the gene name, removing ".1" from the end.
-NLRpromotor$group_name <- str_match(NLRpromotor$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
+NLRpromotor500$group_name <- str_match(NLRpromotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
 
-promotorsBed <- GRanges(
-  seqnames=Rle(NLRpromotor$seqnames),
-  ranges=IRanges(NLRpromotor$ranges),
-  name=NLRpromotor$tx_name)
+promotor500Bed <- GRanges(
+  seqnames=Rle(NLRpromotor500$seqnames),
+  ranges=IRanges(NLRpromotor500$ranges),
+  name=NLRpromotor500$tx_name)
 
-rtracklayer::export.bed(promotorsBed, "NLRpromotor.bed")
+rtracklayer::export.bed(promotor500Bed, "NLRpromotor500.bed")
 
-rm(ATpromotors)
+NLRpromotor1000$group_name <- str_match(NLRpromotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
+
+promotor1000Bed <- GRanges(
+  seqnames=Rle(NLRpromotor1000$seqnames),
+  ranges=IRanges(NLRpromotor1000$ranges),
+  name=NLRpromotor1000$tx_name)
+
+rtracklayer::export.bed(promotor1000Bed, "NLRpromotor1000")
+
+rm(ATpromotors500, ATpromotors1000)
 
 # Get the coordinates for the upstream and downstream intergenic regions of each NLR.
 upstreamIntergenic <- data.frame(Chrom = NLRgenes$Chromosome,
