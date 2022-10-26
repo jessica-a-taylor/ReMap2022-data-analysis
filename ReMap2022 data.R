@@ -40,8 +40,75 @@ rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
 
 rm(Atgenes)
 
+
+# Import ATAC-seq data (no treatment files). This will be used to determine the average size of promoter regions.
+sheets <- c(3,15,18)
+
+openChromatin <- hash()
+for (s in sheets) {
+  openChromatin[[paste("ACR", s, sep = "")]] <-  as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\PhD reading\\Data\\ACRs paper.xlsx", sheet = s))
+}
+
+rm(sheets, s)
+
+# Extract the rows corresponding to NLRs.
+for (s in names(openChromatin)) {
+  openChromatin[[s]] <- openChromatin[[s]][which(openChromatin[[s]]$geneId %in% NLRgenes$Gene &
+                                                   grepl("Promoter", openChromatin[[s]]$annotation)==TRUE),]
+}
+
+# Merge the data in to one big dataframe.
+openChromatinBed <- data.frame()
+
+for (s in names(openChromatin)) {
+  openChromatinBed <- rbind(openChromatinBed, openChromatin[[s]])
+}
+
+rm(openChromatin)
+
+
+# Get the min and max coordinates for open chromatin at the promoters of each NLR.
+openPromoters <- data.frame(seqnames = character(),
+                            name = character(),
+                            start = numeric(),
+                            end = numeric(),
+                            geneLength = numeric())
+
+for (s in unique(openChromatinBed$geneId)) {
+  df <- openChromatinBed[openChromatinBed$geneId==s,]
+  
+  openPromoters <- rbind(openPromoters, data.frame(seqnames = df[1,"seqnames"],
+                                                   name = s,
+                                                   start = min(df$start),
+                                                   end = max(df$end),
+                                                   geneLength = df[1,"geneLength"]))
+}
+
+
+# Merge start and end coordinates columns to create a ranges column.
+openPromoters$ranges <- paste(openPromoters$start,"-",openPromoters$end, sep = "")
+
+promoterSize <- c()
+# Plot a histogram for the promoter sizes.
+for (row in 1:nrow(openPromoters)) {
+  promoterSize <- append(promoterSize, openPromoters[row, "end"]-openPromoters[row, "start"])
+}
+
+hist(promoterSize) # most promotors are less than 1kb
+
+# Create bed file.
+openPromotersBed <- GRanges(
+  seqnames=Rle(openPromoters$seqnames),
+  ranges=IRanges(openPromoters$ranges),
+  name=openPromoters$name)
+
+# Export bed file.
+rtracklayer::export.bed(openPromotersBed, "~/openPromoters.bed")
+
+
 # Get the coordinates for the promotors of each NLR.
-ATpromotors <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=200, use.names = TRUE)
+ATpromotors500 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=0, use.names = TRUE)
+
 
 NLRpromotor <- data.frame(seqnames = numeric(),
                           start = numeric(),
@@ -549,83 +616,8 @@ for (r in names(modsPerRegion)) {
 # Plot the percentage of NLRs with each chromatin modification within the gene body.
 modFrequenciesPlot <- ggplot(modFrequenciesDF, aes(x=Modification, y=Frequency, fill=Region)) + 
   geom_bar(stat = "identity", position = "dodge") + scale_fill_brewer(palette = "Spectral") +
-  theme_minimal() + labs(x = "Chromatin Modification", y = "Frequency of occurance in NLR gene bodies (%)")
+  theme_minimal() + labs(x = "Chromatin Modification", y = "Frequency of occurrence (%)")
 
 
 
 
-# Import chromatin states dataset.
-chromStatesHash <- hash()
-for(i in 1:9) {
-  chromStatesHash[[paste("state", i, sep = "")]] <- read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Sequeira-Mendes ChromStates.xlsx", sheet = i)
-}
-
-chromStates <- data.frame(Chrom = numeric(),
-                          Start = character(),
-                          End = character(),
-                          State = numeric())
-
-for (n in names(chromStatesHash)) {
-  df <- data.frame(Chrom = chromStatesHash[[n]]$Chrom,
-                   Start = chromStatesHash[[n]]$start,
-                   End = chromStatesHash[[n]]$end,
-                   State = as.numeric(str_extract(n, "([0-9]+)")))
-  
-  chromStates <- rbind(chromStates, df)
-}
-
-# Merge start and end coordinates columns to create a ranges column.
-chromStates$ranges <- paste(chromStates$Start,"-",chromStates$End, sep = "")
-
-# Create a bed file for chromatin states dataset.
-chromStatesBed <- GRanges(
-  seqnames=Rle(chromStates$Chrom),
-  ranges=IRanges(chromStates$ranges),
-  name=chromStates$State)
-
-# Export bed file.
-rtracklayer::export.bed(chromStatesBed, "~/CS.bed")
-
-
-
-# Import chromatin states dataset, sheet 2.
-WTacr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 2))
-
-# Merge start and end coordinates columns to create a ranges column.
-WTacr$ranges = paste(WTacr$start,"-",WTacr$end, sep = "")
-
-# Create a bed file for WT ACR dataset.
-WTacrBed <- GRanges(
-  seqnames=Rle("chr4",nrow(WTacr)),
-  ranges=IRanges(WTacr$ranges))
-
-# Export bed file.
-rtracklayer::export.bed(WTacrBed, "~/WTacr.bed")
-
-# Import chromatin states dataset, sheet 3.
-Macr <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 3))
-
-# Merge start and end coordinates columns to create a ranges column.
-Macr$ranges = paste(Macr$start,"-",Macr$end, sep = "")
-
-# Create a bed file for WT ACR dataset.
-MacrBed <- GRanges(
-  seqnames=Rle("chr4",nrow(Macr)),
-  ranges=IRanges(Macr$ranges))
-
-# Export bed file.
-rtracklayer::export.bed(MacrBed, "~/Mutant acr.bed")
-
-# Import chromatin states dataset, sheet 4.
-RootNEassociation <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\RPP5 ChromStates.xlsx", sheet = 4))
-
-# Merge start and end coordinates columns to create a ranges column.
-RootNEassociation$ranges = paste(RootNEassociation$start,"-",RootNEassociation$end, sep = "")
-
-# Create a bed file for WT ACR dataset.
-RootNEassociationBed <- GRanges(
-  seqnames=Rle("chr4",nrow(RootNEassociation)),
-  ranges=IRanges(RootNEassociation$ranges))
-
-# Export bed file.
-rtracklayer::export.bed(RootNEassociationBed, "~/RootNEassociation.bed")
