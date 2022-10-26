@@ -13,6 +13,10 @@ NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\
 
 Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
 
+# Remove duplicate genes (different versions).
+Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+
+
 NLRgenebody <- data.frame(seqnames = numeric(),
                           start = numeric(),
                           end = numeric(),
@@ -26,7 +30,7 @@ for (gene in NLRgenes$Gene) {
 }
 
 # Remove duplicate genes.
-NLRgenebody <- NLRgenebody[-c(which(NLRgenebody$tx_name == str_match(NLRgenebody$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+#NLRgenebody <- NLRgenebody[-c(which(NLRgenebody$tx_name == str_match(NLRgenebody$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
 # Create a ranges column by merging the start and end columns.
 NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
@@ -38,7 +42,6 @@ genebodyBed <- GRanges(
 
 rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
 
-rm(Atgenes)
 
 # Create new dataframes for chunks of the gene body (20% intervals of the gene length).
 geneChunks <- hash(width20 = NLRgenebody[-c(4:6,10)], 
@@ -224,14 +227,57 @@ rtracklayer::export.bed(promotor1000Bed, "NLRpromotor1000")
 rm(ATpromotors500, ATpromotors1000)
 
 # Get the coordinates for the upstream and downstream intergenic regions of each NLR.
-upstreamIntergenic <- data.frame(Chrom = NLRgenes$Chromosome,
-                                 start = NLRgenes$`Upstream Intergenic Start`,
-                                 end = NLRgenes$`Upstream Intergenic End`,
-                                 Gene = NLRgenes$Gene)
+usCoordinates <- c()
+genesIncluded <- c()
 
-upstreamIntergenicBed <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$start))),]
+for (row in 1:nrow(NLRgenes)) {
+  geneOfInterest <- NLRgenes[row, "Gene"]
+  currentGene <- which(Atgenes$group_name==NLRgenes[row,"Gene"])
+  
+  if (Atgenes[currentGene, "strand"]=="+") {
+    previousGene <- which(Atgenes$group_name==NLRgenes[row,"Gene"]) - 1
+    
+    if (Atgenes[previousGene, "strand"]=="+") {
+      distance <- NLRgenes[row, "start"]-1000 - Atgenes[previousGene, "end"]
+      if (distance > 0) {
+        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"], "-", NLRgenes[row,"start"]-1001, sep = "")) 
+        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
+      }
+      else usCoordinates <- usCoordinates
+    } 
+    else if (Atgenes[previousGene, "strand"]=="-") {
+      distance <- NLRgenes[row, "start"]-1000 - Atgenes[previousGene, "start"]
+      if (distance > 0) {
+        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"], "-", NLRgenes[row,"start"]-1001, sep = "")) 
+        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
+      }
+      else usCoordinates <- usCoordinates 
+    }
+  }
+  else if (Atgenes[currentGene, "strand"]=="-") {
+    previousGene <- which(Atgenes$group_name==NLRgenes[row,"Gene"]) + 1
+    
+    if (Atgenes[previousGene, "strand"]=="-") {
+      distance <- Atgenes[previousGene, "end"] - NLRgenes[row, "start"]+1000 
+      if (distance > 0) {
+        usCoordinates <- append(usCoordinates, paste(NLRgenes[row,"start"]+1001, "-", Atgenes[previousGene, "end"], sep = "")) 
+        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
+      }
+      else usCoordinates <- usCoordinates
+    } 
+    else if (Atgenes[previousGene, "strand"]=="+") {
+      distance <- Atgenes[previousGene, "start"] - NLRgenes[row, "start"]+1000
+      if (distance > 0) {
+        usCoordinates <- append(usCoordinates, paste(NLRgenes[row,"start"]+1001, "-", Atgenes[previousGene, "start"], sep = "")) 
+        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
+      }
+      else usCoordinates <- usCoordinates 
+    }
+  }
+}
 
-upstreamIntergenicBed$upstreamRanges <- paste(upstreamIntergenicBed$start,"-",upstreamIntergenicBed$end, sep = "")
+upstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% genesIncluded),]
+upstreamIntergenic$ranges <- usCoordinates 
 
 upstreamIntergenicBed <- GRanges(
   seqnames=Rle(upstreamIntergenicBed$Chrom),
