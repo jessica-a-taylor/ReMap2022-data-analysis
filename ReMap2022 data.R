@@ -228,7 +228,6 @@ rm(ATpromotors500, ATpromotors1000)
 
 # Get the coordinates for the upstream intergenic regions of each NLR.
 usCoordinates <- c()
-genesIncluded <- c()
 
 for (gene in NLRgenes$Gene) {
   currentGene <- which(Atgenes$group_name==gene)
@@ -241,8 +240,8 @@ for (gene in NLRgenes$Gene) {
       
       if (distance > 0) {
         usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"] + 201, "-", Atgenes[previousGene, "end"] + 201 + distance, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else usCoordinates <- append(usCoordinates, NA)
     }
     
     else if (Atgenes[previousGene, "strand"]=="-") {
@@ -250,8 +249,9 @@ for (gene in NLRgenes$Gene) {
       
       if (distance > 0) {
         usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"] + 1001, "-", Atgenes[previousGene, "end"] + 1001 + distance, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else usCoordinates <- append(usCoordinates, NA)
+      
     }
   }
   
@@ -263,22 +263,26 @@ for (gene in NLRgenes$Gene) {
       
       if (distance > 0) {
         usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"] - 1001 - distance, "-", Atgenes[previousGene, "start"] - 1001, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else usCoordinates <- append(usCoordinates, NA)
+      
     }
     
     else if (Atgenes[previousGene, "strand"]=="-") {
       distance <- (Atgenes[previousGene, "start"] - 201) - (Atgenes[currentGene, "end"] + 1001)
       if (distance > 0) {
         usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"] - 201 - distance, "-", Atgenes[previousGene, "start"] - 201, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else usCoordinates <- append(usCoordinates, NA)
+      
     }
   } 
 }
 
-upstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% genesIncluded),]
+upstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% NLRgenes$Gene),]
 upstreamIntergenic$ranges <- usCoordinates 
+
+upstreamIntergenicBed <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$ranges))),]
 
 upstreamIntergenicBed <- GRanges(
   seqnames=Rle(as.numeric(upstreamIntergenic$seqnames)),
@@ -290,7 +294,6 @@ rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
 
 # Get the coordinates for the downstream intergenic regions of each NLR.
 dsCoordinates <- c()
-genesIncluded <- c()
 
 for (gene in NLRgenes$Gene) {
   currentGene <- which(Atgenes$group_name==gene)
@@ -303,8 +306,8 @@ for (gene in NLRgenes$Gene) {
       
       if (distance > 0) {
         dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "end"] + 1001, "-", Atgenes[nextGene, "end"] + 1001 + distance, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else dsCoordinates <- append(dsCoordinates, NA) 
     }
     
     else if (Atgenes[nextGene, "strand"]=="+") {
@@ -312,8 +315,9 @@ for (gene in NLRgenes$Gene) {
       
       if (distance > 0) {
         dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "end"] + 201, "-", Atgenes[nextGene, "end"] + 201 + distance, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else dsCoordinates <- append(dsCoordinates, NA)
+      
     }
   }
   
@@ -325,22 +329,26 @@ for (gene in NLRgenes$Gene) {
       
       if (distance > 0) {
         dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "start"] - 1001 - distance, "-", Atgenes[nextGene, "start"] - 1001, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else dsCoordinates <- append(dsCoordinates, NA) 
+      
     }
     
     else if (Atgenes[nextGene, "strand"]=="-") {
       distance <- (Atgenes[nextGene, "start"] - 201) - (Atgenes[currentGene, "end"] + 201)
       if (distance > 0) {
         dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "start"] - 201 - distance, "-", Atgenes[nextGene, "start"] - 201, sep = "")) 
-        genesIncluded <- append(genesIncluded, gene)
       } 
+      else dsCoordinates <- append(dsCoordinates, NA) 
+      
     }
   } 
 }
 
-downstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% genesIncluded),]
+downstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% NLRgenes$Gene),]
 downstreamIntergenic$ranges <- dsCoordinates 
+
+downstreamIntergenicBed <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
 
 downstreamIntergenicBed <- GRanges(
   seqnames=Rle(as.numeric(downstreamIntergenic$seqnames)),
@@ -703,12 +711,19 @@ rtracklayer::export.bed(modBed, "~/allNLRs.bed")
 # First rename the columns in each dataset so they can be indexed the same way.
 colnames(NLRpromotor500)[9] ="Gene"
 colnames(NLRpromotor1000)[9] ="Gene"
-colnames(NLRgenebody)[2] ="Gene"
 colnames(NLRdownstream)[2] ="Gene"
+colnames(upstreamIntergenic)[2] ="Gene"
+colnames(downstreamIntergenic)[2] ="Gene"
+
+for (n in names(geneChunks)) {
+  colnames(geneChunks[[n]])[2]="Gene"
+}
 
 
-regions <- hash(Promotor = NLRpromotor, GeneBody = NLRgenebody, UpstreamIntergenic = as.data.frame(upstreamIntergenic), 
-                DownstreamIntergenic = as.data.frame(downstreamIntergenic))
+regions <- hash(Promotor500 = NLRpromotor500, Promotor1000 = NLRpromotor1000, 
+                UpstreamIntergenic = upstreamIntergenic, DownstreamIntergenic = downstreamIntergenic,
+                Downstream = NLRdownstream, Gene20 = geneChunks[["width20"]], Gene40 = geneChunks[["width40"]],
+                Gene60 = geneChunks[["width60"]], Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]])
 
 # Create a dictionary containing the frequency of each chromatin modification occurring in each region of each NLR.
 modsPerRegion <- hash()
@@ -723,7 +738,7 @@ for (r in names(regions)) {
     for (mod in epiMods) {
       modPresent <- FALSE
       
-      if (nrow(ColWTLeafData[[n]][[mod]]) >= 1 & !is.na(regions[[r]][regions[[r]]$Gene==n,]$start) & regions[[r]][regions[[r]]$Gene==n,]$end) {
+      if (nrow(ColWTLeafData[[n]][[mod]]) >= 1 & !is.na(as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start)) & !is.na(as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end))) {
         for (row in 1:nrow(ColWTLeafData[[n]][[mod]])) {
           if (overlapsFunction(ColWTLeafData[[n]][[mod]][row, "start"], ColWTLeafData[[n]][[mod]][row, "end"],
                                regions[[r]][regions[[r]]$Gene==n,]$start, regions[[r]][regions[[r]]$Gene==n,]$end)==TRUE) {
@@ -792,7 +807,7 @@ for (r in names(modsPerRegion)) {
 
 # Plot the percentage of NLRs with each chromatin modification within the gene body.
 modFrequenciesPlot <- ggplot(modFrequenciesDF, aes(x=Modification, y=Frequency, fill=Region)) + 
-  geom_bar(stat = "identity", position = "dodge") + scale_fill_brewer(palette = "Spectral") +
+  geom_bar(stat = "identity", position = "dodge") + scale_fill_brewer(palette = "RdYlBu") +
   theme_minimal() + labs(x = "Chromatin Modification", y = "Frequency of occurrence (%)")
 
 
