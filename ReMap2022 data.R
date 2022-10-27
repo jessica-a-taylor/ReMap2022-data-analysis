@@ -222,7 +222,7 @@ promotor1000Bed <- GRanges(
   ranges=IRanges(NLRpromotor1000$ranges),
   name=NLRpromotor1000$tx_name)
 
-rtracklayer::export.bed(promotor1000Bed, "NLRpromotor1000")
+rtracklayer::export.bed(promotor1000Bed, "NLRpromotor1000.bed")
 
 rm(ATpromotors500, ATpromotors1000)
 
@@ -230,77 +230,64 @@ rm(ATpromotors500, ATpromotors1000)
 usCoordinates <- c()
 genesIncluded <- c()
 
-for (row in 1:nrow(NLRgenes)) {
-  geneOfInterest <- NLRgenes[row, "Gene"]
-  currentGene <- which(Atgenes$group_name==NLRgenes[row,"Gene"])
-  
+for (gene in NLRgenes$Gene) {
+  currentGene <- which(Atgenes$group_name==gene)
+
   if (Atgenes[currentGene, "strand"]=="+") {
-    previousGene <- which(Atgenes$group_name==NLRgenes[row,"Gene"]) - 1
+    previousGene <- currentGene - 1
     
     if (Atgenes[previousGene, "strand"]=="+") {
-      distance <- NLRgenes[row, "start"]-1000 - Atgenes[previousGene, "end"]
+      distance <- (Atgenes[currentGene, "start"] - 1001) - (Atgenes[previousGene, "end"] + 201)
+      
       if (distance > 0) {
-        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"], "-", NLRgenes[row,"start"]-1001, sep = "")) 
-        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
-      }
-      else usCoordinates <- usCoordinates
-    } 
-    else if (Atgenes[previousGene, "strand"]=="-") {
-      distance <- NLRgenes[row, "start"]-1000 - Atgenes[previousGene, "start"]
-      if (distance > 0) {
-        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"], "-", NLRgenes[row,"start"]-1001, sep = "")) 
-        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
-      }
-      else usCoordinates <- usCoordinates 
+        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"] + 201, "-", Atgenes[previousGene, "end"] + 201 + distance, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
     }
-  }
-  else if (Atgenes[currentGene, "strand"]=="-") {
-    previousGene <- which(Atgenes$group_name==NLRgenes[row,"Gene"]) + 1
     
-    if (Atgenes[previousGene, "strand"]=="-") {
-      distance <- Atgenes[previousGene, "end"] - NLRgenes[row, "start"]+1000 
+    else if (Atgenes[previousGene, "strand"]=="-") {
+      distance <- (Atgenes[currentGene, "start"] - 1001) - (Atgenes[previousGene, "end"] + 1001)
+      
       if (distance > 0) {
-        usCoordinates <- append(usCoordinates, paste(NLRgenes[row,"start"]+1001, "-", Atgenes[previousGene, "end"], sep = "")) 
-        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
-      }
-      else usCoordinates <- usCoordinates
-    } 
-    else if (Atgenes[previousGene, "strand"]=="+") {
-      distance <- Atgenes[previousGene, "start"] - NLRgenes[row, "start"]+1000
-      if (distance > 0) {
-        usCoordinates <- append(usCoordinates, paste(NLRgenes[row,"start"]+1001, "-", Atgenes[previousGene, "start"], sep = "")) 
-        genesIncluded <- append(genesIncluded, NLRgenes[row, "Gene"])
-      }
-      else usCoordinates <- usCoordinates 
+        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"] + 1001, "-", Atgenes[previousGene, "end"] + 1001 + distance, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
     }
   }
+  
+  else if (Atgenes[currentGene, "strand"]=="-") {
+    previousGene <- currentGene + 1
+    
+    if (Atgenes[previousGene, "strand"]=="+") {
+      distance <- (Atgenes[previousGene, "start"] - 1001) - (Atgenes[currentGene, "end"] + 1001)
+      
+      if (distance > 0) {
+        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"] - 1001 - distance, "-", Atgenes[previousGene, "start"] - 1001, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
+    }
+    
+    else if (Atgenes[previousGene, "strand"]=="-") {
+      distance <- (Atgenes[previousGene, "start"] - 201) - (Atgenes[currentGene, "end"] + 1001)
+      if (distance > 0) {
+        usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"] - 201 - distance, "-", Atgenes[previousGene, "start"] - 201, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
+    }
+  } 
 }
 
 upstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% genesIncluded),]
 upstreamIntergenic$ranges <- usCoordinates 
 
 upstreamIntergenicBed <- GRanges(
-  seqnames=Rle(upstreamIntergenicBed$Chrom),
-  ranges=IRanges(upstreamIntergenicBed$upstreamRanges),
-  name=upstreamIntergenicBed$Gene)
+  seqnames=Rle(as.numeric(upstreamIntergenic$seqnames)),
+  ranges=IRanges(upstreamIntergenic$ranges),
+  name=upstreamIntergenic$group_name)
 
 rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
 
-downstreamIntergenic <- data.frame(Chrom = NLRgenes$Chromosome,
-                                   start = NLRgenes$`Downstream Intergenic Start`,
-                                   end = NLRgenes$`Downstream Intergenic End`,
-                                   Gene = NLRgenes$Gene)
 
-downstreamIntergenicBed <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$start))),]
-
-downstreamIntergenicBed$downstreamRanges <- paste(downstreamIntergenicBed$start,"-",downstreamIntergenicBed$end, sep = "")
-
-downstreamIntergenicBed <- GRanges(
-  seqnames=Rle(downstreamIntergenicBed$Chrom),
-  ranges=IRanges(downstreamIntergenicBed$downstreamRanges),
-  name=downstreamIntergenicBed$Gene)
-
-rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
 
 
 
