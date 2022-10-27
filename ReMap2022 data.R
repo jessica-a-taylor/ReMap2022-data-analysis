@@ -226,7 +226,7 @@ rtracklayer::export.bed(promotor1000Bed, "NLRpromotor1000.bed")
 
 rm(ATpromotors500, ATpromotors1000)
 
-# Get the coordinates for the upstream and downstream intergenic regions of each NLR.
+# Get the coordinates for the upstream intergenic regions of each NLR.
 usCoordinates <- c()
 genesIncluded <- c()
 
@@ -288,7 +288,66 @@ upstreamIntergenicBed <- GRanges(
 rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
 
 
+# Get the coordinates for the downstream intergenic regions of each NLR.
+dsCoordinates <- c()
+genesIncluded <- c()
 
+for (gene in NLRgenes$Gene) {
+  currentGene <- which(Atgenes$group_name==gene)
+  
+  if (Atgenes[currentGene, "strand"]=="-") {
+    nextGene <- currentGene - 1
+    
+    if (Atgenes[nextGene, "strand"]=="-") {
+      distance <- (Atgenes[currentGene, "start"] - 201) - (Atgenes[nextGene, "end"] + 1001)
+      
+      if (distance > 0) {
+        dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "end"] + 1001, "-", Atgenes[nextGene, "end"] + 1001 + distance, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
+    }
+    
+    else if (Atgenes[nextGene, "strand"]=="+") {
+      distance <- (Atgenes[currentGene, "start"] - 201) - (Atgenes[nextGene, "end"] + 201)
+      
+      if (distance > 0) {
+        dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "end"] + 201, "-", Atgenes[nextGene, "end"] + 201 + distance, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
+    }
+  }
+  
+  else if (Atgenes[currentGene, "strand"]=="+") {
+    nextGene <- currentGene + 1
+    
+    if (Atgenes[nextGene, "strand"]=="+") {
+      distance <- (Atgenes[nextGene, "start"] - 1001) - (Atgenes[currentGene, "end"] + 201)
+      
+      if (distance > 0) {
+        dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "start"] - 1001 - distance, "-", Atgenes[nextGene, "start"] - 1001, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
+    }
+    
+    else if (Atgenes[nextGene, "strand"]=="-") {
+      distance <- (Atgenes[nextGene, "start"] - 201) - (Atgenes[currentGene, "end"] + 201)
+      if (distance > 0) {
+        dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "start"] - 201 - distance, "-", Atgenes[nextGene, "start"] - 201, sep = "")) 
+        genesIncluded <- append(genesIncluded, gene)
+      } 
+    }
+  } 
+}
+
+downstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% genesIncluded),]
+downstreamIntergenic$ranges <- dsCoordinates 
+
+downstreamIntergenicBed <- GRanges(
+  seqnames=Rle(as.numeric(downstreamIntergenic$seqnames)),
+  ranges=IRanges(downstreamIntergenic$ranges),
+  name=downstreamIntergenic$group_name)
+
+rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
 
 
 # Import ReMap2022 data.
