@@ -373,6 +373,7 @@ ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",
 ReMap <- ReMap[,-c(9:11)]
 
 # Create a hash to store ReMap data for each NLR/cluster.
+colnames(NLRgenebody)[2] <- "Gene"
 NLR_hash <- hash()
 
 for (row in 1:nrow(NLRgenebody)) {
@@ -517,34 +518,37 @@ for (n in names(WTLeafNLRs)) {
 
 rm(WTLeafNLRs)
 
+
+# Select tissue type for analysis.
+dataToUse <- WTRootNLRs
+
 # Create list of chromatin modifications.
 epiMods <- c()
-for (n in names(ColWTLeafNLRs)) {
-  epiMods <- append(epiMods, unique(ColWTLeafNLRs[[n]]$epiMod))
+for (n in names(dataToUse)) {
+  epiMods <- append(epiMods, unique(dataToUse[[n]]$epiMod))
 }
 
 epiMods <- unique(epiMods)
 
-
 # Create a dictionary (hash containing hashes) with dataframes for each epiMod for each NLR.
-ColWTLeafData <- hash()
+ColWTdata <- hash()
 
-for (n in names(ColWTLeafNLRs)) {
+for (n in names(dataToUse)) {
   modHash <- hash()
   
   for (mod in epiMods) {
-    modHash[[mod]] <- ColWTLeafNLRs[[n]][ColWTLeafNLRs[[n]]$epiMod==mod,]
+    modHash[[mod]] <- dataToUse[[n]][dataToUse[[n]]$epiMod==mod,]
   }
-  ColWTLeafData[[n]] <- modHash
+  ColWTdata[[n]] <- modHash
 }
 
-rm(ColWTLeafNLRs, modHash)
+rm(dataToUse, modHash)
 
 # Merge start and end coordinates columns to create a ranges column.
-for (n in names(ColWTLeafData)) {
+for (n in names(ColWTdata)) {
   for (mod in epiMods) {
-    if (nrow(ColWTLeafData[[n]][[mod]]) >= 1) {
-      ColWTLeafData[[n]][[mod]]$ranges <- paste(ColWTLeafData[[n]][[mod]]$start,"-",ColWTLeafData[[n]][[mod]]$end, sep = "")
+    if (nrow(ColWTdata[[n]][[mod]]) >= 1) {
+      ColWTdata[[n]][[mod]]$ranges <- paste(ColWTdata[[n]][[mod]]$start,"-",ColWTdata[[n]][[mod]]$end, sep = "")
     }
     else next
   }
@@ -590,7 +594,7 @@ findItem <- function(item, overlapSets) {
 allOverlaps <- hash()
 
 # For each epigenetic modification name
-for (n in names(ColWTLeafData)) {
+for (n in names(ColWTdata)) {
   modOverlaps <- hash()
   
   for (mod in epiMods) {
@@ -598,18 +602,18 @@ for (n in names(ColWTLeafData)) {
     # Generate overlapSets as a list of single-item sets
     # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
     overlapSets <- list()
-    if (nrow(ColWTLeafData[[n]][[mod]])>0) {
+    if (nrow(ColWTdata[[n]][[mod]])>0) {
       
-      for (r in 1:nrow(ColWTLeafData[[n]][[mod]])) {
-        overlapSets <- append(overlapSets, list(set(as.numeric(r))))
+      for (r in 1:nrow(ColWTdata[[n]][[mod]])) {
+        overlapSets <- append(overlapSets, list(sets::set(as.numeric(r))))
       }
       #For each gene co-ordinate comparison [k, l]
-      for (k in 1:nrow(ColWTLeafData[[n]][[mod]])) {
+      for (k in 1:nrow(ColWTdata[[n]][[mod]])) {
         for (l in 1:k) {
           
           # If the co-ordinate ranges overlap
-          if (overlapsFunction(ColWTLeafData[[n]][[mod]][k, "start"], ColWTLeafData[[n]][[mod]][k, "end"], 
-                               ColWTLeafData[[n]][[mod]][l, "start"], ColWTLeafData[[n]][[mod]][l, "end"])==TRUE) {
+          if (overlapsFunction(ColWTdata[[n]][[mod]][k, "start"], ColWTdata[[n]][[mod]][k, "end"], 
+                               ColWTdata[[n]][[mod]][l, "start"], ColWTdata[[n]][[mod]][l, "end"])==TRUE) {
             
             # Find the indexes of the sets containing each range
             kIndex <- findItem(k, overlapSets)
@@ -646,8 +650,8 @@ for (n in names(allOverlaps)) {
         modEnd <- c() 
         
         for (o in allOverlaps[[n]][[mod]][l]) {
-          modStart <- append(modStart, ColWTLeafData[[n]][[mod]][as.numeric(o), "start"])
-          modEnd <- append(modEnd, ColWTLeafData[[n]][[mod]][as.numeric(o), "end"])
+          modStart <- append(modStart, ColWTdata[[n]][[mod]][as.numeric(o), "start"])
+          modEnd <- append(modEnd, ColWTdata[[n]][[mod]][as.numeric(o), "end"])
           
           allOverlaps[[n]][[mod]][l] <- paste(min(modStart), max(modEnd), sep = "-")
         }
@@ -660,7 +664,7 @@ rm(modStart, modEnd, o, l)
 
 
 # Create dataframes with the information needed in the bed file.
-for (n in names(ColWTLeafData)) {
+for (n in names(ColWTdata)) {
   for (mod in epiMods) {
     df <- data.frame(seqname = numeric(),
                      ranges = character(),
@@ -670,11 +674,11 @@ for (n in names(ColWTLeafData)) {
     
     if (length(allOverlaps[[n]][[mod]])>0) {
       for (l in 1:length(allOverlaps[[n]][[mod]])) {
-        df <- rbind(df, data.frame(seqname = ColWTLeafData[[n]][[mod]][1,"seqnames"],
+        df <- rbind(df, data.frame(seqname = ColWTdata[[n]][[mod]][1,"seqnames"],
                                    ranges = allOverlaps[[n]][[mod]][[l]],
-                                   strand = ColWTLeafData[[n]][[mod]][1,"strand"],
+                                   strand = ColWTdata[[n]][[mod]][1,"strand"],
                                    epiMod = mod,
-                                   colour = ColWTLeafData[[n]][[mod]][1,"itemRgb"]))
+                                   colour = ColWTdata[[n]][[mod]][1,"itemRgb"]))
       }
     }
     allOverlaps[[n]][[mod]] <- df
@@ -735,15 +739,15 @@ for (r in names(regions)) {
   # Create a hash containing a list of chromatin modifications overlapping with the NLR region.
   GBmod <- hash()
   
-  for (n in names(ColWTLeafData)) {
+  for (n in names(ColWTdata)) {
     modList <- c()
     
     for (mod in epiMods) {
       modPresent <- FALSE
       
-      if (nrow(ColWTLeafData[[n]][[mod]]) >= 1 & !is.na(regions[[r]][regions[[r]]$Gene==n,]$ranges)) {
-        for (row in 1:nrow(ColWTLeafData[[n]][[mod]])) {
-          if (overlapsFunction(ColWTLeafData[[n]][[mod]][row, "start"], ColWTLeafData[[n]][[mod]][row, "end"],
+      if (nrow(ColWTdata[[n]][[mod]]) >= 1 & !is.na(regions[[r]][regions[[r]]$Gene==n,]$ranges)) {
+        for (row in 1:nrow(ColWTdata[[n]][[mod]])) {
+          if (overlapsFunction(ColWTdata[[n]][[mod]][row, "start"], ColWTdata[[n]][[mod]][row, "end"],
                                regions[[r]][regions[[r]]$Gene==n,]$start, regions[[r]][regions[[r]]$Gene==n,]$end)==TRUE) {
             modPresent <- TRUE
           }
