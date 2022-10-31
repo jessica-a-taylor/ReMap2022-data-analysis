@@ -8,6 +8,7 @@ library(sets)
 library(TxDb.Athaliana.BioMart.plantsmart28)
 library(ggplot2)
 library(data.table)
+library(grid)
 
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
@@ -812,7 +813,7 @@ for (r in level) {
 }
 
 # Add a column to the dataframe with the numbers on the x axis that will correspond with each gene region.
-grouping <- seq(from = -50, to = 130, by = 20)
+grouping <- c(seq(from = -60, to = -20, by = 20),seq(from = 20, to = 140, by = 20))
 regions <- unique(modFrequenciesDF$Region)
 
 axisGroup <- c()
@@ -830,16 +831,23 @@ modFrequenciesBarPlot <- ggplot(modFrequenciesDF, aes(x=Region, y=Frequency)) + 
   theme_minimal() + labs(x = "Gene Region", y = "Frequency of occurrence (%)")
 
 modFrequenciesLinePlot <- ggplot(modFrequenciesDF, aes(x=factor(Region, level = level), y=Frequency)) + 
-  geom_line(aes(group = Modification, color = Modification)) + theme_minimal() + 
+  geom_line(aes(group = Modification, color = Modification)) + theme_classic() + 
   labs(x = "Gene region", y = "Frequency of occurrence (%)")
 
-axisText <- c("Intergenic", "Promotor (1kb)", "Promotor (500bp)",
+axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "20%", "40%", "60%", "80%", "100%", 
-              "Downstream (200bp)", "Intergenic")
+              "Downstream \n(200bp)", "Intergenic")
 
-modFrequenciesGraph <- ggplot(modFrequenciesDF, aes(x = axisGroup, y = Frequency)) + 
-  scale_x_continuous(limits = c(-50, 130), breaks = seq(-50, 130, 20), labels = axisText) +
-  geom_line(aes(group = Modification, color = Modification)) +
-  geom_point(aes(group = Modification, color = Modification)) + theme_minimal() + 
-  labs(x = "Gene region", y = "Frequency of occurrence (%)") +
-  geom_vline(xintercept=0, color="grey", size=1)
+modFrequenciesPlot <- ggplot(modFrequenciesDF, aes(x = axisGroup, y = Frequency)) + 
+  scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+  geom_line(aes(group = Modification, color = Modification),size = 1.3) +
+  geom_point(aes(group = Modification, color = Modification), size = 2) + theme_minimal() + 
+  labs(x = "", y = "Frequency of occurrence (%)") +
+  geom_vline(xintercept=0, color="grey", size=1) +
+  coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+  annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-14,ymax=-14) + 
+  annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
+  theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
+        axis.title.y = element_text(size = 14, vjust = 2))
+
+modFrequenciesPlot
