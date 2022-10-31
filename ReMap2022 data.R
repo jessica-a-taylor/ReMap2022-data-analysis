@@ -7,6 +7,7 @@ library(hash)
 library(sets)
 library(TxDb.Athaliana.BioMart.plantsmart28)
 library(ggplot2)
+library(data.table)
 
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
@@ -721,10 +722,10 @@ for (n in names(geneChunks)) {
 }
 
 
-regions <- hash(Promotor500 = NLRpromotor500, Promotor1000 = NLRpromotor1000, 
-                UpstreamIntergenic = upstreamIntergenic, DownstreamIntergenic = downstreamIntergenic,
-                Downstream = NLRdownstream, Gene20 = geneChunks[["width20"]], Gene40 = geneChunks[["width40"]],
-                Gene60 = geneChunks[["width60"]], Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]])
+regions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = NLRpromotor1000, Promotor500 = NLRpromotor500,
+                Gene20 = geneChunks[["width20"]],  Gene40 = geneChunks[["width40"]], Gene60 = geneChunks[["width60"]], 
+                Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]],Downstream = NLRdownstream,
+                DownstreamIntergenic = downstreamIntergenic)
 
 # Create a dictionary containing the frequency of each chromatin modification occurring in each region of each NLR.
 modsPerRegion <- hash()
@@ -798,15 +799,47 @@ rm(modFrequenciesDF, regions)
 
 
 # Make a big dataframe with the modification frequencies for each gene region.
+level = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
+          "Gene20", "Gene40", "Gene60", "Gene80", "Gene100", 
+          "Downstream", "DownstreamIntergenic")
+
 modFrequenciesDF <- data.frame(Region = character(),
                                Modification = character(),
                                Frequency = numeric())
 
-for (r in names(modsPerRegion)) {
+for (r in level) {
   modFrequenciesDF <- rbind(modFrequenciesDF, modsPerRegion[[r]])
 }
 
+# Add a column to the dataframe with the numbers on the x axis that will correspond with each gene region.
+grouping <- seq(from = -50, to = 130, by = 20)
+regions <- unique(modFrequenciesDF$Region)
+
+axisGroup <- c()
+for (c in 1:length(regions)) {
+  axisGroup <- append(axisGroup, rep(grouping[c], times = nrow(modFrequenciesDF[modFrequenciesDF$Region==regions[c],])))
+}
+
+modFrequenciesDF <- cbind(modFrequenciesDF, axisGroup)
+
+rm(grouping, regions, axisGroup)
+
 # Plot the percentage of NLRs with each chromatin modification within the gene body.
-modFrequenciesPlot <- ggplot(modFrequenciesDF, aes(x=Modification, y=Frequency, fill=Region)) + 
+modFrequenciesBarPlot <- ggplot(modFrequenciesDF, aes(x=Region, y=Frequency)) + facet_wrap(~Modification) +
   geom_bar(stat = "identity", position = "dodge") + scale_fill_brewer(palette = "RdYlBu") +
-  theme_minimal() + labs(x = "Chromatin Modification", y = "Frequency of occurrence (%)")
+  theme_minimal() + labs(x = "Gene Region", y = "Frequency of occurrence (%)")
+
+modFrequenciesLinePlot <- ggplot(modFrequenciesDF, aes(x=factor(Region, level = level), y=Frequency)) + 
+  geom_line(aes(group = Modification, color = Modification)) + theme_minimal() + 
+  labs(x = "Gene region", y = "Frequency of occurrence (%)")
+
+axisText <- c("Intergenic", "Promotor (1kb)", "Promotor (500bp)",
+              "20%", "40%", "60%", "80%", "100%", 
+              "Downstream (200bp)", "Intergenic")
+
+modFrequenciesGraph <- ggplot(modFrequenciesDF, aes(x = axisGroup, y = Frequency)) + 
+  scale_x_continuous(limits = c(-50, 130), breaks = seq(-50, 130, 20), labels = axisText) +
+  geom_line(aes(group = Modification, color = Modification)) +
+  geom_point(aes(group = Modification, color = Modification)) + theme_minimal() + 
+  labs(x = "Gene region", y = "Frequency of occurrence (%)") +
+  geom_vline(xintercept=0, color="grey", size=1)
