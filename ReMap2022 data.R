@@ -98,16 +98,17 @@ for (row in 1:nrow(NLRgenebody)) {
   downstreamRegion <- append(downstreamRegion, paste(NLRgenebody[row,"end"],"-",NLRgenebody[row,"end"]+200, sep = ""))
 }
 
-NLRgenebody$downstream <- downstreamRegion
+NLRdownstream <- NLRgenebody[-c(4:6,10)]
+
+NLRdownstream$ranges <- downstreamRegion
 rm(downstreamRegion)
 
-NLRdownstream <- NLRgenebody[-c(4:6,10)]
-NLRdownstream$start <- str_match(NLRdownstream$downstream, "^([0-9]+)(-)([0-9]+)$")[,2]
-NLRdownstream$end <- str_match(NLRdownstream$downstream, "^([0-9]+)(-)([0-9]+)$")[,4]
+NLRdownstream$start <- str_match(NLRdownstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,2]
+NLRdownstream$end <- str_match(NLRdownstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,4]
 
 downstreamBed <- GRanges(
   seqnames=Rle(NLRdownstream$seqnames),
-  ranges=IRanges(NLRdownstream$downstream),
+  ranges=IRanges(NLRdownstream$ranges),
   name=NLRdownstream$tx_name)
 
 rtracklayer::export.bed(downstreamBed, "NLRdownstream.bed")
@@ -738,7 +739,7 @@ for (r in names(regions)) {
     for (mod in epiMods) {
       modPresent <- FALSE
       
-      if (nrow(ColWTLeafData[[n]][[mod]]) >= 1 & !is.na(as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start)) & !is.na(as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end))) {
+      if (nrow(ColWTLeafData[[n]][[mod]]) >= 1 & !is.na(regions[[r]][regions[[r]]$Gene==n,]$ranges)) {
         for (row in 1:nrow(ColWTLeafData[[n]][[mod]])) {
           if (overlapsFunction(ColWTLeafData[[n]][[mod]][row, "start"], ColWTLeafData[[n]][[mod]][row, "end"],
                                regions[[r]][regions[[r]]$Gene==n,]$start, regions[[r]][regions[[r]]$Gene==n,]$end)==TRUE) {
@@ -809,7 +810,3 @@ for (r in names(modsPerRegion)) {
 modFrequenciesPlot <- ggplot(modFrequenciesDF, aes(x=Modification, y=Frequency, fill=Region)) + 
   geom_bar(stat = "identity", position = "dodge") + scale_fill_brewer(palette = "RdYlBu") +
   theme_minimal() + labs(x = "Chromatin Modification", y = "Frequency of occurrence (%)")
-
-
-
-
