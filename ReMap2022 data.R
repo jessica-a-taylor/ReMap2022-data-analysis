@@ -10,10 +10,44 @@ library(ggplot2)
 library(data.table)
 library(grid)
 
+# Import all Arabidopsis genes.
+Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
+
+# Import ATAC-seq data (no treatment files). 
+# This will be used to select eurchromatic genes and determine the average size of promoter regions.
+sheets <- c(3,15,18)
+
+openChromatin <- hash()
+for (s in sheets) {
+  openChromatin[[paste("ACR", s, sep = "")]] <-  as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\PhD reading\\Data\\ACRs paper.xlsx", sheet = s))
+}
+
+rm(sheets, s)
+
+# From the openChromatin dataset, extract the rows corresponding to ATgene promotors.
+openGenes <- openChromatin
+for (s in names(openGenes)) {
+  openGenes[[s]] <- openGenes[[s]][which(openGenes[[s]]$geneId %in% Atgenes$group_name &
+                                                   grepl("Promoter", openGenes[[s]]$annotation)==TRUE),]
+}
+
+# Merge the data in to one big dataframe.
+openGenesBed <- data.frame()
+
+for (s in names(openGenes)) {
+  openGenesBed <- rbind(openGenesBed, openGenes[[s]])
+}
+
+# Remove TEs from the openGenesBed dataframe.
+transposableElements <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis TE genes.xlsx"))
+
+openGenesBed <- openGenesBed[-c(which(openGenesBed$geneId %in% transposableElements$Locus)),]
+
+# Select a random sample of Atgenes from the openGenesBed dataframe.
+controlGenes <- openGenesBed[c(sample(nrow(openGenesBed), 200)),]
+
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
-
-Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
 
 # Remove duplicate genes (different versions).
 Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
@@ -116,31 +150,21 @@ downstreamBed <- GRanges(
 rtracklayer::export.bed(downstreamBed, "NLRdownstream.bed")
 
 
-# Import ATAC-seq data (no treatment files). This will be used to determine the average size of promoter regions.
-sheets <- c(3,15,18)
-
-openChromatin <- hash()
-for (s in sheets) {
-  openChromatin[[paste("ACR", s, sep = "")]] <-  as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\PhD reading\\Data\\ACRs paper.xlsx", sheet = s))
-}
-
-rm(sheets, s)
-
-# Extract the rows corresponding to NLRs.
+# From the openChromatin dataset, extract the rows corresponding to NLR promotors.
+openPromotors <- openChromatin
 for (s in names(openChromatin)) {
-  openChromatin[[s]] <- openChromatin[[s]][which(openChromatin[[s]]$geneId %in% NLRgenes$Gene &
-                                                   grepl("Promoter", openChromatin[[s]]$annotation)==TRUE),]
+  openPromotors[[s]] <- openPromotors[[s]][which(openPromotors[[s]]$geneId %in% NLRgenes$Gene &
+                                                   grepl("Promoter", openPromotors[[s]]$annotation)==TRUE),]
 }
 
 # Merge the data in to one big dataframe.
-openChromatinBed <- data.frame()
+openPromotorsBed <- data.frame()
 
-for (s in names(openChromatin)) {
-  openChromatinBed <- rbind(openChromatinBed, openChromatin[[s]])
+for (s in names(openPromotors)) {
+  openPromotorsBed <- rbind(openPromotorsBed, openPromotors[[s]])
 }
 
-rm(openChromatin)
-
+rm(openPromotors, openChromatin)
 
 # Get the min and max coordinates for open chromatin at the promoters of each NLR.
 openPromoters <- data.frame(seqnames = character(),
@@ -149,8 +173,8 @@ openPromoters <- data.frame(seqnames = character(),
                             end = numeric(),
                             geneLength = numeric())
 
-for (s in unique(openChromatinBed$geneId)) {
-  df <- openChromatinBed[openChromatinBed$geneId==s,]
+for (s in unique(openPromotorsBed$geneId)) {
+  df <- openPromotorsBed[openPromotorsBed$geneId==s,]
   
   openPromoters <- rbind(openPromoters, data.frame(seqnames = df[1,"seqnames"],
                                                    name = s,
