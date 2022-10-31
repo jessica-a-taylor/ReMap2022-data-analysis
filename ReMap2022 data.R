@@ -42,6 +42,10 @@ for (s in names(openGenes)) {
 transposableElements <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis TE genes.xlsx"))
 
 openGenesBed <- openGenesBed[-c(which(openGenesBed$geneId %in% transposableElements$Locus)),]
+openGenesBed$seqnames <- as.numeric(str_match(openGenesBed$seqnames, "^([a-zA-Z]+)([0-9]+)$")[,3])
+openGenesBed <- openGenesBed[,-c(2:7,11,13:14)]
+
+colnames(openGenesBed) <- c("seqnames", "start", "end", "width", "Gene")
 
 # Select a random sample of Atgenes from the openGenesBed dataframe.
 controlGenes <- openGenesBed[c(sample(nrow(openGenesBed), 200)),]
@@ -398,51 +402,54 @@ ReMap <- ReMap[,-c(9:11)]
 
 # Create a hash to store ReMap data for each NLR/cluster.
 colnames(NLRgenebody)[2] <- "Gene"
-NLR_hash <- hash()
+gene_hash <- hash()
 
-for (row in 1:nrow(NLRgenebody)) {
+# Choose data to analyse: NLRgenebody or controlGenes
+dataToUse <- controlGenes
+
+for (row in 1:nrow(dataToUse)) {
   # Select rows that are within the range of each NLR/cluster and on the same chromosome.
-  ReMapRows <- c(which(ReMap[,"start"] > NLRgenebody[row, "start"]-5000 & ReMap[,"end"] < NLRgenebody[row, "end"]+5000 & ReMap[,"seqnames"] == as.numeric(NLRgenebody[row, "seqnames"])))
-  NLR_hash[[NLRgenebody[row,"Gene"]]] <- ReMap[ReMapRows,]
+  ReMapRows <- c(which(ReMap[,"start"] > dataToUse[row, "start"]-5000 & ReMap[,"end"] < dataToUse[row, "end"]+5000 & ReMap[,"seqnames"] == as.numeric(dataToUse[row, "seqnames"])))
+  gene_hash[[dataToUse[row,"Gene"]]] <- ReMap[ReMapRows,]
 }
 
-rm(ReMap, ReMapRows)
+rm(ReMap, ReMapRows, dataToUse)
 
-for(n in names(NLR_hash)) {
-  if (nrow(NLR_hash[[n]])>=1) {
+for(n in names(gene_hash)) {
+  if (nrow(gene_hash[[n]])>=1) {
     # Run regex on name column, extracting each section
     # (experiment, epigenetic modification, ecotype, other info)
-    NLR_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(NLR_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
+    gene_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(gene_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
     
     # Filter epiMod column, excluding unwanted modifications
-    NLR_hash[[n]] <- NLR_hash[[n]][!NLR_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H4K16ac", "H2A-X",
+    gene_hash[[n]] <- gene_hash[[n]][!gene_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H4K16ac", "H2A-X",
                                                                 "H2AV", "HTA6", "H3-1", "H4K12ac", "H4K8ac", "H3K5ac", "H4K5ac") & 
-                                     !NLR_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
+                                     !gene_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
     
-    NLR_hash[[n]] <- NLR_hash[[n]][,-6]
+    gene_hash[[n]] <- gene_hash[[n]][,-6]
     
     # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
-    NLR_hash[[n]] <- NLR_hash[[n]][!grepl("mutant",NLR_hash[[n]]$info) & !grepl("mature",NLR_hash[[n]]$info) & !grepl("senescent",NLR_hash[[n]]$info) & 
-                                     !grepl("inflorescence",NLR_hash[[n]]$info) & !grepl("drought",NLR_hash[[n]]$info) & !grepl("old",NLR_hash[[n]]$info) & 
-                                     !grepl("min",NLR_hash[[n]]$info) & !grepl("endosperm",NLR_hash[[n]]$info) & !grepl("-se-",NLR_hash[[n]]$info) &
-                                     !grepl("-TSA-",NLR_hash[[n]]$info) & !grepl("-GSNO-",NLR_hash[[n]]$info) & !grepl("flg22",NLR_hash[[n]]$info) &
-                                     !grepl("transgenic",NLR_hash[[n]]$info) & !grepl("GSH",NLR_hash[[n]]$info) &
-                                     !grepl("-acc1",NLR_hash[[n]]$info) & !grepl("-ethylene",NLR_hash[[n]]$info) & !grepl("-C2H4",NLR_hash[[n]]$info) &
-                                     !grepl("leaves_3w-K36M-homoz",NLR_hash[[n]]$info) & !grepl("undef_seedling_10d-h3-1kd-1",NLR_hash[[n]]$info) &
-                                     !grepl("-air",NLR_hash[[n]]$info) & !grepl("-ehylene",NLR_hash[[n]]$info) & !grepl("-swap",NLR_hash[[n]]$info) &
-                                     !grepl("-K36M",NLR_hash[[n]]$info) & !grepl("-H3-KD",NLR_hash[[n]]$info) & !grepl("-water",NLR_hash[[n]]$info) &
-                                     !grepl("undef_seedling_10d-h3-1kd-2",NLR_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",NLR_hash[[n]]$info) &
-                                     !grepl("GSE67322",NLR_hash[[n]]$exp.) & !grepl("GSE42695",NLR_hash[[n]]$exp.) & !grepl("GSE75071",NLR_hash[[n]]$exp.) &
-                                     !grepl("GSE62615",NLR_hash[[n]]$exp.) & !grepl("GSE103361",NLR_hash[[n]]$exp.) & !grepl("GSE50636",NLR_hash[[n]]$exp.) &
-                                     !grepl("GSE93223",NLR_hash[[n]]$exp.) & !grepl("GSE37644",NLR_hash[[n]]$exp.) & !grepl("GSE108414",NLR_hash[[n]]$exp.) &
-                                     !grepl("GSE22276",NLR_hash[[n]]$exp.) & !grepl("GSE89768",NLR_hash[[n]]$exp.) & !grepl("GSE117391",NLR_hash[[n]]$exp.),] 
+    gene_hash[[n]] <- gene_hash[[n]][!grepl("mutant",gene_hash[[n]]$info) & !grepl("mature",gene_hash[[n]]$info) & !grepl("senescent",gene_hash[[n]]$info) & 
+                                     !grepl("inflorescence",gene_hash[[n]]$info) & !grepl("drought",gene_hash[[n]]$info) & !grepl("old",gene_hash[[n]]$info) & 
+                                     !grepl("min",gene_hash[[n]]$info) & !grepl("endosperm",gene_hash[[n]]$info) & !grepl("-se-",gene_hash[[n]]$info) &
+                                     !grepl("-TSA-",gene_hash[[n]]$info) & !grepl("-GSNO-",gene_hash[[n]]$info) & !grepl("flg22",gene_hash[[n]]$info) &
+                                     !grepl("transgenic",gene_hash[[n]]$info) & !grepl("GSH",gene_hash[[n]]$info) &
+                                     !grepl("-acc1",gene_hash[[n]]$info) & !grepl("-ethylene",gene_hash[[n]]$info) & !grepl("-C2H4",gene_hash[[n]]$info) &
+                                     !grepl("leaves_3w-K36M-homoz",gene_hash[[n]]$info) & !grepl("undef_seedling_10d-h3-1kd-1",gene_hash[[n]]$info) &
+                                     !grepl("-air",gene_hash[[n]]$info) & !grepl("-ehylene",gene_hash[[n]]$info) & !grepl("-swap",gene_hash[[n]]$info) &
+                                     !grepl("-K36M",gene_hash[[n]]$info) & !grepl("-H3-KD",gene_hash[[n]]$info) & !grepl("-water",gene_hash[[n]]$info) &
+                                     !grepl("undef_seedling_10d-h3-1kd-2",gene_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",gene_hash[[n]]$info) &
+                                     !grepl("GSE67322",gene_hash[[n]]$exp.) & !grepl("GSE42695",gene_hash[[n]]$exp.) & !grepl("GSE75071",gene_hash[[n]]$exp.) &
+                                     !grepl("GSE62615",gene_hash[[n]]$exp.) & !grepl("GSE103361",gene_hash[[n]]$exp.) & !grepl("GSE50636",gene_hash[[n]]$exp.) &
+                                     !grepl("GSE93223",gene_hash[[n]]$exp.) & !grepl("GSE37644",gene_hash[[n]]$exp.) & !grepl("GSE108414",gene_hash[[n]]$exp.) &
+                                     !grepl("GSE22276",gene_hash[[n]]$exp.) & !grepl("GSE89768",gene_hash[[n]]$exp.) & !grepl("GSE117391",gene_hash[[n]]$exp.),] 
     
     # Filter info column, checking written plant ages and removing BAD AGES
     
     # For each row
-    for (row in nrow(NLR_hash[[n]]):1) {
+    for (row in nrow(gene_hash[[n]]):1) {
       # Find the age if it exists (in the format 1w / 8d / 10h)
-      matches <- str_match(NLR_hash[[n]][row, "info"], "_([0-9]+)([dwh])")
+      matches <- str_match(gene_hash[[n]][row, "info"], "_([0-9]+)([dwh])")
       
       # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
       
@@ -473,7 +480,7 @@ for(n in names(NLR_hash)) {
         
         # If we had a BAD AGE, delete the corresponding row. (Otherwise, move on to the next row without deleting.)
         if (badAge) {
-          NLR_hash[[n]] <- NLR_hash[[n]][-row,]
+          gene_hash[[n]] <- gene_hash[[n]][-row,]
         }
       }
     }
@@ -489,15 +496,15 @@ RootNLRs <- hash()
 LeafNLRs <- hash()
 
 
-for(n in names(NLR_hash)) {
-  # Extract root data from NLR_hash and store in RootNLRs.
-  RootNLRs[[n]] <- NLR_hash[[n]][grepl("roots",NLR_hash[[n]]$info),]
-  # Remove root data from NLR_hash.
-  LeafNLRs[[n]] <- NLR_hash[[n]][!grepl("roots",NLR_hash[[n]]$info),]
+for(n in names(gene_hash)) {
+  # Extract root data from gene_hash and store in RootNLRs.
+  RootNLRs[[n]] <- gene_hash[[n]][grepl("roots",gene_hash[[n]]$info),]
+  # Remove root data from gene_hash.
+  LeafNLRs[[n]] <- gene_hash[[n]][!grepl("roots",gene_hash[[n]]$info),]
 }
 
-# Delete NLR_hash.
-rm(NLR_hash)
+# Delete gene_hash.
+rm(gene_hash)
 
 # Create hashes for WT and mutant root data.
 mutantRootNLRs <- hash()
@@ -854,14 +861,6 @@ modFrequenciesDF <- cbind(modFrequenciesDF, axisGroup)
 rm(grouping, regions, axisGroup)
 
 # Plot the percentage of NLRs with each chromatin modification within the gene body.
-modFrequenciesBarPlot <- ggplot(modFrequenciesDF, aes(x=Region, y=Frequency)) + facet_wrap(~Modification) +
-  geom_bar(stat = "identity", position = "dodge") + scale_fill_brewer(palette = "RdYlBu") +
-  theme_minimal() + labs(x = "Gene Region", y = "Frequency of occurrence (%)")
-
-modFrequenciesLinePlot <- ggplot(modFrequenciesDF, aes(x=factor(Region, level = level), y=Frequency)) + 
-  geom_line(aes(group = Modification, color = Modification)) + theme_classic() + 
-  labs(x = "Gene region", y = "Frequency of occurrence (%)")
-
 axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "20%", "40%", "60%", "80%", "100%", 
               "Downstream \n(200bp)", "Intergenic")
