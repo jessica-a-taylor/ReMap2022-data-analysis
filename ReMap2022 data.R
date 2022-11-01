@@ -13,6 +13,9 @@ library(grid)
 # Import all Arabidopsis genes.
 Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
 
+# Remove duplicate genes (different versions).
+Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+
 # Import ATAC-seq data (no treatment files). 
 # This will be used to select eurchromatic genes and determine the average size of promoter regions.
 sheets <- c(3,15,18)
@@ -46,16 +49,22 @@ openGenesBed$seqnames <- as.numeric(str_match(openGenesBed$seqnames, "^([a-zA-Z]
 openGenesBed <- openGenesBed[,-c(2:7,11,13:14)]
 
 colnames(openGenesBed) <- c("seqnames", "start", "end", "width", "Gene")
+openGenesBed$ranges <- paste(openGenesBed$start,"-",openGenesBed$end, sep = "")
+
+# Remove duplicate genes.
+newOpenGenesBed <- openGenesBed
+openGenesBed <- data.frame()
+
+for (gene in unique(newOpenGenesBed$Gene)) {
+  openGenesBed <- rbind(openGenesBed, newOpenGenesBed[newOpenGenesBed$Gene==gene,][1,])
+}
 
 # Select a random sample of Atgenes from the openGenesBed dataframe.
 controlGenes <- openGenesBed[c(sample(nrow(openGenesBed), 200)),]
 
+
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
-
-# Remove duplicate genes (different versions).
-Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
-
 
 NLRgenebody <- data.frame(seqnames = numeric(),
                           start = numeric(),
@@ -69,8 +78,6 @@ for (gene in NLRgenes$Gene) {
   NLRgenebody <- rbind(NLRgenebody, as.data.frame(Atgenes[grepl(gene, Atgenes$tx_name),]))
 }
 
-# Remove duplicate genes.
-#NLRgenebody <- NLRgenebody[-c(which(NLRgenebody$tx_name == str_match(NLRgenebody$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
 # Create a ranges column by merging the start and end columns.
 NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
@@ -83,12 +90,20 @@ genebodyBed <- GRanges(
 rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
 
 
+# Choose gene set for analysis:NLRgenebody or controlGenes
+dataToUse <- controlGenes
+  
 # Create new dataframes for chunks of the gene body (20% intervals of the gene length).
-geneChunks <- hash(width20 = NLRgenebody[-c(4:6,10)], 
-                  width40 = NLRgenebody[-c(4:6,10)], 
-                  width60 = NLRgenebody[-c(4:6,10)], 
-                  width80 = NLRgenebody[-c(4:6,10)], 
-                  width100 = NLRgenebody[-c(4:6,10)])
+geneChunks <- hash(width20 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                                colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
+                  width40 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                                 colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
+                  width60 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                                 colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
+                  width80 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                                 colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
+                  width100 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                                  colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))])
 
 geneWidth <- hash(width20 = c(), 
                    width40 = c(), 
@@ -96,12 +111,12 @@ geneWidth <- hash(width20 = c(),
                    width80 = c(), 
                    width100 = c())
 
-for (row in 1:nrow(NLRgenebody)) {
-  geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(NLRgenebody[row,"start"],"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.2, sep = ""))
-  geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.2+1,"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.4, sep = ""))
-  geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.4+1,"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.6, sep = ""))
-  geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.6+1,"-", NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.8, sep = ""))
-  geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(NLRgenebody[row,"start"] + NLRgenebody[row,"width"]*0.8+1,"-",NLRgenebody[row,"end"], sep = ""))
+for (row in 1:nrow(dataToUse)) {
+  geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"start"],"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.2, sep = ""))
+  geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.2+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.4, sep = ""))
+  geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.4+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.6, sep = ""))
+  geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.6+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.8, sep = ""))
+  geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.8+1,"-",dataToUse[row,"end"], sep = ""))
 }
 
 for (n in names(geneChunks)) {
@@ -126,7 +141,7 @@ for (n in names(geneChunks)) {
   geneBed <- GRanges(
     seqnames=Rle(geneChunks[[n]]$seqnames),
     ranges=IRanges(geneChunks[[n]]$ranges),
-    name=geneChunks[[n]]$tx_name)
+    name=geneChunks[[n]]$Gene)
   
   rtracklayer::export.bed(geneBed, paste("NLR", n, ".bed", sep = ""))
 }
@@ -134,24 +149,25 @@ for (n in names(geneChunks)) {
 # Create new dataframe for the coordinates of the regions 200bp downstream of the TTS.
 
 downstreamRegion <- c()
-for (row in 1:nrow(NLRgenebody)) {
-  downstreamRegion <- append(downstreamRegion, paste(NLRgenebody[row,"end"],"-",NLRgenebody[row,"end"]+200, sep = ""))
+for (row in 1:nrow(dataToUse)) {
+  downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"end"],"-",dataToUse[row,"end"]+200, sep = ""))
 }
 
-NLRdownstream <- NLRgenebody[-c(4:6,10)]
+downstream <- dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                      colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))]
 
-NLRdownstream$ranges <- downstreamRegion
+downstream$ranges <- downstreamRegion
 rm(downstreamRegion)
 
-NLRdownstream$start <- str_match(NLRdownstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,2]
-NLRdownstream$end <- str_match(NLRdownstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,4]
+downstream$start <- str_match(downstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,2]
+downstream$end <- str_match(downstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,4]
 
 downstreamBed <- GRanges(
-  seqnames=Rle(NLRdownstream$seqnames),
-  ranges=IRanges(NLRdownstream$ranges),
-  name=NLRdownstream$tx_name)
+  seqnames=Rle(downstream$seqnames),
+  ranges=IRanges(downstream$ranges),
+  name=downstream$Gene)
 
-rtracklayer::export.bed(downstreamBed, "NLRdownstream.bed")
+rtracklayer::export.bed(downstreamBed, "downstream.bed")
 
 
 # From the openChromatin dataset, extract the rows corresponding to NLR promotors.
@@ -209,11 +225,17 @@ openPromotersBed <- GRanges(
 rtracklayer::export.bed(openPromotersBed, "~/openPromoters.bed")
 
 
-# Get the coordinates for the promotors of each NLR.
+# Get the coordinates for the promotors of each gene: NLRgenes or controlGenes
+dataToUse <- controlGenes
+
 ATpromotors500 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=0, use.names = TRUE)
 ATpromotors1000 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=1000, downstream=0, use.names = TRUE)
 
-NLRpromotor500 <- data.frame(seqnames = numeric(),
+# Remove duplicate genes (different versions).
+ATpromotors500 <- ATpromotors500[-c(which(ATpromotors500$tx_name == str_match(ATpromotors500$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+ATpromotors1000 <- ATpromotors1000[-c(which(ATpromotors1000$tx_name == str_match(ATpromotors1000$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+
+promotor500 <- data.frame(seqnames = numeric(),
                           start = numeric(),
                           end = numeric(),
                           width = numeric(),
@@ -221,46 +243,43 @@ NLRpromotor500 <- data.frame(seqnames = numeric(),
                           tx_id = numeric(),
                           tx_name = character())
 
-NLRpromotor1000 <- NLRpromotor500
+promotor1000 <- promotor500
 
-for (gene in NLRgenes$Gene) {
-  NLRpromotor500 <- rbind(NLRpromotor500, as.data.frame(ATpromotors500[grepl(gene,ATpromotors500$tx_name),]))
-  NLRpromotor1000 <- rbind(NLRpromotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
+for (gene in dataToUse$Gene) {
+  promotor500 <- rbind(promotor500, as.data.frame(ATpromotors500[grepl(gene,ATpromotors500$tx_name),]))
+  promotor1000 <- rbind(promotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
 }
 
 # Create a ranges column by merging the start and end columns.
-NLRpromotor500$ranges <- paste(NLRpromotor500$start,"-",NLRpromotor500$end, sep = "")
-NLRpromotor1000$ranges <- paste(NLRpromotor1000$start,"-",NLRpromotor1000$end, sep = "")
+promotor500$ranges <- paste(promotor500$start,"-",promotor500$end, sep = "")
+promotor1000$ranges <- paste(promotor1000$start,"-",promotor1000$end, sep = "")
 
-# Remove duplicate genes.
-NLRpromotor500 <- NLRpromotor500[-c(which(NLRpromotor500$tx_name == str_match(NLRpromotor500$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
-NLRpromotor1000 <- NLRpromotor1000[-c(which(NLRpromotor1000$tx_name == str_match(NLRpromotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
 # Add a new column for the gene name, removing ".1" from the end.
-NLRpromotor500$group_name <- str_match(NLRpromotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
+promotor500$group_name <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
 
 promotor500Bed <- GRanges(
-  seqnames=Rle(NLRpromotor500$seqnames),
-  ranges=IRanges(NLRpromotor500$ranges),
-  name=NLRpromotor500$tx_name)
+  seqnames=Rle(promotor500$seqnames),
+  ranges=IRanges(promotor500$ranges),
+  name=promotor500$tx_name)
 
-rtracklayer::export.bed(promotor500Bed, "NLRpromotor500.bed")
+rtracklayer::export.bed(promotor500Bed, "promotor500.bed")
 
-NLRpromotor1000$group_name <- str_match(NLRpromotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
+promotor1000$group_name <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
 
 promotor1000Bed <- GRanges(
-  seqnames=Rle(NLRpromotor1000$seqnames),
-  ranges=IRanges(NLRpromotor1000$ranges),
-  name=NLRpromotor1000$tx_name)
+  seqnames=Rle(promotor1000$seqnames),
+  ranges=IRanges(promotor1000$ranges),
+  name=promotor1000$tx_name)
 
-rtracklayer::export.bed(promotor1000Bed, "NLRpromotor1000.bed")
+rtracklayer::export.bed(promotor1000Bed, "promotor1000.bed")
 
 rm(ATpromotors500, ATpromotors1000)
 
-# Get the coordinates for the upstream intergenic regions of each NLR.
+# Get the coordinates for the upstream intergenic regions of each gene.
 usCoordinates <- c()
 
-for (gene in NLRgenes$Gene) {
+for (gene in dataToUse$Gene) {
   currentGene <- which(Atgenes$group_name==gene)
 
   if (Atgenes[currentGene, "strand"]=="+") {
@@ -310,15 +329,15 @@ for (gene in NLRgenes$Gene) {
   } 
 }
 
-upstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% NLRgenes$Gene),]
+upstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% dataToUse$Gene),]
 upstreamIntergenic$ranges <- usCoordinates 
 
 upstreamIntergenicBed <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$ranges))),]
 
 upstreamIntergenicBed <- GRanges(
-  seqnames=Rle(as.numeric(upstreamIntergenic$seqnames)),
-  ranges=IRanges(upstreamIntergenic$ranges),
-  name=upstreamIntergenic$group_name)
+  seqnames=Rle(as.numeric(upstreamIntergenicBed$seqnames)),
+  ranges=IRanges(upstreamIntergenicBed$ranges),
+  name=upstreamIntergenicBed$group_name)
 
 rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
 
@@ -326,7 +345,7 @@ rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
 # Get the coordinates for the downstream intergenic regions of each NLR.
 dsCoordinates <- c()
 
-for (gene in NLRgenes$Gene) {
+for (gene in dataToUse$Gene) {
   currentGene <- which(Atgenes$group_name==gene)
   
   if (Atgenes[currentGene, "strand"]=="-") {
@@ -376,15 +395,15 @@ for (gene in NLRgenes$Gene) {
   } 
 }
 
-downstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% NLRgenes$Gene),]
+downstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% dataToUse$Gene),]
 downstreamIntergenic$ranges <- dsCoordinates 
 
 downstreamIntergenicBed <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
 
 downstreamIntergenicBed <- GRanges(
-  seqnames=Rle(as.numeric(downstreamIntergenic$seqnames)),
-  ranges=IRanges(downstreamIntergenic$ranges),
-  name=downstreamIntergenic$group_name)
+  seqnames=Rle(as.numeric(downstreamIntergenicBed$seqnames)),
+  ranges=IRanges(downstreamIntergenicBed$ranges),
+  name=downstreamIntergenicBed$group_name)
 
 rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
 
@@ -422,27 +441,66 @@ for(n in names(gene_hash)) {
     gene_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(gene_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
     
     # Filter epiMod column, excluding unwanted modifications
-    gene_hash[[n]] <- gene_hash[[n]][!gene_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H4K16ac", "H2A-X",
-                                                                "H2AV", "HTA6", "H3-1", "H4K12ac", "H4K8ac", "H3K5ac", "H4K5ac") & 
+    gene_hash[[n]] <- gene_hash[[n]][!gene_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H2A-X",
+                                                                "H2AV", "HTA6", "H3-1") & 
                                      !gene_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
     
     gene_hash[[n]] <- gene_hash[[n]][,-6]
     
+    
     # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
-    gene_hash[[n]] <- gene_hash[[n]][!grepl("mutant",gene_hash[[n]]$info) & !grepl("mature",gene_hash[[n]]$info) & !grepl("senescent",gene_hash[[n]]$info) & 
-                                     !grepl("inflorescence",gene_hash[[n]]$info) & !grepl("drought",gene_hash[[n]]$info) & !grepl("old",gene_hash[[n]]$info) & 
-                                     !grepl("min",gene_hash[[n]]$info) & !grepl("endosperm",gene_hash[[n]]$info) & !grepl("-se-",gene_hash[[n]]$info) &
-                                     !grepl("-TSA-",gene_hash[[n]]$info) & !grepl("-GSNO-",gene_hash[[n]]$info) & !grepl("flg22",gene_hash[[n]]$info) &
-                                     !grepl("transgenic",gene_hash[[n]]$info) & !grepl("GSH",gene_hash[[n]]$info) &
-                                     !grepl("-acc1",gene_hash[[n]]$info) & !grepl("-ethylene",gene_hash[[n]]$info) & !grepl("-C2H4",gene_hash[[n]]$info) &
-                                     !grepl("leaves_3w-K36M-homoz",gene_hash[[n]]$info) & !grepl("undef_seedling_10d-h3-1kd-1",gene_hash[[n]]$info) &
-                                     !grepl("-air",gene_hash[[n]]$info) & !grepl("-ehylene",gene_hash[[n]]$info) & !grepl("-swap",gene_hash[[n]]$info) &
-                                     !grepl("-K36M",gene_hash[[n]]$info) & !grepl("-H3-KD",gene_hash[[n]]$info) & !grepl("-water",gene_hash[[n]]$info) &
-                                     !grepl("undef_seedling_10d-h3-1kd-2",gene_hash[[n]]$info) & !grepl("seedling_3d-wt-ehylene",gene_hash[[n]]$info) &
-                                     !grepl("GSE67322",gene_hash[[n]]$exp.) & !grepl("GSE42695",gene_hash[[n]]$exp.) & !grepl("GSE75071",gene_hash[[n]]$exp.) &
-                                     !grepl("GSE62615",gene_hash[[n]]$exp.) & !grepl("GSE103361",gene_hash[[n]]$exp.) & !grepl("GSE50636",gene_hash[[n]]$exp.) &
-                                     !grepl("GSE93223",gene_hash[[n]]$exp.) & !grepl("GSE37644",gene_hash[[n]]$exp.) & !grepl("GSE108414",gene_hash[[n]]$exp.) &
-                                     !grepl("GSE22276",gene_hash[[n]]$exp.) & !grepl("GSE89768",gene_hash[[n]]$exp.) & !grepl("GSE117391",gene_hash[[n]]$exp.),] 
+    gene_hash[[n]] <-
+      gene_hash[[n]][!grepl("mutant", gene_hash[[n]]$info) &
+                       !grepl("mature", gene_hash[[n]]$info) &
+                       !grepl("senescent", gene_hash[[n]]$info) &
+                       !grepl("inflorescence", gene_hash[[n]]$info) &
+                       !grepl("drought", gene_hash[[n]]$info) &
+                       !grepl("old", gene_hash[[n]]$info) &
+                       !grepl("min", gene_hash[[n]]$info) &
+                       !grepl("endosperm", gene_hash[[n]]$info) &
+                       !grepl("-se-", gene_hash[[n]]$info) &
+                       !grepl("-TSA-", gene_hash[[n]]$info) &
+                       !grepl("-GSNO-", gene_hash[[n]]$info) &
+                       !grepl("flg22", gene_hash[[n]]$info) &
+                       !grepl("transgenic", gene_hash[[n]]$info) &
+                       !grepl("GSH", gene_hash[[n]]$info) &
+                       !grepl("-acc1", gene_hash[[n]]$info) &
+                       !grepl("-ethylene", gene_hash[[n]]$info) &
+                       !grepl("-C2H4", gene_hash[[n]]$info) &
+                       !grepl("leaves_3w-K36M-homoz", gene_hash[[n]]$info) &
+                       !grepl("undef_seedling_10d-h3-1kd-1", gene_hash[[n]]$info) &
+                       !grepl("-air", gene_hash[[n]]$info) &
+                       !grepl("-ehylene", gene_hash[[n]]$info) &
+                       !grepl("-swap", gene_hash[[n]]$info) &
+                       !grepl("-K36M", gene_hash[[n]]$info) &
+                       !grepl("-H3-KD", gene_hash[[n]]$info) &
+                       !grepl("-water", gene_hash[[n]]$info) &
+                       !grepl("undef_seedling_10d-h3-1kd-2", gene_hash[[n]]$info) &
+                       !grepl("seedling_3d-wt-ehylene", gene_hash[[n]]$info) &
+                       !grepl("GSE67322", gene_hash[[n]]$exp.) &
+                       !grepl("GSE42695", gene_hash[[n]]$exp.) &
+                       !grepl("GSE75071", gene_hash[[n]]$exp.) &
+                       !grepl("GSE62615", gene_hash[[n]]$exp.) &
+                       !grepl("GSE103361", gene_hash[[n]]$exp.) &
+                       !grepl("GSE50636", gene_hash[[n]]$exp.) &
+                       !grepl("GSE93223", gene_hash[[n]]$exp.) &
+                       !grepl("GSE37644", gene_hash[[n]]$exp.) &
+                       !grepl("GSE108414", gene_hash[[n]]$exp.) &
+                       !grepl("GSE22276", gene_hash[[n]]$exp.) &
+                       !grepl("GSE89768", gene_hash[[n]]$exp.) &
+                       !grepl("GSE117391", gene_hash[[n]]$exp.) &
+                       !grepl("brm", gene_hash[[n]]$info) &
+                       !grepl("lhp1", gene_hash[[n]]$info) &
+                       !grepl("atbmi", gene_hash[[n]]$info) &
+                       !grepl("swn", gene_hash[[n]]$info) &
+                       !grepl("ref6", gene_hash[[n]]$info) &
+                       !grepl("arp6", gene_hash[[n]]$info) &
+                       !grepl("clf", gene_hash[[n]]$info) &
+                       !grepl("caa39", gene_hash[[n]]$info) &
+                       !grepl("sdg8", gene_hash[[n]]$info) &
+                       !grepl("atxr", gene_hash[[n]]$info) &
+                       !grepl("hag1", gene_hash[[n]]$info) &
+                       !grepl("OTU5", gene_hash[[n]]$info), ]
     
     # Filter info column, checking written plant ages and removing BAD AGES
     
@@ -506,52 +564,21 @@ for(n in names(gene_hash)) {
 # Delete gene_hash.
 rm(gene_hash)
 
-# Create hashes for WT and mutant root data.
-mutantRootNLRs <- hash()
-WTRootNLRs <- hash()
-
-for (n in names(RootNLRs)) {
-  WTRootNLRs[[n]] <- RootNLRs[[n]][!grepl("-hag1",RootNLRs[[n]]$info) & !grepl("-OTU5",RootNLRs[[n]]$info),]
-  mutantRootNLRs[[n]] <- RootNLRs[[n]][grepl("-hag1",RootNLRs[[n]]$info) & grepl("-OTU5",RootNLRs[[n]]$info),]
-}
-
-rm(RootNLRs)
-
-# Create hashes for WT and mutant leaf data.
-mutantLeafNLRs <- hash()
-WTLeafNLRs <- hash()
-
-allConditions <- c()
-for (n in names(LeafNLRs)) {
-  allConditions <- append(allConditions, unique(LeafNLRs[[n]]$info))
-}
-
-allConditions <- unique(allConditions)
-WTConditions <- allConditions[c(1,2,3,5,6,7,9,12,13,14,15,17,19,20)]
-mutantConditions <- allConditions[-c(1,2,3,5,6,7,9,12,13,14,15,17,19,20)]
-rm(allConditions)
-
-for (n in names(LeafNLRs)) {
-  WTLeafNLRs[[n]] <- LeafNLRs[[n]][LeafNLRs[[n]]$info %in% c(WTConditions),]
-  mutantLeafNLRs[[n]] <- LeafNLRs[[n]][LeafNLRs[[n]]$info %in% c(mutantConditions),]
-}
-
-rm(LeafNLRs, WTConditions, mutantConditions)
 
 # Create hashes for leaf data in Col and Ler ecotypes.
-ColWTLeafNLRs <- hash()
-LerWTLeafNLRs <- hash()
+ColLeafNLRs <- hash()
+LerLeafNLRs <- hash()
 
-for (n in names(WTLeafNLRs)) {
-  ColWTLeafNLRs[[n]] <- WTLeafNLRs[[n]][grepl("Col-0",WTLeafNLRs[[n]]$ecotype),]
-  LerWTLeafNLRs[[n]] <- WTLeafNLRs[[n]][grepl("Ler",WTLeafNLRs[[n]]$ecotype),]
+for (n in names(LeafNLRs)) {
+  ColLeafNLRs[[n]] <- LeafNLRs[[n]][grepl("Col-0",LeafNLRs[[n]]$ecotype),]
+  LerLeafNLRs[[n]] <- LeafNLRs[[n]][grepl("Ler",LeafNLRs[[n]]$ecotype),]
 }
 
-rm(WTLeafNLRs)
+rm(LeafNLRs)
 
 
-# Select tissue type for analysis.
-dataToUse <- WTRootNLRs
+# Select tissue type for analysis: ColLeafNLRs, LerLeafNLRs or RootNLRs.
+dataToUse <- ColLeafNLRs
 
 # Create list of chromatin modifications.
 epiMods <- c()
@@ -747,9 +774,9 @@ rtracklayer::export.bed(modBed, "~/allNLRs.bed")
 
 # Create a hash with the data on the coordinates of each gene region.
 # First rename the columns in each dataset so they can be indexed the same way.
-colnames(NLRpromotor500)[9] ="Gene"
-colnames(NLRpromotor1000)[9] ="Gene"
-colnames(NLRdownstream)[2] ="Gene"
+colnames(promotor500)[9] ="Gene"
+colnames(promotor1000)[9] ="Gene"
+colnames(downstream)[2] ="Gene"
 colnames(upstreamIntergenic)[2] ="Gene"
 colnames(downstreamIntergenic)[2] ="Gene"
 
@@ -758,16 +785,16 @@ for (n in names(geneChunks)) {
 }
 
 
-regions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = NLRpromotor1000, Promotor500 = NLRpromotor500,
+regions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = promotor1000, Promotor500 = promotor500,
                 Gene20 = geneChunks[["width20"]],  Gene40 = geneChunks[["width40"]], Gene60 = geneChunks[["width60"]], 
-                Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]],Downstream = NLRdownstream,
+                Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]],Downstream = downstream,
                 DownstreamIntergenic = downstreamIntergenic)
 
 # Create a dictionary containing the frequency of each chromatin modification occurring in each region of each NLR.
 modsPerRegion <- hash()
 
 for (r in names(regions)) {
-  # Create a hash containing a list of chromatin modifications overlapping with the NLR region.
+  # Create a hash containing a list of chromatin modifications overlapping with the gene region.
   GBmod <- hash()
   
   for (n in names(ColWTdata)) {
