@@ -16,55 +16,36 @@ Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="
 # Remove duplicate genes (different versions).
 Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
-# Import ATAC-seq data (no treatment files). 
-# This will be used to select eurchromatic genes and determine the average size of promoter regions.
-sheets <- c(3,15,18)
+pericentromericRegions <- data.frame(Chromosome = c(1:5),
+                                     Start = c("11500000", "1100000", "10300000", "1500000", "9000000"),
+                                     End = c("17700000", "7200000", "17300000", "6300000", "16000000"))
 
-openChromatin <- hash()
-for (s in sheets) {
-  openChromatin[[paste("ACR", s, sep = "")]] <-  as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\PhD reading\\Data\\ACRs paper.xlsx", sheet = s))
+euchromaticRegions <- data.frame()
+
+for (row in 1:nrow(pericentromericRegions)) {
+  df <- Atgenes[c(which(Atgenes$seqnames==row & Atgenes$start < as.numeric(pericentromericRegions[row, "Start"]))),]
+  df <- rbind(df, Atgenes[c(which(Atgenes$seqnames==row & Atgenes$end < as.numeric(pericentromericRegions[row, "End"]))),])
+  
+  euchromaticRegions <- rbind(euchromaticRegions, df)
 }
 
-rm(sheets, s)
+euchromaticRegions <- euchromaticRegions[,-c(1,8,9)]
+colnames(euchromaticRegions)[1] <- "Gene"
+euchromaticRegions$ranges <- paste(euchromaticRegions$start,"-",euchromaticRegions$end, sep = "")
 
-# From the openChromatin dataset, extract the rows corresponding to ATgene promotors.
-openGenes <- openChromatin
-for (s in names(openGenes)) {
-  openGenes[[s]] <- openGenes[[s]][which(openGenes[[s]]$geneId %in% Atgenes$group_name &
-                                                   grepl("Promoter", openGenes[[s]]$annotation)==TRUE),]
-}
-
-# Merge the data in to one big dataframe.
-openGenesBed <- data.frame()
-
-for (s in names(openGenes)) {
-  openGenesBed <- rbind(openGenesBed, openGenes[[s]])
-}
-
-# Remove TEs from the openGenesBed dataframe.
+# Remove TEs from the euchromaticRegions dataframe.
 transposableElements <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis TE genes.xlsx"))
 
-openGenesBed <- openGenesBed[-c(which(openGenesBed$geneId %in% transposableElements$Locus)),]
-openGenesBed$seqnames <- as.numeric(str_match(openGenesBed$seqnames, "^([a-zA-Z]+)([0-9]+)$")[,3])
-openGenesBed <- openGenesBed[,-c(2:7,11,13:14)]
-
-colnames(openGenesBed) <- c("seqnames", "start", "end", "width", "Gene")
-openGenesBed$ranges <- paste(openGenesBed$start,"-",openGenesBed$end, sep = "")
-
-# Remove duplicate genes.
-newOpenGenesBed <- openGenesBed
-openGenesBed <- data.frame()
-
-for (gene in unique(newOpenGenesBed$Gene)) {
-  openGenesBed <- rbind(openGenesBed, newOpenGenesBed[newOpenGenesBed$Gene==gene,][1,])
-}
+withoutTEs <- euchromaticRegions[-c(which(euchromaticRegions$group_name %in% transposableElements$Locus)),]
 
 
-# Get 10 sets of random genes and store in a hash.
+# Get 10 sets of random genes and store in a hash, using either euchromaticRegions or withoutTEs.
+dataToUse <- euchromaticRegions
+  
 testData <- hash()
 
 for (n in c(1:10)) {
-  testData[[paste("control", n, sep = "")]] <- openGenesBed[c(sample(nrow(openGenesBed), 200)),]
+  testData[[paste("control", n, sep = "")]] <- dataToUse[c(sample(nrow(dataToUse), 200)),]
 }
 
 
@@ -91,7 +72,7 @@ colnames(NLRgenebody)[2] <- "Gene"
 genebodyBed <- GRanges(
   seqnames=Rle(NLRgenebody$seqnames),
   ranges=IRanges(NLRgenebody$ranges),
-  name=NLRgenebody$tx_name)
+  name=NLRgenebody$Gene)
 
 #rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
 
@@ -863,22 +844,31 @@ for (test in names(testData)) {
   allResults <- rbind(allResults, df)
 }
 
+rm(modFrequenciesDF)
 
 # Plot the percentage of NLRs with each chromatin modification within the gene body.
 axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "20%", "40%", "60%", "80%", "100%", 
               "Downstream \n(200bp)", "Intergenic")
 
-modFrequenciesPlot <- ggplot(modFrequenciesDF, aes(x = axisGroup, y = Frequency)) + 
-  scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-  geom_line(aes(group = Modification, color = Modification),size = 1.3) +
-  geom_point(aes(group = Modification, color = Modification), size = 2) + theme_minimal() + 
-  labs(x = "", y = "Frequency of occurrence (%)") +
-  geom_vline(xintercept=0, color="grey", size=1) +
-  coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-  annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-14,ymax=-14) + 
-  annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
-  theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-        axis.title.y = element_text(size = 14, vjust = 2))
+for (mod in epiMods) {
+  df <- allResults[allResults$Modification==mod,]
 
-modFrequenciesPlot
+  modFrequenciesPlot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
+    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+    geom_line(aes(group = Test),size = 1.3) +
+    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
+    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black")) +
+    labs(x = "", y = "Frequency of occurrence (%)") +
+    geom_vline(xintercept=0, color="grey", size=1) +
+    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-14,ymax=-14) + 
+    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
+    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
+          axis.title.y = element_text(size = 14, vjust = 2)) 
+  
+  ggsave(paste(mod, ".plot.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
+}
+
+
+
