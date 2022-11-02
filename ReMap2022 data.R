@@ -10,6 +10,17 @@ library(ggplot2)
 library(data.table)
 library(grid)
 
+# Import ReMap2022 data.
+ReMap <- rtracklayer::import.bed("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
+
+# Convert to a dataframe and define column names.
+ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",
+                                           "strand", "name", "score", "itemRgb",
+                                           "thick.start", "thick.end", "thick.width"))
+
+# Remove unwanted columns.
+ReMap <- ReMap[,-c(9:11)]
+
 # Import all Arabidopsis genes.
 Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
 
@@ -29,18 +40,31 @@ for (row in 1:nrow(pericentromericRegions)) {
   euchromaticRegions <- rbind(euchromaticRegions, df)
 }
 
+rm(pericentromericRegions)
+
 euchromaticRegions <- euchromaticRegions[,-c(1,8,9)]
 colnames(euchromaticRegions)[1] <- "Gene"
 euchromaticRegions$ranges <- paste(euchromaticRegions$start,"-",euchromaticRegions$end, sep = "")
 
+# Remove duplicate genes.
+newEuchromaticRegions <- euchromaticRegions
+euchromaticRegions <- data.frame()
+
+for (gene in unique(newEuchromaticRegions$Gene)) {
+  euchromaticRegions <- rbind(euchromaticRegions, newEuchromaticRegions[newEuchromaticRegions$Gene==gene,][1,])
+}
+
+rm(newEuchromaticRegions)
+
 # Remove TEs from the euchromaticRegions dataframe.
 transposableElements <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis TE genes.xlsx"))
 
-withoutTEs <- euchromaticRegions[-c(which(euchromaticRegions$group_name %in% transposableElements$Locus)),]
+withoutTEs <- euchromaticRegions[-c(which(euchromaticRegions$Gene %in% transposableElements$Locus)),]
 
+rm(transposableElements)
 
 # Get 10 sets of random genes and store in a hash, using either euchromaticRegions or withoutTEs.
-dataToUse <- euchromaticRegions
+dataToUse <- withoutTEs
   
 testData <- hash()
 
@@ -52,18 +76,7 @@ for (n in c(1:10)) {
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
 
-NLRgenebody <- data.frame(seqnames = numeric(),
-                          start = numeric(),
-                          end = numeric(),
-                          width = numeric(),
-                          strand = factor(),
-                          tx_id = numeric(),
-                          tx_name = character())
-
-for (gene in NLRgenes$Gene) {
-  NLRgenebody <- rbind(NLRgenebody, as.data.frame(Atgenes[grepl(gene, Atgenes$tx_name),]))
-}
-
+NLRgenebody <- Atgenes[which(Atgenes$group_name %in% NLRgenes$Gene),]
 
 # Create a ranges column by merging the start and end columns.
 NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
@@ -105,12 +118,21 @@ for (test in names(testData)) {
                     width100 = c())
   
   for (row in 1:nrow(dataToUse)) {
-    geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"start"],"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.2, sep = ""))
-    geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.2+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.4, sep = ""))
-    geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.4+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.6, sep = ""))
-    geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.6+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.8, sep = ""))
-    geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.8+1,"-",dataToUse[row,"end"], sep = ""))
-  }
+    if (dataToUse[row, "strand"]=="+") {
+      geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"start"],"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.2, sep = ""))
+      geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.2+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.4, sep = ""))
+      geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.4+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.6, sep = ""))
+      geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.6+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.8, sep = ""))
+      geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.8+1,"-",dataToUse[row,"end"], sep = ""))
+    }
+    else if (dataToUse[row, "strand"]=="-"){
+      geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.2,"-", dataToUse[row,"end"], sep = ""))
+      geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.4,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.2-1, sep = ""))
+      geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.6,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.4-1, sep = ""))
+      geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.8,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.6-1, sep = ""))
+      geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"],"-",dataToUse[row,"end"] - dataToUse[row,"width"]*0.8-1, sep = ""))
+    }
+    }
   
   for (n in names(geneChunks)) {
     geneChunks[[n]]$ranges <- geneWidth[[n]]
@@ -143,7 +165,12 @@ for (test in names(testData)) {
   
   downstreamRegion <- c()
   for (row in 1:nrow(dataToUse)) {
-    downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"end"],"-",dataToUse[row,"end"]+200, sep = ""))
+    if (dataToUse[row, "strand"]=="+") {
+      downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"end"],"-",dataToUse[row,"end"]+200, sep = ""))
+    }
+    else if (dataToUse[row, "strand"]=="-") {
+      downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"start"]-200,"-", dataToUse[row,"start"], sep = ""))
+    }
   }
   
   downstream <- dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
@@ -185,6 +212,16 @@ for (test in names(testData)) {
     promotor1000 <- rbind(promotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
   }
   
+  # Alter coordinated of promotor1000 to be only 500bp upstream of promototr500.
+  for (row in 1:nrow(promotor1000)) {
+    if (promotor1000[row, "strand"]=="+") {
+      promotor1000[row, "end"] <- promotor1000[row, "start"]+500
+    }
+    else if (promotor1000[row, "strand"]=="-") {
+      promotor1000[row, "start"] <- promotor1000[row, "end"]-500
+    }
+  }
+  
   # Create a ranges column by merging the start and end columns.
   promotor500$ranges <- paste(promotor500$start,"-",promotor500$end, sep = "")
   promotor1000$ranges <- paste(promotor1000$start,"-",promotor1000$end, sep = "")
@@ -220,7 +257,7 @@ for (test in names(testData)) {
     if (Atgenes[currentGene, "strand"]=="+") {
       previousGene <- currentGene - 1
       
-      if (previousGene > 0 & Atgenes[currentGene, "seqnames"]==Atgenes[previousGene, "seqnames"]) {
+      if (previousGene > 0 & as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[previousGene, "seqnames"])) {
         if (previousGene > 0 & Atgenes[previousGene, "strand"]=="+") {
           distance <- (Atgenes[currentGene, "start"] - 1001) - (Atgenes[previousGene, "end"] + 201)
           
@@ -246,7 +283,7 @@ for (test in names(testData)) {
     else if (Atgenes[currentGene, "strand"]=="-") {
       previousGene <- currentGene + 1
       
-      if (previousGene > 0 & Atgenes[currentGene, "seqnames"]==Atgenes[previousGene, "seqnames"]) {
+      if (previousGene > 0 & as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[previousGene, "seqnames"])) {
         if (previousGene > 0 & Atgenes[previousGene, "strand"]=="+") {
           distance <- (Atgenes[previousGene, "start"] - 1001) - (Atgenes[currentGene, "end"] + 1001)
           
@@ -292,7 +329,7 @@ for (test in names(testData)) {
     if (Atgenes[currentGene, "strand"]=="-") {
       nextGene <- currentGene - 1
       
-      if (Atgenes[currentGene, "seqnames"]==Atgenes[nextGene, "seqnames"]) {
+      if (as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[nextGene, "seqnames"])) {
         if (Atgenes[nextGene, "strand"]=="-") {
           distance <- (Atgenes[currentGene, "start"] - 201) - (Atgenes[nextGene, "end"] + 1001)
           
@@ -318,7 +355,7 @@ for (test in names(testData)) {
     else if (Atgenes[currentGene, "strand"]=="+") {
       nextGene <- currentGene + 1
       
-      if (Atgenes[currentGene, "seqnames"]==Atgenes[nextGene, "seqnames"]) {
+      if (as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[nextGene, "seqnames"])) {
         if (Atgenes[nextGene, "strand"]=="+") {
           distance <- (Atgenes[nextGene, "start"] - 1001) - (Atgenes[currentGene, "end"] + 201)
           
@@ -355,17 +392,6 @@ for (test in names(testData)) {
   #rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
   
   
-  # Import ReMap2022 data.
-  ReMap <- rtracklayer::import.bed("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
-  
-  # Convert to a dataframe and define column names.
-  ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",
-                                             "strand", "name", "score", "itemRgb",
-                                             "thick.start", "thick.end", "thick.width"))
-  
-  # Remove unwanted columns.
-  ReMap <- ReMap[,-c(9:11)]
-  
   # Create a hash to store ReMap data for each NLR/cluster.
   colnames(NLRgenebody)[2] <- "Gene"
   gene_hash <- hash()
@@ -377,7 +403,7 @@ for (test in names(testData)) {
     gene_hash[[dataToUse[row,"Gene"]]] <- ReMap[ReMapRows,]
   }
   
-  rm(ReMap, ReMapRows, dataToUse)
+  rm(ReMapRows, dataToUse)
   
   for(n in names(gene_hash)) {
     if (nrow(gene_hash[[n]])>=1) {
@@ -833,6 +859,7 @@ for (test in names(testData)) {
   testData[[test]] <- modFrequenciesDF
 }
   
+rm(ReMap)
 
 # Merge all data into one big dataframe.
 allResults <- data.frame()
@@ -858,7 +885,7 @@ for (mod in epiMods) {
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
     geom_line(aes(group = Test),size = 1.3) +
     geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black")) +
+    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
     labs(x = "", y = "Frequency of occurrence (%)") +
     geom_vline(xintercept=0, color="grey", size=1) +
     coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
@@ -867,8 +894,6 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2)) 
   
-  ggsave(paste(mod, ".plot.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
+  ggsave(paste(mod, ".plotLeaves.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
 }
-
-
-
+  
