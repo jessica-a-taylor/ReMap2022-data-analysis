@@ -63,6 +63,44 @@ withoutTEs <- euchromaticRegions[-c(which(euchromaticRegions$Gene %in% transposa
 
 rm(transposableElements)
 
+
+# Create function that determines whether value a is between values b and c.
+betweenFunction <- function(a,b,c) {
+  return(b<a & a<c)
+}
+
+# Create a function that determines whether two ranges overlap using the between function.
+overlapsFunction <- function(S1, E1, S2, E2) {
+  if (betweenFunction(S1, S2, E2)) {
+    return (TRUE)
+  }
+  if (betweenFunction(E1, S2, E2)) {
+    return (TRUE)
+  }
+  if (betweenFunction(S2, S1, E1)) {
+    return (TRUE)
+  }
+  if (betweenFunction(E2, S1, E1)) {
+    return (TRUE)
+  }
+  return(FALSE)
+}
+
+# Function to return the index of the set containing "item" in "overlapSets"
+findItem <- function(item, overlapSets) {
+  
+  # For each set in overlapSets
+  for (setIndex in 1:length(overlapSets)) {
+    
+    # If item is contained within that set, return the index of that set
+    if (item %in% overlapSets[[setIndex]]) {
+      return(setIndex)
+    }
+  }
+}
+
+
+
 # Get 10 sets of random genes and store in a hash, using either euchromaticRegions or withoutTEs.
 dataToUse <- withoutTEs
   
@@ -394,11 +432,11 @@ for (test in names(testData)) {
   
   # Create a hash to store ReMap data for each NLR/cluster.
   colnames(NLRgenebody)[2] <- "Gene"
+  
   gene_hash <- hash()
   
-  
   for (row in 1:nrow(dataToUse)) {
-    # Select rows that are within the range of each NLR/cluster and on the same chromosome.
+    # Select rows that are within the range of each gene and on the same chromosome.
     ReMapRows <- c(which(ReMap[,"start"] > dataToUse[row, "start"]-5000 & ReMap[,"end"] < dataToUse[row, "end"]+5000 & ReMap[,"seqnames"] == as.numeric(dataToUse[row, "seqnames"])))
     gene_hash[[dataToUse[row,"Gene"]]] <- ReMap[ReMapRows,]
   }
@@ -571,6 +609,11 @@ for (test in names(testData)) {
     ColWTdata[[n]] <- modHash
   }
   
+  if (test = "NLRs") {
+    forIGV <- ColWTdata
+  }
+  else next
+  
   rm(dataToUse, modHash)
   
   # Merge start and end coordinates columns to create a ranges column.
@@ -583,163 +626,6 @@ for (test in names(testData)) {
     }
   }
   
-  
-  # Create function that determines whether value a is between values b and c.
-  betweenFunction <- function(a,b,c) {
-    return(b<a & a<c)
-  }
-  
-  # Create a function that determines whether two ranges overlap using the between function.
-  overlapsFunction <- function(S1, E1, S2, E2) {
-    if (betweenFunction(S1, S2, E2)) {
-      return (TRUE)
-    }
-    if (betweenFunction(E1, S2, E2)) {
-      return (TRUE)
-    }
-    if (betweenFunction(S2, S1, E1)) {
-      return (TRUE)
-    }
-    if (betweenFunction(E2, S1, E1)) {
-      return (TRUE)
-    }
-    return(FALSE)
-  }
-  
-  # Function to return the index of the set containing "item" in "overlapSets"
-  findItem <- function(item, overlapSets) {
-    
-    # For each set in overlapSets
-    for (setIndex in 1:length(overlapSets)) {
-      
-      # If item is contained within that set, return the index of that set
-      if (item %in% overlapSets[[setIndex]]) {
-        return(setIndex)
-      }
-    }
-  }
-  
-  
-  allOverlaps <- hash()
-  
-  # For each epigenetic modification name
-  for (n in names(ColWTdata)) {
-    modOverlaps <- hash()
-    
-    for (mod in epiMods) {
-      
-      # Generate overlapSets as a list of single-item sets
-      # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
-      overlapSets <- list()
-      if (nrow(ColWTdata[[n]][[mod]])>0) {
-        
-        for (r in 1:nrow(ColWTdata[[n]][[mod]])) {
-          overlapSets <- append(overlapSets, list(sets::set(as.numeric(r))))
-        }
-        #For each gene co-ordinate comparison [k, l]
-        for (k in 1:nrow(ColWTdata[[n]][[mod]])) {
-          for (l in 1:k) {
-            
-            # If the co-ordinate ranges overlap
-            if (overlapsFunction(ColWTdata[[n]][[mod]][k, "start"], ColWTdata[[n]][[mod]][k, "end"], 
-                                 ColWTdata[[n]][[mod]][l, "start"], ColWTdata[[n]][[mod]][l, "end"])==TRUE) {
-              
-              # Find the indexes of the sets containing each range
-              kIndex <- findItem(k, overlapSets)
-              lIndex <- findItem(l, overlapSets)
-              
-              # No need to merge if the co-ordinate ranges are already in the same sets
-              if (kIndex!=lIndex) {
-                
-                # If they are in different sets, merge the two sets, replacing the old ones
-                newSet <- set_union(overlapSets[[kIndex]], overlapSets[[lIndex]])
-                overlapSets <- overlapSets[-c(kIndex, lIndex)]
-                overlapSets <- append(overlapSets, list(newSet))
-              }
-            }
-          }
-        }
-      } 
-      else next
-      modOverlaps[[mod]] <- overlapSets
-    }
-    allOverlaps[[n]] <- modOverlaps
-  }
-  
-  rm(modOverlaps, overlapSets, kIndex, lIndex, newSet)
-  
-  
-  # Find the maximum range for the overlapping epigenetic modifications.
-  for (n in names(allOverlaps)) {
-    for (mod in epiMods) {
-      if (length(allOverlaps[[n]][[mod]])>0) {
-        
-        for (l in 1:length(allOverlaps[[n]][[mod]])) {
-          modStart <- c()
-          modEnd <- c() 
-          
-          for (o in allOverlaps[[n]][[mod]][l]) {
-            modStart <- append(modStart, ColWTdata[[n]][[mod]][as.numeric(o), "start"])
-            modEnd <- append(modEnd, ColWTdata[[n]][[mod]][as.numeric(o), "end"])
-            
-            allOverlaps[[n]][[mod]][l] <- paste(min(modStart), max(modEnd), sep = "-")
-          }
-        }
-      }
-    }
-  }
-  
-  rm(modStart, modEnd, o, l)
-  
-  
-  # Create dataframes with the information needed in the bed file.
-  for (n in names(ColWTdata)) {
-    for (mod in epiMods) {
-      df <- data.frame(seqname = numeric(),
-                       ranges = character(),
-                       strand = factor(),
-                       epiMod = character(),
-                       colour = character())
-      
-      if (length(allOverlaps[[n]][[mod]])>0) {
-        for (l in 1:length(allOverlaps[[n]][[mod]])) {
-          df <- rbind(df, data.frame(seqname = ColWTdata[[n]][[mod]][1,"seqnames"],
-                                     ranges = allOverlaps[[n]][[mod]][[l]],
-                                     strand = ColWTdata[[n]][[mod]][1,"strand"],
-                                     epiMod = mod,
-                                     colour = ColWTdata[[n]][[mod]][1,"itemRgb"]))
-        }
-      }
-      allOverlaps[[n]][[mod]] <- df
-    }
-  }
-  
-  rm(df, l)
-  
-  
-  # Combine the dataframes for each epigenetic modification into one dataframe.
-  modBed <- data.frame(seqname = numeric(),
-                       ranges = character(),
-                       strand = factor(),
-                       epiMod = character(),
-                       colour = character())
-  
-  for (n in names(allOverlaps)) {
-    for (mod in epiMods) {
-      modBed <- rbind(modBed, allOverlaps[[n]][[mod]])
-      
-    }
-  }
-  
-  # Create bed file.
-  modBed <- GRanges(
-    seqnames=Rle(modBed$seqname),
-    ranges=IRanges(modBed$ranges),
-    name=modBed$epiMod,
-    itemRgb=modBed$colour)
-  
-  # Export bed file.
-  #rtracklayer::export.bed(modBed, "~/allNLRs.bed")
   
   # Create a hash with the data on the coordinates of each gene region.
   # First rename the columns in each dataset so they can be indexed the same way.
@@ -897,3 +783,128 @@ for (mod in epiMods) {
   ggsave(paste(mod, ".plotLeaves.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
 }
   
+
+
+
+# Create a bed file with chromatin modifications in each NLR to view in IGV.
+
+allOverlaps <- hash()
+
+# For each epigenetic modification name
+for (n in names(forIGV)) {
+  modOverlaps <- hash()
+  
+  for (mod in epiMods) {
+    
+    # Generate overlapSets as a list of single-item sets
+    # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
+    overlapSets <- list()
+    if (nrow(forIGV[[n]][[mod]])>0) {
+      
+      for (r in 1:nrow(forIGV[[n]][[mod]])) {
+        overlapSets <- append(overlapSets, list(sets::set(as.numeric(r))))
+      }
+      #For each gene co-ordinate comparison [k, l]
+      for (k in 1:nrow(forIGV[[n]][[mod]])) {
+        for (l in 1:k) {
+          
+          # If the co-ordinate ranges overlap
+          if (overlapsFunction(forIGV[[n]][[mod]][k, "start"], forIGV[[n]][[mod]][k, "end"], 
+                               forIGV[[n]][[mod]][l, "start"], forIGV[[n]][[mod]][l, "end"])==TRUE) {
+            
+            # Find the indexes of the sets containing each range
+            kIndex <- findItem(k, overlapSets)
+            lIndex <- findItem(l, overlapSets)
+            
+            # No need to merge if the co-ordinate ranges are already in the same sets
+            if (kIndex!=lIndex) {
+              
+              # If they are in different sets, merge the two sets, replacing the old ones
+              newSet <- set_union(overlapSets[[kIndex]], overlapSets[[lIndex]])
+              overlapSets <- overlapSets[-c(kIndex, lIndex)]
+              overlapSets <- append(overlapSets, list(newSet))
+            }
+          }
+        }
+      }
+    } 
+    else next
+    modOverlaps[[mod]] <- overlapSets
+  }
+  allOverlaps[[n]] <- modOverlaps
+}
+
+rm(modOverlaps, overlapSets, kIndex, lIndex, newSet)
+
+
+# Find the maximum range for the overlapping epigenetic modifications.
+for (n in names(allOverlaps)) {
+  for (mod in epiMods) {
+    if (length(allOverlaps[[n]][[mod]])>0) {
+      
+      for (l in 1:length(allOverlaps[[n]][[mod]])) {
+        modStart <- c()
+        modEnd <- c() 
+        
+        for (o in allOverlaps[[n]][[mod]][l]) {
+          modStart <- append(modStart, forIGV[[n]][[mod]][as.numeric(o), "start"])
+          modEnd <- append(modEnd, forIGV[[n]][[mod]][as.numeric(o), "end"])
+          
+          allOverlaps[[n]][[mod]][l] <- paste(min(modStart), max(modEnd), sep = "-")
+        }
+      }
+    }
+  }
+}
+
+rm(modStart, modEnd, o, l)
+
+
+# Create dataframes with the information needed in the bed file.
+for (n in names(forIGV)) {
+  for (mod in epiMods) {
+    df <- data.frame(seqname = numeric(),
+                     ranges = character(),
+                     strand = factor(),
+                     epiMod = character(),
+                     colour = character())
+    
+    if (length(allOverlaps[[n]][[mod]])>0) {
+      for (l in 1:length(allOverlaps[[n]][[mod]])) {
+        df <- rbind(df, data.frame(seqname = forIGV[[n]][[mod]][1,"seqnames"],
+                                   ranges = allOverlaps[[n]][[mod]][[l]],
+                                   strand = forIGV[[n]][[mod]][1,"strand"],
+                                   epiMod = mod,
+                                   colour = forIGV[[n]][[mod]][1,"itemRgb"]))
+      }
+    }
+    allOverlaps[[n]][[mod]] <- df
+  }
+}
+
+rm(df, l)
+
+
+# Combine the dataframes for each epigenetic modification into one dataframe.
+modBed <- data.frame(seqname = numeric(),
+                     ranges = character(),
+                     strand = factor(),
+                     epiMod = character(),
+                     colour = character())
+
+for (n in names(allOverlaps)) {
+  for (mod in epiMods) {
+    modBed <- rbind(modBed, allOverlaps[[n]][[mod]])
+    
+  }
+}
+
+# Create bed file.
+modBed <- GRanges(
+  seqnames=Rle(modBed$seqname),
+  ranges=IRanges(modBed$ranges),
+  name=modBed$epiMod,
+  itemRgb=modBed$colour)
+
+# Export bed file.
+rtracklayer::export.bed(modBed, "~/allNLRs.bed")
