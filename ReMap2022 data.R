@@ -799,13 +799,21 @@ for (test in names(testData)) {
                   Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]], Downstream = downstream,
                   DownstreamIntergenic = downstreamIntergenic)
   
+  # Create a dictionary containing the frequency of each chromatin modification occurring in each region of each NLR.
+  modsPerRegion <- hash()
+  
   # Create a dataframe containing the frequency of each chromatin modification occurring in each region of each gene region.
   modOverlapsDF <- data.frame(Region = character(),
+                              Gene = character(),
                               Modification = character(),
                               Proportion = numeric())
   
   for (r in names(regions)) {
+    modList <- hash()
+    
     for (mod in epiMods) {
+      geneList <- c()
+      
       for (n in names(allOverlaps)) {
         modPresent <- FALSE
         degreeOfOverlap <- c()
@@ -814,31 +822,81 @@ for (test in names(testData)) {
           
           for (row in 1:nrow(allOverlaps[[n]][[mod]])) {
             if (overlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
-                                 as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end))) {
+                                 as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end))==TRUE) {
               
               modPresent <- TRUE
               
               if (modPresent == TRUE) {
-                  degreeOfOverlap <- append(degreeOfOverlap, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
-                                                                                 as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end)))
-                }
-                modOverlapsDF <- rbind(modOverlapsDF, data.frame(Region = r,
-                                                                 Modification = mod,
-                                                                 Proportion = sum(degreeOfOverlap)/regions[[r]][regions[[r]]$Gene==n,]$width))
+                degreeOfOverlap <- append(degreeOfOverlap, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
+                                                                               as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end)))
+                
+                
               }
             }
+            else modPresent <- modPresent
+          }
         }
+        if (modPresent == TRUE) {
+          geneList <- append(geneList, n)
+        }
+        else geneList <- geneList
+          
+        if (length(degreeOfOverlap) >= 1) {
+          modOverlapsDF <- rbind(modOverlapsDF, data.frame(Region = r,
+                                                           Gene = n,
+                                                           Modification = mod,
+                                                           Proportion = sum(degreeOfOverlap)/regions[[r]][regions[[r]]$Gene==n,]$width))
+        }
+        else next
       }
+      modList[[mod]] <- geneList
     }
+    
+    rm(geneList, modPresent)
+    
+    # Create a dataframe containing the percentage of NLRs with each chromatin modification within the gene body.
+    modFrequenciesDF <- data.frame(Region = character(),
+                                   Modification = character(),
+                                   Frequency = numeric())
+    
+    for (g in names(modList)) {
+      df <- data.frame(Region = r,
+                       Modification = g,
+                       Frequency = length(modList[[g]])/length(names(allOverlaps))*100)
+      
+      modFrequenciesDF <- rbind(modFrequenciesDF, df)
+    }
+    
+    rm(g, df, modList)
+    
+    modsPerRegion[[r]] <- modFrequenciesDF
   }
+
+  rm(regions, modFrequenciesDF)
   
+  # Make a big dataframe with the modification frequencies for each gene region.
+  level = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
+            "Gene20", "Gene40", "Gene60", "Gene80", "Gene100", 
+            "Downstream", "DownstreamIntergenic")
   
-  rm(regions)
+  modFrequenciesDF <- data.frame(Region = character(),
+                                 Modification = character(),
+                                 Frequency = numeric())
   
+  for (r in level) {
+    modFrequenciesDF <- rbind(modFrequenciesDF, modsPerRegion[[r]])
+  }
   
   # Add a column to the dataframe with the numbers on the x axis that will correspond with each gene region.
   grouping <- c(seq(from = -60, to = -20, by = 20),seq(from = 20, to = 140, by = 20))
-  regions <- unique(modOverlapsDF$Region)
+  regions <- unique(modFrequenciesDF$Region)
+  
+  axisGroup <- c()
+  for (c in 1:length(regions)) {
+    axisGroup <- append(axisGroup, rep(grouping[c], times = nrow(modFrequenciesDF[modFrequenciesDF$Region==regions[c],])))
+  }
+  
+  modFrequenciesDF <- cbind(modFrequenciesDF, axisGroup)
   
   axisGroup <- c()
   for (c in 1:length(regions)) {
@@ -849,7 +907,7 @@ for (test in names(testData)) {
   
   rm(grouping, regions, axisGroup)
   
-  testData[[test]] <- modOverlapsDF
+  testData[[test]] <- modFrequenciesDF
 }
   
 rm(ReMap)
@@ -864,7 +922,6 @@ for (test in names(testData)) {
   allResults <- rbind(allResults, df)
 }
 
-rm(modOverlapsDF)
 
 # Plot the percentage of NLRs with each chromatin modification within the gene body.
 axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
@@ -872,20 +929,9 @@ axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "Downstream \n(200bp)", "Intergenic")
 
 for (mod in epiMods) {
-  df <- allResults[allResults$Modification==mod,]
-
-  modFrequenciesPlot <- ggplot(df[df$Modification=="H3K4me3",], aes(x = axisGroup, y = Proportion)) + 
-    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_boxplot(aes(group = Region)) + theme_minimal() + 
-    labs(x = "", y = "Frequency of occurrence (%)") +
-    geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
-    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2))
+  df1 <- allResults[allResults$Modification==mod,]
   
-  modFrequenciesPlot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
+  modFrequenciesPlot <- ggplot(df1, aes(x = axisGroup, y = Frequency, color = Test)) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
     geom_line(aes(group = Test),size = 1.3) +
     geom_point(aes(group = Test), size = 2) + theme_minimal() + 
@@ -898,11 +944,26 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2)) 
   
-  ggsave(paste(mod, ".plotLeaves.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
+  ggsave(paste(mod, "_", ".plotLeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
+  
+  
+  df2 <- modOverlapsDF[modOverlapsDF$Modification==mod,]
+  
+  modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Proportion)) + 
+    scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
+    geom_boxplot(aes(group = axisGroup)) + theme_minimal() + 
+    labs(x = "", y = "Proportion of gene region") +
+    geom_vline(xintercept=0, color="grey", size=1) +
+    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
+    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
+    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
+          axis.title.y = element_text(size = 14, vjust = 2))
+  
+  ggsave(paste(mod, "_", ".plotLeafProportions.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
+  
 }
   
-
-
 
 # Create a bed file with chromatin modifications in each NLR to view in IGV.
 
