@@ -23,10 +23,13 @@ ReMap <- ReMap[,-c(9:11)]
 
 # Import all Arabidopsis genes.
 Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
+colnames(Atgenes)[2] <- "Gene"
 
 # Remove duplicate genes (different versions).
 Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
+
+# Remove genes within the centromeric and pericentromeric regions.
 pericentromericRegions <- data.frame(Chromosome = c(1:5),
                                      Start = c("11500000", "1100000", "10300000", "1500000", "9000000"),
                                      End = c("17700000", "7200000", "17300000", "6300000", "16000000"))
@@ -43,7 +46,6 @@ for (row in 1:nrow(pericentromericRegions)) {
 rm(pericentromericRegions)
 
 euchromaticRegions <- euchromaticRegions[,-c(1,8,9)]
-colnames(euchromaticRegions)[1] <- "Gene"
 euchromaticRegions$ranges <- paste(euchromaticRegions$start,"-",euchromaticRegions$end, sep = "")
 
 # Remove duplicate genes.
@@ -137,11 +139,10 @@ for (n in c(1:10)) {
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
 
-NLRgenebody <- Atgenes[which(Atgenes$group_name %in% NLRgenes$Gene),]
+NLRgenebody <- Atgenes[which(Atgenes$Gene %in% NLRgenes$Gene),]
 
 # Create a ranges column by merging the start and end columns.
 NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
-colnames(NLRgenebody)[2] <- "Gene"
 
 genebodyBed <- GRanges(
   seqnames=Rle(NLRgenebody$seqnames),
@@ -214,6 +215,10 @@ for (test in names(testData)) {
   }
   
   for (n in names(geneChunks)) {
+    geneChunks[[n]]$width <- as.numeric(geneChunks[[n]]$end) - as.numeric(geneChunks[[n]]$start)
+  }
+  
+  for (n in names(geneChunks)) {
     geneBed <- GRanges(
       seqnames=Rle(geneChunks[[n]]$seqnames),
       ranges=IRanges(geneChunks[[n]]$ranges),
@@ -274,7 +279,7 @@ for (test in names(testData)) {
     promotor1000 <- rbind(promotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
   }
   
-  # Alter coordinated of promotor1000 to be only 500bp upstream of promototr500.
+  # Alter coordinated of promotor1000 to be only 500bp upstream of promotor500.
   for (row in 1:nrow(promotor1000)) {
     if (promotor1000[row, "strand"]=="+") {
       promotor1000[row, "end"] <- promotor1000[row, "start"]+500
@@ -290,21 +295,21 @@ for (test in names(testData)) {
   
   
   # Add a new column for the gene name, removing ".1" from the end.
-  promotor500$group_name <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
+  promotor500$Gene <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
   
   promotor500Bed <- GRanges(
     seqnames=Rle(promotor500$seqnames),
     ranges=IRanges(promotor500$ranges),
-    name=promotor500$tx_name)
+    name=promotor500$Gene)
   
   #rtracklayer::export.bed(promotor500Bed, "promotor500.bed")
   
-  promotor1000$group_name <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
+  promotor1000$Gene <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
   
   promotor1000Bed <- GRanges(
     seqnames=Rle(promotor1000$seqnames),
     ranges=IRanges(promotor1000$ranges),
-    name=promotor1000$tx_name)
+    name=promotor1000$Gene)
   
   #rtracklayer::export.bed(promotor1000Bed, "promotor1000.bed")
   
@@ -314,7 +319,7 @@ for (test in names(testData)) {
   usCoordinates <- c()
   
   for (gene in dataToUse$Gene) {
-    currentGene <- which(Atgenes$group_name==gene)
+    currentGene <- which(Atgenes$Gene==gene)
     
     if (Atgenes[currentGene, "strand"]=="+") {
       previousGene <- currentGene - 1
@@ -369,7 +374,7 @@ for (test in names(testData)) {
     } 
   }
   
-  upstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% dataToUse$Gene),]
+  upstreamIntergenic <- Atgenes[which(Atgenes$Gene %in% dataToUse$Gene),]
   upstreamIntergenic$ranges <- usCoordinates 
   
   for (row in 1:nrow(upstreamIntergenic)) {
@@ -382,12 +387,12 @@ for (test in names(testData)) {
     else upstreamIntergenic[row, "width"] <- NA
   }
   
-  upstreamIntergenicBed <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$ranges))),]
+  upstreamIntergenic <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$ranges))),]
   
   upstreamIntergenicBed <- GRanges(
-    seqnames=Rle(as.numeric(upstreamIntergenicBed$seqnames)),
-    ranges=IRanges(upstreamIntergenicBed$ranges),
-    name=upstreamIntergenicBed$group_name)
+    seqnames=Rle(as.numeric(upstreamIntergenic$seqnames)),
+    ranges=IRanges(upstreamIntergenic$ranges),
+    name=upstreamIntergenic$Gene)
   
   #rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
   
@@ -396,7 +401,7 @@ for (test in names(testData)) {
   dsCoordinates <- c()
   
   for (gene in dataToUse$Gene) {
-    currentGene <- which(Atgenes$group_name==gene)
+    currentGene <- which(Atgenes$Gene==gene)
     
     if (Atgenes[currentGene, "strand"]=="-") {
       nextGene <- currentGene - 1
@@ -451,7 +456,7 @@ for (test in names(testData)) {
     } 
   }
   
-  downstreamIntergenic <- Atgenes[which(Atgenes$group_name %in% dataToUse$Gene),]
+  downstreamIntergenic <- Atgenes[which(Atgenes$Gene %in% dataToUse$Gene),]
   downstreamIntergenic$ranges <- dsCoordinates 
   
   for (row in 1:nrow(downstreamIntergenic)) {
@@ -464,19 +469,18 @@ for (test in names(testData)) {
     else downstreamIntergenic[row, "width"] <- NA
   }
   
-  downstreamIntergenicBed <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
+  downstreamIntergenic <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
+  
   
   downstreamIntergenicBed <- GRanges(
-    seqnames=Rle(as.numeric(downstreamIntergenicBed$seqnames)),
-    ranges=IRanges(downstreamIntergenicBed$ranges),
-    name=downstreamIntergenicBed$group_name)
+    seqnames=Rle(as.numeric(downstreamIntergenic$seqnames)),
+    ranges=IRanges(downstreamIntergenic$ranges),
+    name=downstreamIntergenic$Gene)
   
   #rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
-  
+
   
   # Create a hash to store ReMap data for each NLR/cluster.
-  colnames(NLRgenebody)[2] <- "Gene"
-  
   gene_hash <- hash()
   
   for (row in 1:nrow(dataToUse)) {
@@ -777,102 +781,67 @@ for (test in names(testData)) {
   
   
   # Create a hash with the data on the coordinates of each gene region.
-  # First rename the columns in each dataset so they can be indexed the same way.
-  colnames(promotor500)[9] ="Gene"
-  colnames(promotor1000)[9] ="Gene"
-  colnames(downstream)[2] ="Gene"
-  colnames(upstreamIntergenic)[2] ="Gene"
-  colnames(downstreamIntergenic)[2] ="Gene"
-  
-  upstreamIntergenic <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$start))),]
-  downstreamIntergenic <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$start))),]
-  
-  
-  for (n in names(geneChunks)) {
-    colnames(geneChunks[[n]])[2]="Gene"
-    geneChunks[[n]]$width <- as.numeric(geneChunks[[n]]$end) - as.numeric(geneChunks[[n]]$start)
-  }
-  
-  
   regions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = promotor1000, Promotor500 = promotor500,
                   Gene20 = geneChunks[["width20"]],  Gene40 = geneChunks[["width40"]], Gene60 = geneChunks[["width60"]], 
                   Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]], Downstream = downstream,
                   DownstreamIntergenic = downstreamIntergenic)
   
-  # Create a dictionary containing the frequency of each chromatin modification occurring in each region of each NLR.
-  modsPerRegion <- hash()
-  
-  # Create a dataframe containing the frequency of each chromatin modification occurring in each region of each gene region.
-  modOverlapsDF <- data.frame(Region = character(),
-                              Gene = character(),
-                              Modification = character(),
-                              Proportion = numeric())
+  # Create dictionaries containing the percentage of genes with a particular modification in each region
+  # and the proportion of overlap between the modification and the gene region.
+  modFrequencyPerRegion <- hash()
+  modOverlapPerRegion <- hash()
   
   for (r in names(regions)) {
-    modList <- hash()
+    modFrequenciesDF <- data.frame(Region= character(), 
+                                Modification = character(),
+                                Frequency = numeric())
+    
+    modOverlapsDF <- data.frame(Region= character(), 
+                                Modification = character(),
+                                Proportion = numeric())
     
     for (mod in epiMods) {
       geneList <- c()
       
       for (n in names(allOverlaps)) {
         modPresent <- FALSE
-        degreeOfOverlap <- c()
-          
-        if (nrow(allOverlaps[[n]][[mod]]) >= 1 & nrow(regions[[r]][regions[[r]]$Gene==n,]) >= 1) {
+        modOverlaps <- c()
+        
+        if (nrow(allOverlaps[[n]][[mod]]) >= 1 & n %in% regions[[r]]$Gene == TRUE) {
           
           for (row in 1:nrow(allOverlaps[[n]][[mod]])) {
             if (overlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
                                  as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end))==TRUE) {
-              
               modPresent <- TRUE
-              
-              if (modPresent == TRUE) {
-                degreeOfOverlap <- append(degreeOfOverlap, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
-                                                                               as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end)))
-                
-                
-              }
             }
             else modPresent <- modPresent
+            
+            modOverlaps <- append(modOverlaps, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
+                                                                as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end)))
           }
+          
+          modOverlapsDF <- rbind(modOverlapsDF, data.frame(Region = r,
+                                                           Modification = mod,
+                                                           Proportion = sum(modOverlaps)/regions[[r]][regions[[r]]$Gene==n,]$width))
         }
+        else modOverlapsDF <- rbind(modOverlapsDF, data.frame(Region = r,
+                                                              Modification = mod,
+                                                              Proportion = 0))
         if (modPresent == TRUE) {
           geneList <- append(geneList, n)
         }
         else geneList <- geneList
-          
-        if (length(degreeOfOverlap) >= 1) {
-          modOverlapsDF <- rbind(modOverlapsDF, data.frame(Region = r,
-                                                           Gene = n,
-                                                           Modification = mod,
-                                                           Proportion = sum(degreeOfOverlap)/regions[[r]][regions[[r]]$Gene==n,]$width))
-        }
-        else next
       }
-      modList[[mod]] <- geneList
+      modFrequenciesDF <- rbind(modFrequenciesDF, data.frame(Region = r,
+                                                             Modification = mod,
+                                                             Frequency = length(geneList)/length(names(allOverlaps))*100))
     }
-    
-    rm(geneList, modPresent)
-    
-    # Create a dataframe containing the percentage of NLRs with each chromatin modification within the gene body.
-    modFrequenciesDF <- data.frame(Region = character(),
-                                   Modification = character(),
-                                   Frequency = numeric())
-    
-    for (g in names(modList)) {
-      df <- data.frame(Region = r,
-                       Modification = g,
-                       Frequency = length(modList[[g]])/length(names(allOverlaps))*100)
-      
-      modFrequenciesDF <- rbind(modFrequenciesDF, df)
-    }
-    
-    rm(g, df, modList)
-    
-    modsPerRegion[[r]] <- modFrequenciesDF
+    modFrequencyPerRegion[[r]] <- modFrequenciesDF
+    modOverlapPerRegion[[r]] <- modOverlapsDF
   }
-
-  rm(regions, modFrequenciesDF)
+  
+  rm(modFrequenciesDF)
+  
   
   # Make a big dataframe with the modification frequencies for each gene region.
   level = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
@@ -884,7 +853,7 @@ for (test in names(testData)) {
                                  Frequency = numeric())
   
   for (r in level) {
-    modFrequenciesDF <- rbind(modFrequenciesDF, modsPerRegion[[r]])
+    modFrequenciesDF <- rbind(modFrequenciesDF, modFrequencyPerRegion[[r]])
   }
   
   # Add a column to the dataframe with the numbers on the x axis that will correspond with each gene region.
@@ -897,6 +866,7 @@ for (test in names(testData)) {
   }
   
   modFrequenciesDF <- cbind(modFrequenciesDF, axisGroup)
+  
   
   axisGroup <- c()
   for (c in 1:length(regions)) {
