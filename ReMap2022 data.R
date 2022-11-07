@@ -43,7 +43,7 @@ for (row in 1:nrow(pericentromericRegions)) {
   euchromaticRegions <- rbind(euchromaticRegions, df)
 }
 
-rm(pericentromericRegions)
+rm(pericentromericRegions, df)
 
 euchromaticRegions <- euchromaticRegions[,-c(1,8,9)]
 euchromaticRegions$ranges <- paste(euchromaticRegions$start,"-",euchromaticRegions$end, sep = "")
@@ -155,6 +155,9 @@ genebodyBed <- GRanges(
 # Add NLR genes to testData.
 testData[["NLRs"]] <- NLRgenebody
 
+testDataFrequencies <- hash()
+testDataProportions <- hash()
+
 
 
 # Perform all analyses on the testData.
@@ -226,6 +229,8 @@ for (test in names(testData)) {
     
     #rtracklayer::export.bed(geneBed, paste("NLR", n, ".bed", sep = ""))
   }
+  
+  rm(start, end)
   
   # Create new dataframe for the coordinates of the regions 200bp downstream of the TTS.
   
@@ -396,6 +401,7 @@ for (test in names(testData)) {
   
   #rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
   
+  rm(usCoordinates)
   
   # Get the coordinates for the downstream intergenic regions of each NLR.
   dsCoordinates <- c()
@@ -479,6 +485,7 @@ for (test in names(testData)) {
   
   #rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
 
+  rm(currentGene, previousGene, nextGene, dsCoordinates, distance)
   
   # Create a hash to store ReMap data for each NLR/cluster.
   gene_hash <- hash()
@@ -599,11 +606,11 @@ for (test in names(testData)) {
           }
         }
       }
-      
-      # Tidy up 🧹
-      rm(matches, badAge, maxWeeks, row, timeValue)
     }
   }
+  
+  # Tidy up 🧹
+  rm(matches, badAge, maxWeeks, row, timeValue)
   
   
   # Create hash for root data.
@@ -722,7 +729,7 @@ for (test in names(testData)) {
     allOverlaps[[n]] <- modOverlaps
   }
   
-  rm(modOverlaps, overlapSets, kIndex, lIndex, newSet)
+  rm(modOverlaps, overlapSets, kIndex, lIndex, newSet, k, l)
   
   
   # Find the maximum range for the overlapping epigenetic modifications.
@@ -840,7 +847,7 @@ for (test in names(testData)) {
     modOverlapPerRegion[[r]] <- modOverlapsDF
   }
   
-  rm(modFrequenciesDF)
+  rm(modFrequenciesDF, modOverlapsDF, geneList)
   
   
   # Make a big dataframe with the modification frequencies for each gene region.
@@ -856,13 +863,21 @@ for (test in names(testData)) {
     modFrequenciesDF <- rbind(modFrequenciesDF, modFrequencyPerRegion[[r]])
   }
   
+  modOverlapsDF <- data.frame(Region = character(),
+                              Modification = character(),
+                              Proportion = numeric())
+  
+  for (r in level) {
+    modOverlapsDF <- rbind(modOverlapsDF, modOverlapPerRegion[[r]])
+  }
+  
   # Add a column to the dataframe with the numbers on the x axis that will correspond with each gene region.
   grouping <- c(seq(from = -60, to = -20, by = 20),seq(from = 20, to = 140, by = 20))
   regions <- unique(modFrequenciesDF$Region)
   
   axisGroup <- c()
   for (c in 1:length(regions)) {
-    axisGroup <- append(axisGroup, rep(grouping[c], times = nrow(modFrequenciesDF[modFrequenciesDF$Region==regions[c],])))
+    axisGroup <- append(axisGroup, rep(grouping[c], times = length(epiMods)))
   }
   
   modFrequenciesDF <- cbind(modFrequenciesDF, axisGroup)
@@ -877,19 +892,26 @@ for (test in names(testData)) {
   
   rm(grouping, regions, axisGroup)
   
-  testData[[test]] <- modFrequenciesDF
+  testDataFrequencies[[test]] <- modFrequenciesDF
+  testDataProportions[[test]] <- modOverlapsDF
 }
   
-rm(ReMap)
+rm(ReMap, row, n, mod, level, gene, c, r, testData)
 
 # Merge all data into one big dataframe.
-allResults <- data.frame()
+allResultsFrequencies <- data.frame()
+allResultsOverlaps <- data.frame()
 
-for (test in names(testData)) {
-  df <- testData[[test]]
-  df <- cbind(df, data.frame(Test = rep(test, times = nrow(df))))
+for (test in names(testDataFrequencies)) {
+  df1 <- testDataFrequencies[[test]]
+  df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1))))
   
-  allResults <- rbind(allResults, df)
+  allResultsFrequencies <- rbind(allResultsFrequencies, df1)
+  
+  df2 <- testDataProportions[[test]]
+  df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2))))
+  
+  allResultsOverlaps <- rbind(allResultsOverlaps, df2)
 }
 
 
@@ -898,8 +920,9 @@ axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "20%", "40%", "60%", "80%", "100%", 
               "Downstream \n(200bp)", "Intergenic")
 
+
 for (mod in epiMods) {
-  df1 <- allResults[allResults$Modification==mod,]
+  df1 <- allResultsFrequencies[allResultsFrequencies$Modification==mod,]
   
   modFrequenciesPlot <- ggplot(df1, aes(x = axisGroup, y = Frequency, color = Test)) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
@@ -914,10 +937,10 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2)) 
   
-  ggsave(paste(mod, "_", ".plotLeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
+  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
   
   
-  df2 <- modOverlapsDF[modOverlapsDF$Modification==mod,]
+  df2 <- allResultsOverlaps[allResultsOverlaps$Modification==mod,]
   
   modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Proportion)) + 
     scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
@@ -930,7 +953,7 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2))
   
-  ggsave(paste(mod, "_", ".plotLeafProportions.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
+  ggsave(paste(mod, "_", ".LeafProportions.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
   
 }
   
