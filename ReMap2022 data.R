@@ -927,8 +927,7 @@ for (test in names(testDataFrequencies)) {
   allResultsOverlaps <- rbind(allResultsOverlaps, df2)
 }
 
-
-# Plot the percentage of NLRs with each chromatin modification within the gene body.
+# Plot the the results.
 axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "20%", "40%", "60%", "80%", "100%", 
               "Downstream \n(200bp)", "Intergenic")
@@ -953,12 +952,12 @@ for (mod in epiMods) {
   ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
   
   
-  df2 <- allResultsOverlaps[allResultsOverlaps$Modification==mod,]
+  df2 <- allResultsOverlaps[allResultsOverlaps$Test=="NLRs",]
+  df2 <- df2[df2$Modification==mod,]
   
   modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Proportion)) + 
     scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_boxplot(aes(group = axisGroup)) + 
-    geom_line(aes(x = axisGroup, y = Mean, group = Test)) + theme_minimal() + 
+    geom_boxplot(aes(group = axisGroup)) + theme_minimal() + 
     labs(x = "", y = "Proportion of gene region") +
     geom_vline(xintercept=0, color="grey", size=1) +
     coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
@@ -971,6 +970,30 @@ for (mod in epiMods) {
   
 }
   
+
+# Remove the cases where the chromatin modification does not overlap with the gene region.
+allResultsProportions <- allResultsOverlaps[c(which(allResultsOverlaps$Proportion > 0)),]
+
+# Plot the results.
+for (mod in epiMods) {
+  df2 <- allResultsProportions[allResultsProportions$Test=="NLRs",]
+  df2 <- df2[df2$Modification==mod,]
+  
+  modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Proportion)) + 
+    scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
+    geom_boxplot(aes(group = axisGroup)) + theme_minimal() + 
+    labs(x = "", y = "Proportion of gene region") +
+    geom_vline(xintercept=0, color="grey", size=1) +
+    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
+    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
+    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
+          axis.title.y = element_text(size = 14, vjust = 2))
+  
+  ggsave(paste(mod, "_", ".LeafProportions.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
+}
+
+
 
 # Create a bed file with chromatin modifications in each NLR to view in IGV.
 
