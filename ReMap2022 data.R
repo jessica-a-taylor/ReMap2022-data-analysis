@@ -165,7 +165,42 @@ testDataProportions <- hash()
 
 
 
-# Perform all analyses on the testData.
+# Import expression data.
+expressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\PhD reading\\Data\\Expression data Liu et al., 2016 .xlsx", sheet = 2))
+
+# Rename "expression level" column to "score".
+colnames(expressionData)[2] <- "Score"
+
+# Filter for R-genes and controls
+expressionHash <- hash()
+
+for (test in names(testData)) {
+  expressionHash[[test]] <- expressionData[c(which(expressionData$AGI %in% testData[[test]]$Gene)),]
+}
+
+rm(expressionData)
+
+for (test in names(expressionHash)) {
+  expressionLevel <- c()
+  
+  for (row in 1:nrow(expressionHash[[test]])) {
+    if (expressionHash[[test]][row, "Score"] <= 3) {
+      expressionLevel <- append(expressionLevel, "Low")
+    }
+    else if (expressionHash[[test]][row, "Score"] >= 4 & expressionHash[[test]][row, "Score"] <= 6) {
+      expressionLevel <- append(expressionLevel, "Intermediate")
+    }
+    else if (expressionHash[[test]][row, "Score"] >= 7 & expressionHash[[test]][row, "Score"] <= 9) {
+      expressionLevel <- append(expressionLevel, "High")
+    }
+  }
+  expressionHash[[test]]$Level <- expressionLevel
+}
+
+rm(expressionLevel)
+
+
+# Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
 for (test in names(testData)) {
   dataToUse <- testData[[test]]
   
@@ -1041,6 +1076,12 @@ for (mod in epiMods) {
   
   ggsave(paste(mod, "_", ".LeafProportionsMean.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
 }
+
+
+
+
+
+
 
 
 # Create a bed file with chromatin modifications in each NLR to view in IGV.
