@@ -147,26 +147,21 @@ NLRgenebody <- Atgenes[which(Atgenes$Gene %in% NLRgenes$Gene),]
 # Create a ranges column by merging the start and end columns.
 NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
 
-genebodyBed <- GRanges(
-  seqnames=Rle(NLRgenebody$seqnames),
-  ranges=IRanges(NLRgenebody$ranges),
-  name=NLRgenebody$Gene)
-
-#rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
-
 euchromaticNLRs <- NLRgenebody[c(which(NLRgenebody$Gene %in% withoutTEs$Gene)),]
 
 
-# Add NLR genes to testData.
+# Add R-genes to testData.
 testData[["NLRs"]] <- euchromaticNLRs
 
-testDataFrequencies <- hash()
-testDataProportions <- hash()
+
+# Write a list of R-genes.
+write(paste(euchromaticNLRs$Gene, ",", sep = ""), file="R-genes.txt")
 
 
 
 # Import expression data.
 expressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\PhD reading\\Data\\Expression data Liu et al., 2016 .xlsx", sheet = 2))
+bigExpressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\expression_result_table.xlsx"))
 
 # Rename "expression level" column to "score".
 colnames(expressionData)[2] <- "Score"
@@ -180,6 +175,7 @@ for (test in names(testData)) {
 
 rm(expressionData)
 
+# Assign a expression level "low", "intermediate" or "high".
 for (test in names(expressionHash)) {
   expressionLevel <- c()
   
@@ -199,8 +195,85 @@ for (test in names(expressionHash)) {
 
 rm(expressionLevel)
 
+# Add expression data to the dataframes in testData.
+for (test in names(testData)) {
+  testData[[test]] <- cbind(testData[[test]], data.frame(ExpressionLevel = expressionHash[[test]]$Level))
+}
+
+rm(expressionHash)
+
+
+
+# Filter big expression data for R-genes.
+bigExpressionData <- bigExpressionData[,c(which(colnames(bigExpressionData) %in% euchromaticNLRs$Gene), 158:164)]
+
+# Filter big expression data for Col-0, leaf/root tissue, and wild-type conditions.
+bigExpressionData <- bigExpressionData[bigExpressionData$Ecotype=="Col-0",]
+bigExpressionData <- bigExpressionData[bigExpressionData$Genotype=="wild type",]
+
+treatments <- c("Mock", "untreated", "control", "Not treated", "mock", "unstressed control", "none",
+                "normal condition","healthy", "NA")
+
+tissue <- c("leaves", "root", "rosette leaf", "aerial seedling")
+
+bigExpressionData <- bigExpressionData[c(which(bigExpressionData$Treatment %in% treatments)),]
+bigExpressionData <- bigExpressionData[c(which(bigExpressionData$Tissue %in% tissue)),]
+
+rm(treatments)
+
+# Get the mean expression for the R-genes in each tissue type.
+meanExpression <- data.frame(matrix(ncol = 155, nrow = 0))
+
+for(t in tissue) {
+  df <- bigExpressionData[bigExpressionData$Tissue==t,]
+   
+  tissueMean <- c()
+  for (col in colnames(df)[1:155]) {
+   tissueMean <- append(tissueMean, mean(df[,col]))
+  }
+ meanExpression <- rbind(meanExpression, tissueMean) 
+}
+
+rm(df, tissueMean)
+
+meanExpression$Tissue <- tissue
+colnames(meanExpression) <- c(colnames(bigExpressionData)[1:155], "Tissue")
+
+rm(tissue, bigExpressionData)
+
+# Create separate dataframes for the mean expression level in leaves and roots.
+leafTissue <- c("leaves", "rosette leaf", "aerial seedling")
+leafMeans <- meanExpression[meanExpression$Tissue %in% leafTissue,][,-156]
+
+leafExpression <- data.frame(Gene = character(),
+                             Expression = numeric())
+
+for (col in 1:ncol(leafMeans)) {
+  leafExpression <- rbind(leafExpression, data.frame(Gene = colnames(leafMeans)[col],
+                                                     Expression = mean(leafMeans[,col])))
+}
+
+rootMeans <- meanExpression[meanExpression$Tissue =="root",][,-156]
+
+rootExpression <- data.frame(Gene = character(),
+                             Expression = numeric())
+
+for (col in 1:ncol(rootMeans)) {
+  rootExpression <- rbind(rootExpression, data.frame(Gene = colnames(rootMeans)[col],
+                                                     Expression = mean(rootMeans[,col])))
+}
+
+
+rm(leafMeans, rootMeans, meanExpression, leafTissue)
+
+
+
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
+testDataFrequencies <- hash()
+testDataProportions <- hash()
+
+
 for (test in names(testData)) {
   dataToUse <- testData[[test]]
   
@@ -261,15 +334,6 @@ for (test in names(testData)) {
     geneChunks[[n]]$width <- as.numeric(geneChunks[[n]]$end) - as.numeric(geneChunks[[n]]$start)
   }
   
-  for (n in names(geneChunks)) {
-    geneBed <- GRanges(
-      seqnames=Rle(geneChunks[[n]]$seqnames),
-      ranges=IRanges(geneChunks[[n]]$ranges),
-      name=geneChunks[[n]]$Gene)
-    
-    #rtracklayer::export.bed(geneBed, paste("NLR", n, ".bed", sep = ""))
-  }
-  
   rm(start, end)
   
   # Create new dataframe for the coordinates of the regions 200bp downstream of the TTS.
@@ -294,12 +358,6 @@ for (test in names(testData)) {
   downstream$end <- as.numeric(str_match(downstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,4])
   downstream$width <- downstream$end - downstream$start
   
-  downstreamBed <- GRanges(
-    seqnames=Rle(downstream$seqnames),
-    ranges=IRanges(downstream$ranges),
-    name=downstream$Gene)
-  
-  #rtracklayer::export.bed(downstreamBed, "downstream.bed")
   
   # Get the coordinates for the promotors of each gene.
   ATpromotors500 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=0, use.names = TRUE)
@@ -341,22 +399,7 @@ for (test in names(testData)) {
   
   # Add a new column for the gene name, removing ".1" from the end.
   promotor500$Gene <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
-  
-  promotor500Bed <- GRanges(
-    seqnames=Rle(promotor500$seqnames),
-    ranges=IRanges(promotor500$ranges),
-    name=promotor500$Gene)
-  
-  #rtracklayer::export.bed(promotor500Bed, "promotor500.bed")
-  
   promotor1000$Gene <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
-  
-  promotor1000Bed <- GRanges(
-    seqnames=Rle(promotor1000$seqnames),
-    ranges=IRanges(promotor1000$ranges),
-    name=promotor1000$Gene)
-  
-  #rtracklayer::export.bed(promotor1000Bed, "promotor1000.bed")
   
   rm(ATpromotors500, ATpromotors1000)
   
@@ -442,13 +485,6 @@ for (test in names(testData)) {
   
   upstreamIntergenic <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$ranges))),]
   
-  upstreamIntergenicBed <- GRanges(
-    seqnames=Rle(as.numeric(upstreamIntergenic$seqnames)),
-    ranges=IRanges(upstreamIntergenic$ranges),
-    name=upstreamIntergenic$Gene)
-  
-  #rtracklayer::export.bed(upstreamIntergenicBed, "upstreamIntergenic.bed")
-  
   rm(usCoordinates)
   
   # Get the coordinates for the downstream intergenic regions of each NLR.
@@ -524,14 +560,6 @@ for (test in names(testData)) {
   }
   
   downstreamIntergenic <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
-  
-  
-  downstreamIntergenicBed <- GRanges(
-    seqnames=Rle(as.numeric(downstreamIntergenic$seqnames)),
-    ranges=IRanges(downstreamIntergenic$ranges),
-    name=downstreamIntergenic$Gene)
-  
-  #rtracklayer::export.bed(downstreamIntergenicBed, "downstreamIntergenic.bed")
 
   rm(currentGene, previousGene, nextGene, dsCoordinates, distance)
   
@@ -831,7 +859,7 @@ for (test in names(testData)) {
     }
   }
   
-  rm(df, l)
+  rm(df, l, ColWTdata, ColLeafNLRs, LerLeafNLRs, RootNLRs)
   
   
   
@@ -944,7 +972,8 @@ for (test in names(testData)) {
   testDataProportions[[test]] <- modOverlapsDF
 }
   
-rm(ReMap, row, n, mod, level, gene, c, r, testData)
+rm(ReMap, row, n, mod, level, gene, c, r, testData, upstreamIntergenic, downstream, downstreamIntergenic,
+   geneChunks, promotor1000, promotor500, allOverlaps)
 
 # Merge all data into one big dataframe.
 allResultsFrequencies <- data.frame()
