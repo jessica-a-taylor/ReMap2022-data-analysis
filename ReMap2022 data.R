@@ -38,7 +38,7 @@ euchromaticRegions <- data.frame()
 
 for (row in 1:nrow(pericentromericRegions)) {
   df <- Atgenes[c(which(Atgenes$seqnames==row & Atgenes$start < as.numeric(pericentromericRegions[row, "Start"]))),]
-  df <- rbind(df, Atgenes[c(which(Atgenes$seqnames==row & Atgenes$end < as.numeric(pericentromericRegions[row, "End"]))),])
+  df <- rbind(df, Atgenes[c(which(Atgenes$seqnames==row & Atgenes$end > as.numeric(pericentromericRegions[row, "End"]))),])
   
   euchromaticRegions <- rbind(euchromaticRegions, df)
 }
@@ -132,9 +132,12 @@ dataToUse <- withoutTEs
 testData <- hash()
 
 for (n in c(1:10)) {
-  testData[[paste("control", n, sep = "")]] <- dataToUse[c(sample(nrow(dataToUse), 200)),]
+  df <- dataToUse[c(sample(nrow(dataToUse), 200)),]
+  df <- df[order(df$Gene),]
+  testData[[paste("control", n, sep = "")]] <- df
 }
 
+rm(df)
 
 # Get the coordinates for the gene bodies of each NLR.
 NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
@@ -324,26 +327,30 @@ for (test in names(testData)) {
   usCoordinates <- c()
   
   for (gene in dataToUse$Gene) {
-    currentGene <- which(Atgenes$Gene==gene)
+    currentGene <- which(withoutTEs$Gene==gene)
     
-    if (Atgenes[currentGene, "strand"]=="+") {
+    if (withoutTEs[currentGene, "strand"]=="+") {
       previousGene <- currentGene - 1
       
-      if (previousGene > 0 & as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[previousGene, "seqnames"])) {
-        if (previousGene > 0 & Atgenes[previousGene, "strand"]=="+") {
-          distance <- (Atgenes[currentGene, "start"] - 1001) - (Atgenes[previousGene, "end"] + 201)
+      if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
+        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
+            withoutTEs[previousGene, "strand"]=="+") {
+          
+          distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 201)
           
           if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"] + 201, "-", Atgenes[previousGene, "end"] + 201 + distance, sep = "")) 
+            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 201, "-", withoutTEs[previousGene, "end"] + 201 + distance, sep = "")) 
           } 
           else usCoordinates <- append(usCoordinates, NA)
         }
         
-        else if (previousGene > 0 & Atgenes[previousGene, "strand"]=="-") {
-          distance <- (Atgenes[currentGene, "start"] - 1001) - (Atgenes[previousGene, "end"] + 1001)
+        else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
+                 withoutTEs[previousGene, "strand"]=="-") {
+          
+          distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 1001)
           
           if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "end"] + 1001, "-", Atgenes[previousGene, "end"] + 1001 + distance, sep = "")) 
+            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 1001, "-", withoutTEs[previousGene, "end"] + 1001 + distance, sep = "")) 
           } 
           else usCoordinates <- append(usCoordinates, NA)
           
@@ -352,24 +359,28 @@ for (test in names(testData)) {
       else usCoordinates <- append(usCoordinates, NA)
     }
     
-    else if (Atgenes[currentGene, "strand"]=="-") {
+    else if (withoutTEs[currentGene, "strand"]=="-") {
       previousGene <- currentGene + 1
       
-      if (previousGene > 0 & as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[previousGene, "seqnames"])) {
-        if (previousGene > 0 & Atgenes[previousGene, "strand"]=="+") {
-          distance <- (Atgenes[previousGene, "start"] - 1001) - (Atgenes[currentGene, "end"] + 1001)
+      if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
+        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) &
+            withoutTEs[previousGene, "strand"]=="+") {
+          
+          distance <- (withoutTEs[previousGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 1001)
           
           if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"] - 1001 - distance, "-", Atgenes[previousGene, "start"] - 1001, sep = "")) 
+            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 1001 - distance, "-", withoutTEs[previousGene, "start"] - 1001, sep = "")) 
           } 
           else usCoordinates <- append(usCoordinates, NA)
           
         }
         
-        else if (previousGene > 0 & Atgenes[previousGene, "strand"]=="-") {
-          distance <- (Atgenes[previousGene, "start"] - 201) - (Atgenes[currentGene, "end"] + 1001)
+        else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
+                 withoutTEs[previousGene, "strand"]=="-") {
+          
+          distance <- (withoutTEs[previousGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 1001)
           if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(Atgenes[previousGene, "start"] - 201 - distance, "-", Atgenes[previousGene, "start"] - 201, sep = "")) 
+            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 201 - distance, "-", withoutTEs[previousGene, "start"] - 201, sep = "")) 
           } 
           else usCoordinates <- append(usCoordinates, NA)
           
@@ -379,7 +390,7 @@ for (test in names(testData)) {
     } 
   }
   
-  upstreamIntergenic <- Atgenes[which(Atgenes$Gene %in% dataToUse$Gene),]
+  upstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
   upstreamIntergenic$ranges <- usCoordinates 
   
   for (row in 1:nrow(upstreamIntergenic)) {
@@ -407,26 +418,26 @@ for (test in names(testData)) {
   dsCoordinates <- c()
   
   for (gene in dataToUse$Gene) {
-    currentGene <- which(Atgenes$Gene==gene)
+    currentGene <- which(withoutTEs$Gene==gene)
     
-    if (Atgenes[currentGene, "strand"]=="-") {
+    if (withoutTEs[currentGene, "strand"]=="-") {
       nextGene <- currentGene - 1
       
-      if (as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[nextGene, "seqnames"])) {
-        if (Atgenes[nextGene, "strand"]=="-") {
-          distance <- (Atgenes[currentGene, "start"] - 201) - (Atgenes[nextGene, "end"] + 1001)
+      if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
+        if (withoutTEs[nextGene, "strand"]=="-") {
+          distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 1001)
           
           if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "end"] + 1001, "-", Atgenes[nextGene, "end"] + 1001 + distance, sep = "")) 
+            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 1001, "-", withoutTEs[nextGene, "end"] + 1001 + distance, sep = "")) 
           } 
           else dsCoordinates <- append(dsCoordinates, NA) 
         }
         
-        else if (Atgenes[nextGene, "strand"]=="+") {
-          distance <- (Atgenes[currentGene, "start"] - 201) - (Atgenes[nextGene, "end"] + 201)
+        else if (withoutTEs[nextGene, "strand"]=="+") {
+          distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 201)
           
           if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "end"] + 201, "-", Atgenes[nextGene, "end"] + 201 + distance, sep = "")) 
+            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 201, "-", withoutTEs[nextGene, "end"] + 201 + distance, sep = "")) 
           } 
           else dsCoordinates <- append(dsCoordinates, NA)
           
@@ -435,24 +446,24 @@ for (test in names(testData)) {
       else dsCoordinates <- append(dsCoordinates, NA)
     }
     
-    else if (Atgenes[currentGene, "strand"]=="+") {
+    else if (withoutTEs[currentGene, "strand"]=="+") {
       nextGene <- currentGene + 1
       
-      if (as.numeric(Atgenes[currentGene, "seqnames"])==as.numeric(Atgenes[nextGene, "seqnames"])) {
-        if (Atgenes[nextGene, "strand"]=="+") {
-          distance <- (Atgenes[nextGene, "start"] - 1001) - (Atgenes[currentGene, "end"] + 201)
+      if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
+        if (withoutTEs[nextGene, "strand"]=="+") {
+          distance <- (withoutTEs[nextGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 201)
           
           if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "start"] - 1001 - distance, "-", Atgenes[nextGene, "start"] - 1001, sep = "")) 
+            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 1001 - distance, "-", withoutTEs[nextGene, "start"] - 1001, sep = "")) 
           } 
           else dsCoordinates <- append(dsCoordinates, NA) 
           
         }
         
-        else if (Atgenes[nextGene, "strand"]=="-") {
-          distance <- (Atgenes[nextGene, "start"] - 201) - (Atgenes[currentGene, "end"] + 201)
+        else if (withoutTEs[nextGene, "strand"]=="-") {
+          distance <- (withoutTEs[nextGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 201)
           if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(Atgenes[nextGene, "start"] - 201 - distance, "-", Atgenes[nextGene, "start"] - 201, sep = "")) 
+            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 201 - distance, "-", withoutTEs[nextGene, "start"] - 201, sep = "")) 
           } 
           else dsCoordinates <- append(dsCoordinates, NA) 
           
@@ -462,7 +473,7 @@ for (test in names(testData)) {
     } 
   }
   
-  downstreamIntergenic <- Atgenes[which(Atgenes$Gene %in% dataToUse$Gene),]
+  downstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
   downstreamIntergenic$ranges <- dsCoordinates 
   
   for (row in 1:nrow(downstreamIntergenic)) {
@@ -758,7 +769,7 @@ for (test in names(testData)) {
   # Create dataframes with the information needed in the bed file.
   for (n in names(ColWTdata)) {
     for (mod in epiMods) {
-      df <- data.frame(seqname = numeric(),
+      df <- data.frame(seqnames = numeric(),
                        start = numeric(),
                        end = numeric(),
                        width = numeric(),
@@ -769,7 +780,7 @@ for (test in names(testData)) {
       
       if (length(allOverlaps[[n]][[mod]])>0) {
         for (l in 1:length(allOverlaps[[n]][[mod]])) {
-          df <- rbind(df, data.frame(seqname = ColWTdata[[n]][[mod]][1,"seqnames"],
+          df <- rbind(df, data.frame(seqnames = ColWTdata[[n]][[mod]][1,"seqnames"],
                                      start = str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,2],
                                      end = str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,3],
                                      width = as.numeric(str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,3]) - as.numeric(str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,2]),
@@ -822,7 +833,7 @@ for (test in names(testData)) {
               modPresent <- TRUE
             }
             else modPresent <- modPresent
-            
+
             modOverlaps <- append(modOverlaps, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
                                                                 as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end)))
           }
@@ -1035,7 +1046,7 @@ rm(modStart, modEnd, o, l)
 # Create dataframes with the information needed in the bed file.
 for (n in names(forIGV)) {
   for (mod in epiMods) {
-    df <- data.frame(seqname = numeric(),
+    df <- data.frame(seqnames = numeric(),
                      ranges = character(),
                      strand = factor(),
                      epiMod = character(),
@@ -1043,7 +1054,7 @@ for (n in names(forIGV)) {
     
     if (length(allOverlaps[[n]][[mod]])>0) {
       for (l in 1:length(allOverlaps[[n]][[mod]])) {
-        df <- rbind(df, data.frame(seqname = forIGV[[n]][[mod]][1,"seqnames"],
+        df <- rbind(df, data.frame(seqnames = forIGV[[n]][[mod]][1,"seqnames"],
                                    ranges = allOverlaps[[n]][[mod]][[l]],
                                    strand = forIGV[[n]][[mod]][1,"strand"],
                                    epiMod = mod,
@@ -1058,7 +1069,7 @@ rm(df, l)
 
 
 # Combine the dataframes for each epigenetic modification into one dataframe.
-modBed <- data.frame(seqname = numeric(),
+modBed <- data.frame(seqnames = numeric(),
                      ranges = character(),
                      strand = factor(),
                      epiMod = character(),
@@ -1073,7 +1084,7 @@ for (n in names(allOverlaps)) {
 
 # Create bed file.
 modBed <- GRanges(
-  seqnames=Rle(modBed$seqname),
+  seqnames=Rle(modBed$seqnames),
   ranges=IRanges(modBed$ranges),
   name=modBed$epiMod,
   itemRgb=modBed$colour)
