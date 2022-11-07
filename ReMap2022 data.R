@@ -993,6 +993,54 @@ for (mod in epiMods) {
   ggsave(paste(mod, "_", ".LeafProportions.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
 }
 
+# Calculate the mean proportion of overlap and add as a new column to the dataframe.
+allResultsAverageProportions <- data.frame()
+
+for (test in names(testDataProportions)) {
+  df <- allResultsProportions[allResultsProportions$Test==test,]
+  
+  for (mod in epiMods) {
+    df1 <- df[df$Modification==mod,]
+    
+    for (r in unique(df1$Region)) {
+      df2 <- df1[df1$Region==r,]
+      
+      if (nrow(df2 >= 1)) {
+        df2 <- cbind(df2, rep(mean(df2$Proportion), times = nrow(df2)))
+        df2 <- cbind(df2, rep(sd(df2$Proportion), times = nrow(df2)))
+      }
+      
+      else df2 <- df2
+      
+      allResultsAverageProportions <- rbind(allResultsAverageProportions, df2)
+    }
+  }
+}
+
+colnames(allResultsAverageProportions)[c(6:7)] <- c("Mean", "SD")
+
+
+# Plot the results.
+for (mod in epiMods) {
+  df2 <- allResultsAverageProportions[allResultsAverageProportions$Modification==mod,]
+  
+  modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Mean, color = Test)) + 
+    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+    geom_line(aes(x = axisGroup, y = Mean, group = Test),size = 1.3) + 
+    geom_point(aes(x = axisGroup, y = Mean),size = 2) +
+    #geom_errorbar(aes(ymin=Mean-SD, ymax=Mean+SD), width = 2) +
+    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
+    theme_minimal() + 
+    labs(x = "", y = "Average proportion of gene region") +
+    geom_vline(xintercept=0, color="grey", size=1) +
+    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
+    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
+    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
+          axis.title.y = element_text(size = 14, vjust = 2))
+  
+  ggsave(paste(mod, "_", ".LeafProportionsMean.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
+}
 
 
 # Create a bed file with chromatin modifications in each NLR to view in IGV.
