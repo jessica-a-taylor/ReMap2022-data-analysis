@@ -154,9 +154,11 @@ genebodyBed <- GRanges(
 
 #rtracklayer::export.bed(genebodyBed, "NLRgenebody.bed")
 
+euchromaticNLRs <- NLRgenebody[c(which(NLRgenebody$Gene %in% withoutTEs$Gene)),]
+
 
 # Add NLR genes to testData.
-testData[["NLRs"]] <- NLRgenebody
+testData[["NLRs"]] <- euchromaticNLRs
 
 testDataFrequencies <- hash()
 testDataProportions <- hash()
@@ -955,7 +957,8 @@ for (mod in epiMods) {
   
   modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Proportion)) + 
     scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_boxplot(aes(group = axisGroup)) + theme_minimal() + 
+    geom_boxplot(aes(group = axisGroup)) + 
+    geom_line(aes(x = axisGroup, y = Mean, group = Test)) + theme_minimal() + 
     labs(x = "", y = "Proportion of gene region") +
     geom_vline(xintercept=0, color="grey", size=1) +
     coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
