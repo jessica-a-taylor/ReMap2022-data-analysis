@@ -154,55 +154,9 @@ euchromaticNLRs <- NLRgenebody[c(which(NLRgenebody$Gene %in% withoutTEs$Gene)),]
 testData[["NLRs"]] <- euchromaticNLRs
 
 
-# Write a list of R-genes.
-write(paste(euchromaticNLRs$Gene, ",", sep = ""), file="R-genes.txt")
-
-
 
 # Import expression data.
-expressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\PhD reading\\Data\\Expression data Liu et al., 2016 .xlsx", sheet = 2))
 bigExpressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\expression_result_table.xlsx"))
-
-# Rename "expression level" column to "score".
-colnames(expressionData)[2] <- "Score"
-
-# Filter for R-genes and controls
-expressionHash <- hash()
-
-for (test in names(testData)) {
-  expressionHash[[test]] <- expressionData[c(which(expressionData$AGI %in% testData[[test]]$Gene)),]
-}
-
-rm(expressionData)
-
-# Assign a expression level "low", "intermediate" or "high".
-for (test in names(expressionHash)) {
-  expressionLevel <- c()
-  
-  for (row in 1:nrow(expressionHash[[test]])) {
-    if (expressionHash[[test]][row, "Score"] <= 3) {
-      expressionLevel <- append(expressionLevel, "Low")
-    }
-    else if (expressionHash[[test]][row, "Score"] >= 4 & expressionHash[[test]][row, "Score"] <= 6) {
-      expressionLevel <- append(expressionLevel, "Intermediate")
-    }
-    else if (expressionHash[[test]][row, "Score"] >= 7 & expressionHash[[test]][row, "Score"] <= 9) {
-      expressionLevel <- append(expressionLevel, "High")
-    }
-  }
-  expressionHash[[test]]$Level <- expressionLevel
-}
-
-rm(expressionLevel)
-
-# Add expression data to the dataframes in testData.
-for (test in names(testData)) {
-  testData[[test]] <- cbind(testData[[test]], data.frame(ExpressionLevel = expressionHash[[test]]$Level))
-}
-
-rm(expressionHash)
-
-
 
 # Filter big expression data for R-genes.
 bigExpressionData <- bigExpressionData[,c(which(colnames(bigExpressionData) %in% euchromaticNLRs$Gene), 158:164)]
@@ -267,6 +221,38 @@ for (col in 1:ncol(rootMeans)) {
 rm(leafMeans, rootMeans, meanExpression, leafTissue)
 
 
+# Plot a heatmap to compare expression levels between leaf and root.
+tissueExpression <- leafExpression
+tissueExpression <- rbind(tissueExpression, rootExpression)
+tissueExpression <- cbind(tissueExpression, data.frame(Tissue = c(rep("Leaf", times = nrow(leafExpression)),
+                                                                  rep("Root", times = nrow(rootExpression)))))
+colnames(tissueExpression) <- c("Gene", "Expression", "Tissue")
+
+expressionHeatmap <- ggplot(tissueExpression, aes(x = Tissue, y = Gene, fill = Expression)) + 
+  geom_tile() + scale_fill_gradient(low="white", high="red") + theme_classic() +
+  theme(axis.line = element_line(colour = "white"), axis.ticks = element_line(colour = "white"),
+        axis.text.y = element_text(size = 6)) 
+
+
+# Determine the difference in expression. Positive values indicate higher expression in leaves,
+# while negative values indicate higher expression in roots.
+expressionDifference <- data.frame(Gene = leafExpression$Gene,
+                                   Difference = leafExpression$Expression - rootExpression$Expression)
+
+
+# Make a list of R-genes expression in leaves and roots. 
+leafExpressionYes <- leafExpression[-c(which(leafExpression$Expression<1)),]
+leafExpressionNo <- leafExpression[c(which(leafExpression$Expression<1)),]
+
+rootExpressionYes <- rootExpression[-c(which(rootExpression$Expression<1)),]
+rootExpressionNo <- rootExpression[c(which(rootExpression$Expression<1)),]
+
+
+testData[["LeafYes"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% leafExpressionYes$Gene)),]
+testData[["LeafNo"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% leafExpressionNo$Gene)),]
+
+testData[["RootYes"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% rootExpressionYes$Gene)),]
+testData[["RootNo"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% rootExpressionNo$Gene)),]
 
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
@@ -274,7 +260,8 @@ testDataFrequencies <- hash()
 testDataProportions <- hash()
 
 
-for (test in names(testData)) {
+
+for (test in names(testData)[c(11:15)]) {
   dataToUse <- testData[[test]]
   
   # Create new dataframes for chunks of the gene body (20% intervals of the gene length).
@@ -1004,7 +991,7 @@ for (mod in epiMods) {
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
     geom_line(aes(group = Test),size = 1.3) +
     geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
+    scale_colour_discrete(labels = c("Leaf active", "Leaf silent", "All R-genes", "Root silent", "Root active")) +
     labs(x = "", y = "Frequency of occurrence (%)") +
     geom_vline(xintercept=0, color="grey", size=1) +
     coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
@@ -1012,56 +999,16 @@ for (mod in epiMods) {
     annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2)) 
-  
+
   ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
-  
-  
-  df2 <- allResultsOverlaps[allResultsOverlaps$Test=="NLRs",]
-  df2 <- df2[df2$Modification==mod,]
-  
-  modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Proportion)) + 
-    scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_boxplot(aes(group = axisGroup)) + theme_minimal() + 
-    labs(x = "", y = "Proportion of gene region") +
-    geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
-    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2))
-  
-  ggsave(paste(mod, "_", ".LeafProportions.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
-  
 }
-  
 
-# Remove the cases where the chromatin modification does not overlap with the gene region.
-allResultsProportions <- allResultsOverlaps[c(which(allResultsOverlaps$Proportion > 0)),]
-
-# Plot the results.
-for (mod in epiMods) {
-  df2 <- allResultsProportions[allResultsProportions$Test=="NLRs",]
-  df2 <- df2[df2$Modification==mod,]
-  
-  modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Proportion)) + 
-    scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_boxplot(aes(group = axisGroup)) + theme_minimal() + 
-    labs(x = "", y = "Proportion of gene region") +
-    geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
-    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2))
-  
-  ggsave(paste(mod, "_", ".LeafProportions.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
-}
 
 # Calculate the mean proportion of overlap and add as a new column to the dataframe.
 allResultsAverageProportions <- data.frame()
 
 for (test in names(testDataProportions)) {
-  df <- allResultsProportions[allResultsProportions$Test==test,]
+  df <- allResultsOverlaps[allResultsOverlaps$Test==test,]
   
   for (mod in epiMods) {
     df1 <- df[df$Modification==mod,]
@@ -1092,8 +1039,7 @@ for (mod in epiMods) {
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
     geom_line(aes(x = axisGroup, y = Mean, group = Test),size = 1.3) + 
     geom_point(aes(x = axisGroup, y = Mean),size = 2) +
-    #geom_errorbar(aes(ymin=Mean-SD, ymax=Mean+SD), width = 2) +
-    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
+    scale_colour_discrete(labels = c("Leaf active", "Leaf silent", "All R-genes", "Root silent", "Root active")) +
     theme_minimal() + 
     labs(x = "", y = "Average proportion of gene region") +
     geom_vline(xintercept=0, color="grey", size=1) +
@@ -1107,7 +1053,8 @@ for (mod in epiMods) {
 }
 
 
-
+# Save data corresponding to graphs that have been saved.
+write.csv(allResultsAverageProportions, file="LeafProportionMeansData_perTissue.csv")
 
 
 
