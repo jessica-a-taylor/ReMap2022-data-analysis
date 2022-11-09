@@ -156,10 +156,14 @@ testData[["NLRs"]] <- euchromaticNLRs
 
 
 # Import expression data.
-bigExpressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\expression_result_table.xlsx"))
+# For each gene set in testData, save the list of genes. 
+for (test in names(testData)) {
+  write(paste(testData[[test]]$Gene, sep = "", collapse = ","), file = paste(test, "_geneList",".txt", sep = ""))
+}
 
-# Filter big expression data for R-genes.
-bigExpressionData <- bigExpressionData[,c(which(colnames(bigExpressionData) %in% euchromaticNLRs$Gene), 158:164)]
+
+
+bigExpressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\expression_result_table.xlsx"))
 
 # Filter big expression data for Col-0, leaf/root tissue, and wild-type conditions.
 bigExpressionData <- bigExpressionData[bigExpressionData$Ecotype=="Col-0",]
@@ -175,18 +179,29 @@ bigExpressionData <- bigExpressionData[c(which(bigExpressionData$Tissue %in% tis
 
 rm(treatments)
 
-# Get the mean expression for the R-genes in each tissue type.
-meanExpression <- data.frame(matrix(ncol = 155, nrow = 0))
+# Filter big expression data for genes of interest.
+expressionData <- hash()
 
-for(t in tissue) {
-  df <- bigExpressionData[bigExpressionData$Tissue==t,]
-   
-  tissueMean <- c()
-  for (col in colnames(df)[1:155]) {
-   tissueMean <- append(tissueMean, mean(df[,col]))
-  }
- meanExpression <- rbind(meanExpression, tissueMean) 
+for (test in names(testData)) {
+  expressionData[[test]] <- bigExpressionData[,c(which(colnames(bigExpressionData) %in% testData[[test]]$Gene), 158:164)]
 }
+
+# Get the mean expression in each tissue type.
+for (test in names(expressionData)) {
+  meanExpression <- data.frame(matrix(ncol = 155, nrow = 0))
+  
+  for(t in tissue) {
+    df <- expressionData[[test]][expressionData[[test]]$Tissue==t,]
+    
+    tissueMean <- c()
+    for (col in colnames(df)[1:155]) {
+      tissueMean <- append(tissueMean, mean(df[,col]))
+    }
+    meanExpression <- rbind(meanExpression, tissueMean) 
+  }
+  expressionData[[test]] <- meanExpression
+}
+
 
 rm(df, tissueMean)
 
