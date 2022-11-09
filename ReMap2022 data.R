@@ -163,7 +163,7 @@ for (test in names(testData)) {
 
 
 
-bigExpressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\expression_result_table.xlsx"))
+bigExpressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\result_NLRs.xlsx"))
 
 # Filter big expression data for Col-0, leaf/root tissue, and wild-type conditions.
 bigExpressionData <- bigExpressionData[bigExpressionData$Ecotype=="Col-0",]
@@ -179,11 +179,14 @@ bigExpressionData <- bigExpressionData[c(which(bigExpressionData$Tissue %in% tis
 
 rm(treatments)
 
+
+bigExpressionData <- bigExpressionData[,-c(1:2, 159:165)]
+
 # Filter big expression data for genes of interest.
 expressionData <- hash()
 
 for (test in names(testData)) {
-  expressionData[[test]] <- bigExpressionData[,c(which(colnames(bigExpressionData) %in% testData[[test]]$Gene), 158:164)]
+  expressionData[[test]] <- bigExpressionData[,c(which(colnames(bigExpressionData) %in% testData[[test]]$Gene), 156)]
 }
 
 # Get the mean expression in each tissue type.
@@ -276,7 +279,7 @@ testDataProportions <- hash()
 
 
 
-for (test in names(testData)[c(11:15)]) {
+for (test in names(testData)[c(11:12)]) {
   dataToUse <- testData[[test]]
   
   # Create new dataframes for chunks of the gene body (20% intervals of the gene length).
@@ -999,14 +1002,44 @@ axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "Downstream \n(200bp)", "Intergenic")
 
 
+controlData <- allResultsFrequencies[c(which(allResultsFrequencies$Test %in% unique(allResultsFrequencies$Test)[c(11:20, 22:31)])),]
+
+controlDataMeans <- data.frame(Region = character(),
+                               Modification = character(),
+                               Frequency = numeric(),
+                               axisGroup = numeric())
+
 for (mod in epiMods) {
-  df1 <- allResultsFrequencies[allResultsFrequencies$Modification==mod,]
+  df <- controlData[controlData$Modification==mod,]
+  
+  means <- c()
+  
+  for (region in unique(df$Region)) {
+    df1 <- df[df$Region==region,]
+    
+    means <- append(means, mean(df1$Frequency))
+  }
+  controlDataMeans <- rbind(controlDataMeans, data.frame(Region = unique(df$Region),
+                                                         Modification = rep(mod, times = length(means)),
+                                                         Frequency = means,
+                                                         axisGroup = rep(unique(df$axisGroup), times = length(means))))
+}
+
+
+controlDataMeans <- cbind(controlDataMeans, data.frame(Test = rep("Control", times = nrow(controlDataMeans))))
+controlDataMeans <- rbind(controlDataMeans, allResultsFrequencies[c(which(allResultsFrequencies$Test %in% unique(allResultsFrequencies$Test)[c(21,32)])),])
+
+dataToUse <- controlDataMeans
+
+# For plotting just R-genes
+for (mod in epiMods) {
+  df1 <- dataToUse[dataToUse$Modification==mod,]
   
   modFrequenciesPlot <- ggplot(df1, aes(x = axisGroup, y = Frequency, color = Test)) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
     geom_line(aes(group = Test),size = 1.3) +
     geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    scale_colour_discrete(labels = c("Leaf active", "Leaf silent", "All R-genes", "Root silent", "Root active")) +
+    #scale_colour_discrete(labels = c("Silent", "Active")) +
     labs(x = "", y = "Frequency of occurrence (%)") +
     geom_vline(xintercept=0, color="grey", size=1) +
     coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
@@ -1018,6 +1051,25 @@ for (mod in epiMods) {
   ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
 }
 
+# For plotting R-genes & controls
+for (mod in epiMods) {
+  df1 <- allResultsFrequencies[allResultsFrequencies$Modification==mod,]
+  
+  modFrequenciesPlot <- ggplot(df1, aes(x = axisGroup, y = Frequency, color = Test)) + 
+    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+    geom_line(aes(group = Test),size = 1.3) +
+    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
+    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
+    labs(x = "", y = "Frequency of occurrence (%)") +
+    geom_vline(xintercept=0, color="grey", size=1) +
+    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-14,ymax=-14) + 
+    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
+    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
+          axis.title.y = element_text(size = 14, vjust = 2)) 
+  
+  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
+}
 
 # Calculate the mean proportion of overlap and add as a new column to the dataframe.
 allResultsAverageProportions <- data.frame()
@@ -1054,7 +1106,7 @@ for (mod in epiMods) {
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
     geom_line(aes(x = axisGroup, y = Mean, group = Test),size = 1.3) + 
     geom_point(aes(x = axisGroup, y = Mean),size = 2) +
-    scale_colour_discrete(labels = c("Leaf active", "Leaf silent", "All R-genes", "Root silent", "Root active")) +
+    scale_colour_discrete(labels = c("Silent", "Active")) +
     theme_minimal() + 
     labs(x = "", y = "Average proportion of gene region") +
     geom_vline(xintercept=0, color="grey", size=1) +
