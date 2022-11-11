@@ -85,7 +85,7 @@ NLRgenes$ranges <- mergeCoordinates(dataToUse)
 # Add R-genes to sampleGenes.
 sampleGenes[["NLRs"]] <- NLRgenes
 
-rm(ArabidopsisNLRs, NLRgenes)
+rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 
 # For each gene set in sampleGenes, save the list of genes. 
 for (test in names(sampleGenes)) {
@@ -128,7 +128,7 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-for (test in names(sampleGenes)[c(11:12)]) {
+for (test in names(sampleGenes)[33]) {
   dataToUse <- sampleGenes[[test]]
   
   # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
@@ -164,7 +164,7 @@ for (test in names(sampleGenes)[c(11:12)]) {
   sampleGenesProportions[[test]] <- modProportionPerRegion
 }
 
-rm(tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse)
+rm(tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse, ReMap)
   
 # Merge all data from all sample gene sets into one big dataframe.
 allResultsFrequencies <- data.frame()
