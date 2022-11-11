@@ -1,3 +1,8 @@
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install(c("karyoploteR","rtracklayer", "TxDb.Athaliana.BioMart.plantsmart28", "ggplot2"))
+
 library(readxl)
 library(karyoploteR)
 library(rtracklayer)
@@ -10,16 +15,8 @@ library(ggplot2)
 library(data.table)
 library(grid)
 
-# Import ReMap2022 data.
-ReMap <- rtracklayer::import.bed("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
+source("Functions\\Get range - merge gene coordinates.R")
 
-# Convert to a dataframe and define column names.
-ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",
-                                           "strand", "name", "score", "itemRgb",
-                                           "thick.start", "thick.end", "thick.width"))
-
-# Remove unwanted columns.
-ReMap <- ReMap[,-c(9:11)]
 
 # Import all Arabidopsis genes.
 Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
@@ -29,1017 +26,205 @@ colnames(Atgenes)[2] <- "Gene"
 Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
 
 
-# Remove genes within the centromeric and pericentromeric regions.
-pericentromericRegions <- data.frame(Chromosome = c(1:5),
+# Remove genes within the centromeric and pericentromeric geneRegions.
+pericentromericgeneRegions <- data.frame(Chromosome = c(1:5),
                                      Start = c("11500000", "1100000", "10300000", "1500000", "9000000"),
                                      End = c("17700000", "7200000", "17300000", "6300000", "16000000"))
 
-euchromaticRegions <- data.frame()
+euchromaticgeneRegions <- data.frame()
 
-for (row in 1:nrow(pericentromericRegions)) {
-  df <- Atgenes[c(which(Atgenes$seqnames==row & Atgenes$start < as.numeric(pericentromericRegions[row, "Start"]))),]
-  df <- rbind(df, Atgenes[c(which(Atgenes$seqnames==row & Atgenes$end > as.numeric(pericentromericRegions[row, "End"]))),])
+for (row in 1:nrow(pericentromericgeneRegions)) {
+  df <- Atgenes[c(which(Atgenes$seqnames==row & Atgenes$start < as.numeric(pericentromericgeneRegions[row, "Start"]))),]
+  df <- rbind(df, Atgenes[c(which(Atgenes$seqnames==row & Atgenes$end > as.numeric(pericentromericgeneRegions[row, "End"]))),])
   
-  euchromaticRegions <- rbind(euchromaticRegions, df)
+  euchromaticgeneRegions <- rbind(euchromaticgeneRegions, df)
 }
 
-rm(pericentromericRegions, df)
+rm(pericentromericgeneRegions, df)
 
-euchromaticRegions <- euchromaticRegions[,-c(1,8,9)]
-euchromaticRegions$ranges <- paste(euchromaticRegions$start,"-",euchromaticRegions$end, sep = "")
+euchromaticgeneRegions <- euchromaticgeneRegions[,-c(1,8,9)]
+euchromaticgeneRegions$ranges <- paste(euchromaticgeneRegions$start,"-",euchromaticgeneRegions$end, sep = "")
 
 # Remove duplicate genes.
-newEuchromaticRegions <- euchromaticRegions
-euchromaticRegions <- data.frame()
+newEuchromaticgeneRegions <- euchromaticgeneRegions
+euchromaticgeneRegions <- data.frame()
 
-for (gene in unique(newEuchromaticRegions$Gene)) {
-  euchromaticRegions <- rbind(euchromaticRegions, newEuchromaticRegions[newEuchromaticRegions$Gene==gene,][1,])
+for (gene in unique(newEuchromaticgeneRegions$Gene)) {
+  euchromaticgeneRegions <- rbind(euchromaticgeneRegions, newEuchromaticgeneRegions[newEuchromaticgeneRegions$Gene==gene,][1,])
 }
 
-rm(newEuchromaticRegions)
+rm(newEuchromaticgeneRegions)
 
-# Remove TEs from the euchromaticRegions dataframe.
-transposableElements <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis TE genes.xlsx"))
+# Remove TEs from the euchromaticgeneRegions dataframe.
+transposableElements <- as.data.frame(read_xlsx("Data\\Arabidopsis TE genes.xlsx"))
 
-withoutTEs <- euchromaticRegions[-c(which(euchromaticRegions$Gene %in% transposableElements$Locus)),]
+withoutTEs <- euchromaticgeneRegions[-c(which(euchromaticgeneRegions$Gene %in% transposableElements$Locus)),]
 
 rm(transposableElements)
 
 
-# Create function that determines whether value a is between values b and c.
-betweenFunction <- function(a,b,c) {
-  return(b<a & a<c)
-}
+# Get 10 sets of random genes and store in a hash from gene dataset of interest.
+source("Functions\\Sample random genes.R")
 
-# Create a function that determines whether two ranges overlap using the between function.
-overlapsFunction <- function(S1, E1, S2, E2) {
-  if (betweenFunction(S1, S2, E2)) {
-    return (TRUE)
-  }
-  if (betweenFunction(E1, S2, E2)) {
-    return (TRUE)
-  }
-  if (betweenFunction(S2, S1, E1)) {
-    return (TRUE)
-  }
-  if (betweenFunction(E2, S1, E1)) {
-    return (TRUE)
-  }
-  return(FALSE)
-}
-
-# Create a function that determines the degree to which two ranges overlap using the between function.
-newOverlapsFunction <- function(S1, E1, S2, E2) {
-  if (betweenFunction(S1, S2, E2)==TRUE & betweenFunction(E1, S2, E2)==TRUE) {
-    return(E1-S1)
-  }
-  else if (betweenFunction(S2, S1, E1) & betweenFunction(E2, S1, E1)) {
-    return(E2-S2)
-  }
-  else if (betweenFunction(S1, S2, E2)) {
-    return(E2-S1)
-  }
-  if (betweenFunction(E1, S2, E2)) {
-    return(E1-S2)
-  }
-  else if (betweenFunction(S2, S1, E1)) {
-    return(E1-S2)
-  }
-  else if (betweenFunction(E2, S1, E1)) {
-    return(E2-S1)
-  }
-  return(0)
-}
-
-# Function to return the index of the set containing "item" in "overlapSets"
-findItem <- function(item, overlapSets) {
-  
-  # For each set in overlapSets
-  for (setIndex in 1:length(overlapSets)) {
-    
-    # If item is contained within that set, return the index of that set
-    if (item %in% overlapSets[[setIndex]]) {
-      return(setIndex)
-    }
-  }
-}
-
-
-
-# Get 10 sets of random genes and store in a hash, using either euchromaticRegions or withoutTEs.
 dataToUse <- withoutTEs
   
-testData <- hash()
+sampleGenes <- geneSets(dataToUse)
 
-for (n in c(1:10)) {
-  df <- dataToUse[c(sample(nrow(dataToUse), 200)),]
-  df <- df[order(df$Gene),]
-  testData[[paste("control", n, sep = "")]] <- df
-}
 
-rm(df)
+# Import list of R-genes.
+ArabidopsisNLRs <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 1))
 
-# Get the coordinates for the gene bodies of each NLR.
-NLRgenes <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\Arabidopsis NLRs.xlsx", sheet = 1))
-
-NLRgenebody <- Atgenes[which(Atgenes$Gene %in% NLRgenes$Gene),]
+NLRgenes <- dataToUse[which(dataToUse$Gene %in% ArabidopsisNLRs$Gene),]
 
 # Create a ranges column by merging the start and end columns.
-NLRgenebody$ranges <- paste(NLRgenebody$start,"-",NLRgenebody$end, sep = "")
+dataToUse <- NLRgenes
 
-euchromaticNLRs <- NLRgenebody[c(which(NLRgenebody$Gene %in% withoutTEs$Gene)),]
-
-
-# Add R-genes to testData.
-testData[["NLRs"]] <- euchromaticNLRs
+NLRgenes$ranges <- mergeCoordinates(dataToUse)
 
 
+# Add R-genes to sampleGenes.
+sampleGenes[["NLRs"]] <- NLRgenes
+
+rm(ArabidopsisNLRs, NLRgenes)
+
+# For each gene set in sampleGenes, save the list of genes. 
+for (test in names(sampleGenes)) {
+  write(paste(sampleGenes[[test]]$Gene, sep = "", collapse = ","), file = paste(test, "_geneList",".txt", sep = ""))
+}
 
 # Import expression data.
-# For each gene set in testData, save the list of genes. 
-for (test in names(testData)) {
-  write(paste(testData[[test]]$Gene, sep = "", collapse = ","), file = paste(test, "_geneList",".txt", sep = ""))
+bigExpressionData <- hash()
+
+for (test in names(sampleGenes)) {
+  bigExpressionData[[test]] <- as.data.frame(read_xlsx(paste("Data\\result_", test, ".xlsx", sep = "")))
 }
 
 
+# Get filtered expression data for each set of sample genes in each tissue. 
+# Add dataframes to sampleGenes for gene sets with particular expression levels.
+source("Functions\\Get expression data.R")
 
-bigExpressionData <- as.data.frame(read_xlsx("C:\\Users\\jexy2\\OneDrive\\Documents\\result_NLRs.xlsx"))
+sampleGenes <- expressionFiltered(bigExpressionData, sampleGenes)
 
-# Filter big expression data for Col-0, leaf/root tissue, and wild-type conditions.
-bigExpressionData <- bigExpressionData[bigExpressionData$Ecotype=="Col-0",]
-bigExpressionData <- bigExpressionData[bigExpressionData$Genotype=="wild type",]
-
-treatments <- c("Mock", "untreated", "control", "Not treated", "mock", "unstressed control", "none",
-                "normal condition","healthy", "NA")
-
-tissue <- c("leaves", "root", "rosette leaf", "aerial seedling")
-
-bigExpressionData <- bigExpressionData[c(which(bigExpressionData$Treatment %in% treatments)),]
-bigExpressionData <- bigExpressionData[c(which(bigExpressionData$Tissue %in% tissue)),]
-
-rm(treatments)
-
-
-bigExpressionData <- bigExpressionData[,-c(1:2, 159:165)]
-
-# Filter big expression data for genes of interest.
-expressionData <- hash()
-
-for (test in names(testData)) {
-  expressionData[[test]] <- bigExpressionData[,c(which(colnames(bigExpressionData) %in% testData[[test]]$Gene), 156)]
-}
-
-# Get the mean expression in each tissue type.
-for (test in names(expressionData)) {
-  meanExpression <- data.frame(matrix(ncol = 155, nrow = 0))
-  
-  for(t in tissue) {
-    df <- expressionData[[test]][expressionData[[test]]$Tissue==t,]
-    
-    tissueMean <- c()
-    for (col in colnames(df)[1:155]) {
-      tissueMean <- append(tissueMean, mean(df[,col]))
-    }
-    meanExpression <- rbind(meanExpression, tissueMean) 
-  }
-  expressionData[[test]] <- meanExpression
-}
-
-
-rm(df, tissueMean)
-
-meanExpression$Tissue <- tissue
-colnames(meanExpression) <- c(colnames(bigExpressionData)[1:155], "Tissue")
-
-rm(tissue, bigExpressionData)
-
-# Create separate dataframes for the mean expression level in leaves and roots.
-leafTissue <- c("leaves", "rosette leaf", "aerial seedling")
-leafMeans <- meanExpression[meanExpression$Tissue %in% leafTissue,][,-156]
-
-leafExpression <- data.frame(Gene = character(),
-                             Expression = numeric())
-
-for (col in 1:ncol(leafMeans)) {
-  leafExpression <- rbind(leafExpression, data.frame(Gene = colnames(leafMeans)[col],
-                                                     Expression = mean(leafMeans[,col])))
-}
-
-rootMeans <- meanExpression[meanExpression$Tissue =="root",][,-156]
-
-rootExpression <- data.frame(Gene = character(),
-                             Expression = numeric())
-
-for (col in 1:ncol(rootMeans)) {
-  rootExpression <- rbind(rootExpression, data.frame(Gene = colnames(rootMeans)[col],
-                                                     Expression = mean(rootMeans[,col])))
-}
-
-
-rm(leafMeans, rootMeans, meanExpression, leafTissue)
-
-
-# Plot a heatmap to compare expression levels between leaf and root.
-tissueExpression <- leafExpression
-tissueExpression <- rbind(tissueExpression, rootExpression)
-tissueExpression <- cbind(tissueExpression, data.frame(Tissue = c(rep("Leaf", times = nrow(leafExpression)),
-                                                                  rep("Root", times = nrow(rootExpression)))))
-colnames(tissueExpression) <- c("Gene", "Expression", "Tissue")
-
-expressionHeatmap <- ggplot(tissueExpression, aes(x = Tissue, y = Gene, fill = Expression)) + 
-  geom_tile() + scale_fill_gradient(low="white", high="red") + theme_classic() +
-  theme(axis.line = element_line(colour = "white"), axis.ticks = element_line(colour = "white"),
-        axis.text.y = element_text(size = 6)) 
-
-
-# Determine the difference in expression. Positive values indicate higher expression in leaves,
-# while negative values indicate higher expression in roots.
-expressionDifference <- data.frame(Gene = leafExpression$Gene,
-                                   Difference = leafExpression$Expression - rootExpression$Expression)
-
-
-# Make a list of R-genes expression in leaves and roots. 
-leafExpressionYes <- leafExpression[-c(which(leafExpression$Expression<1)),]
-leafExpressionNo <- leafExpression[c(which(leafExpression$Expression<1)),]
-
-rootExpressionYes <- rootExpression[-c(which(rootExpression$Expression<1)),]
-rootExpressionNo <- rootExpression[c(which(rootExpression$Expression<1)),]
-
-
-testData[["LeafYes"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% leafExpressionYes$Gene)),]
-testData[["LeafNo"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% leafExpressionNo$Gene)),]
-
-testData[["RootYes"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% rootExpressionYes$Gene)),]
-testData[["RootNo"]] <- euchromaticNLRs[c(which(euchromaticNLRs$Gene %in% rootExpressionNo$Gene)),]
-
+rm(bigExpressionData)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
-testDataFrequencies <- hash()
-testDataProportions <- hash()
+source("Functions\\Coordinates per gene region.R")
+source("Functions\\Modifications per gene.R")
+source("Functions\\Modification frequencies & proportions.R")
 
+# Import filtered ReMap2022 data.
+ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
 
+# Create list of chromatin modifications.
+epiMods <- unique(ReMap$epiMod)
 
-for (test in names(testData)[c(11:12)]) {
-  dataToUse <- testData[[test]]
-  
-  # Create new dataframes for chunks of the gene body (20% intervals of the gene length).
-  geneChunks <- hash(width20 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
-                                                    colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
-                     width40 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
-                                                    colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
-                     width60 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
-                                                    colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
-                     width80 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
-                                                    colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))], 
-                     width100 = dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
-                                                     colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))])
-  
-  geneWidth <- hash(width20 = c(), 
-                    width40 = c(), 
-                    width60 = c(), 
-                    width80 = c(), 
-                    width100 = c())
-  
-  for (row in 1:nrow(dataToUse)) {
-    if (dataToUse[row, "strand"]=="+") {
-      geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"start"],"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.2, sep = ""))
-      geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.2+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.4, sep = ""))
-      geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.4+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.6, sep = ""))
-      geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.6+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.8, sep = ""))
-      geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.8+1,"-",dataToUse[row,"end"], sep = ""))
-    }
-    else if (dataToUse[row, "strand"]=="-"){
-      geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.2,"-", dataToUse[row,"end"], sep = ""))
-      geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.4,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.2-1, sep = ""))
-      geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.6,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.4-1, sep = ""))
-      geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.8,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.6-1, sep = ""))
-      geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"],"-",dataToUse[row,"end"] - dataToUse[row,"width"]*0.8-1, sep = ""))
-    }
-    }
-  
-  for (n in names(geneChunks)) {
-    geneChunks[[n]]$ranges <- geneWidth[[n]]
-  }
-  
-  rm(geneWidth)
-  
-  for (n in names(geneChunks)) {
-    start <- c()
-    end <- c()
-    
-    for (row in 1:nrow(geneChunks[[n]])) {
-      start <- append(start, str_match(geneChunks[[n]][row,"ranges"], "^(\\d*\\.?\\d+)(-)(\\d*\\.?\\d+)$")[,2])
-      end <- append(end, str_match(geneChunks[[n]][row,"ranges"], "^(\\d*\\.?\\d+)(-)(\\d*\\.?\\d+)$")[,4])
-    }
-    geneChunks[[n]]$start <- start
-    geneChunks[[n]]$end <- end
-  }
-  
-  for (n in names(geneChunks)) {
-    geneChunks[[n]]$width <- as.numeric(geneChunks[[n]]$end) - as.numeric(geneChunks[[n]]$start)
-  }
-  
-  rm(start, end)
-  
-  # Create new dataframe for the coordinates of the regions 200bp downstream of the TTS.
-  
-  downstreamRegion <- c()
-  for (row in 1:nrow(dataToUse)) {
-    if (dataToUse[row, "strand"]=="+") {
-      downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"end"],"-",dataToUse[row,"end"]+200, sep = ""))
-    }
-    else if (dataToUse[row, "strand"]=="-") {
-      downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"start"]-200,"-", dataToUse[row,"start"], sep = ""))
-    }
-  }
-  
-  downstream <- dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
-                                     colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))]
-  
-  downstream$ranges <- downstreamRegion
-  rm(downstreamRegion)
-  
-  downstream$start <- as.numeric(str_match(downstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,2])
-  downstream$end <- as.numeric(str_match(downstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,4])
-  downstream$width <- downstream$end - downstream$start
-  
-  
-  # Get the coordinates for the promotors of each gene.
-  ATpromotors500 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=0, use.names = TRUE)
-  ATpromotors1000 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=1000, downstream=0, use.names = TRUE)
-  
-  # Remove duplicate genes (different versions).
-  ATpromotors500 <- ATpromotors500[-c(which(ATpromotors500$tx_name == str_match(ATpromotors500$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
-  ATpromotors1000 <- ATpromotors1000[-c(which(ATpromotors1000$tx_name == str_match(ATpromotors1000$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
-  
-  promotor500 <- data.frame(seqnames = numeric(),
-                            start = numeric(),
-                            end = numeric(),
-                            width = numeric(),
-                            strand = factor(),
-                            tx_id = numeric(),
-                            tx_name = character())
-  
-  promotor1000 <- promotor500
-  
-  for (gene in dataToUse$Gene) {
-    promotor500 <- rbind(promotor500, as.data.frame(ATpromotors500[grepl(gene,ATpromotors500$tx_name),]))
-    promotor1000 <- rbind(promotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
-  }
-  
-  # Alter coordinated of promotor1000 to be only 500bp upstream of promotor500.
-  for (row in 1:nrow(promotor1000)) {
-    if (promotor1000[row, "strand"]=="+") {
-      promotor1000[row, "end"] <- promotor1000[row, "start"]+500
-    }
-    else if (promotor1000[row, "strand"]=="-") {
-      promotor1000[row, "start"] <- promotor1000[row, "end"]-500
-    }
-  }
-  
-  # Create a ranges column by merging the start and end columns.
-  promotor500$ranges <- paste(promotor500$start,"-",promotor500$end, sep = "")
-  promotor1000$ranges <- paste(promotor1000$start,"-",promotor1000$end, sep = "")
-  
-  
-  # Add a new column for the gene name, removing ".1" from the end.
-  promotor500$Gene <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
-  promotor1000$Gene <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
-  
-  rm(ATpromotors500, ATpromotors1000)
-  
-  # Get the coordinates for the upstream intergenic regions of each gene.
-  usCoordinates <- c()
-  
-  for (gene in dataToUse$Gene) {
-    currentGene <- which(withoutTEs$Gene==gene)
-    
-    if (withoutTEs[currentGene, "strand"]=="+") {
-      previousGene <- currentGene - 1
-      
-      if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
-        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-            withoutTEs[previousGene, "strand"]=="+") {
-          
-          distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 201)
-          
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 201, "-", withoutTEs[previousGene, "end"] + 201 + distance, sep = "")) 
-          } 
-          else usCoordinates <- append(usCoordinates, NA)
-        }
-        
-        else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-                 withoutTEs[previousGene, "strand"]=="-") {
-          
-          distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 1001)
-          
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 1001, "-", withoutTEs[previousGene, "end"] + 1001 + distance, sep = "")) 
-          } 
-          else usCoordinates <- append(usCoordinates, NA)
-          
-        } 
-      }
-      else usCoordinates <- append(usCoordinates, NA)
-    }
-    
-    else if (withoutTEs[currentGene, "strand"]=="-") {
-      previousGene <- currentGene + 1
-      
-      if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
-        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) &
-            withoutTEs[previousGene, "strand"]=="+") {
-          
-          distance <- (withoutTEs[previousGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 1001)
-          
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 1001 - distance, "-", withoutTEs[previousGene, "start"] - 1001, sep = "")) 
-          } 
-          else usCoordinates <- append(usCoordinates, NA)
-          
-        }
-        
-        else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-                 withoutTEs[previousGene, "strand"]=="-") {
-          
-          distance <- (withoutTEs[previousGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 1001)
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 201 - distance, "-", withoutTEs[previousGene, "start"] - 201, sep = "")) 
-          } 
-          else usCoordinates <- append(usCoordinates, NA)
-          
-        }
-      }
-      else usCoordinates <- append(usCoordinates, NA)
-    } 
-  }
-  
-  upstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
-  upstreamIntergenic$ranges <- usCoordinates 
-  
-  for (row in 1:nrow(upstreamIntergenic)) {
-    upstreamIntergenic[row, "start"] <- str_match(upstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,2]
-    upstreamIntergenic[row, "end"] <- str_match(upstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,3]
-    
-    if (!is.na(upstreamIntergenic[row, "ranges"])) {
-      upstreamIntergenic[row, "width"] <- as.numeric(upstreamIntergenic[row, "end"]) - as.numeric(upstreamIntergenic[row, "start"])
-    }
-    else upstreamIntergenic[row, "width"] <- NA
-  }
-  
-  upstreamIntergenic <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$ranges))),]
-  
-  rm(usCoordinates)
-  
-  # Get the coordinates for the downstream intergenic regions of each NLR.
-  dsCoordinates <- c()
-  
-  for (gene in dataToUse$Gene) {
-    currentGene <- which(withoutTEs$Gene==gene)
-    
-    if (withoutTEs[currentGene, "strand"]=="-") {
-      nextGene <- currentGene - 1
-      
-      if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
-        if (withoutTEs[nextGene, "strand"]=="-") {
-          distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 1001)
-          
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 1001, "-", withoutTEs[nextGene, "end"] + 1001 + distance, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA) 
-        }
-        
-        else if (withoutTEs[nextGene, "strand"]=="+") {
-          distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 201)
-          
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 201, "-", withoutTEs[nextGene, "end"] + 201 + distance, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA)
-          
-        }
-      }
-      else dsCoordinates <- append(dsCoordinates, NA)
-    }
-    
-    else if (withoutTEs[currentGene, "strand"]=="+") {
-      nextGene <- currentGene + 1
-      
-      if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
-        if (withoutTEs[nextGene, "strand"]=="+") {
-          distance <- (withoutTEs[nextGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 201)
-          
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 1001 - distance, "-", withoutTEs[nextGene, "start"] - 1001, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA) 
-          
-        }
-        
-        else if (withoutTEs[nextGene, "strand"]=="-") {
-          distance <- (withoutTEs[nextGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 201)
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 201 - distance, "-", withoutTEs[nextGene, "start"] - 201, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA) 
-          
-        }
-      }
-      else dsCoordinates <- append(dsCoordinates, NA)
-    } 
-  }
-  
-  downstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
-  downstreamIntergenic$ranges <- dsCoordinates 
-  
-  for (row in 1:nrow(downstreamIntergenic)) {
-    downstreamIntergenic[row, "start"] <- str_match(downstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,2]
-    downstreamIntergenic[row, "end"] <- str_match(downstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,3]
-    
-    if (!is.na(downstreamIntergenic[row, "ranges"])) {
-      downstreamIntergenic[row, "width"] <- as.numeric(downstreamIntergenic[row, "end"]) - as.numeric(downstreamIntergenic[row, "start"])
-    }
-    else downstreamIntergenic[row, "width"] <- NA
-  }
-  
-  downstreamIntergenic <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
+# Create hashes for storing the % R-genes with a chromatin mark in each gene region (frequency)
+# and the proportion of each gene region with that mark.
+sampleGenesFrequencies <- hash()
+sampleGenesProportions <- hash()
 
-  rm(currentGene, previousGene, nextGene, dsCoordinates, distance)
-  
-  # Create a hash to store ReMap data for each NLR/cluster.
-  gene_hash <- hash()
-  
-  for (row in 1:nrow(dataToUse)) {
-    # Select rows that are within the range of each gene and on the same chromosome.
-    ReMapRows <- c(which(ReMap[,"start"] > dataToUse[row, "start"]-5000 & ReMap[,"end"] < dataToUse[row, "end"]+5000 & ReMap[,"seqnames"] == as.numeric(dataToUse[row, "seqnames"])))
-    gene_hash[[dataToUse[row,"Gene"]]] <- ReMap[ReMapRows,]
-  }
-  
-  rm(ReMapRows, dataToUse)
-  
-  for(n in names(gene_hash)) {
-    if (nrow(gene_hash[[n]])>=1) {
-      # Run regex on name column, extracting each section
-      # (experiment, epigenetic modification, ecotype, other info)
-      gene_hash[[n]][c("exp.", "epiMod", "ecotype", "info")] <- str_match(gene_hash[[n]][,"name"], "^([0-9a-zA-Z]+)\\.([0-9a-zA-Z-]+)\\.([0-9a-zA-Z-]+)[_\\.](.*)$")[,-1]
-      
-      # Filter epiMod column, excluding unwanted modifications
-      gene_hash[[n]] <- gene_hash[[n]][!gene_hash[[n]]$epiMod %in% c("H3", "HTR12", "H2A", "H2B", "H3T3ph", "H1", "H2A-X",
-                                                                     "H2AV", "HTA6", "H3-1") & 
-                                         !gene_hash[[n]]$ecotype %in% c("C24", "undef", "Col-x-Ler", "Ler-x-Col", "Col-x-C24"),]
-      
-      gene_hash[[n]] <- gene_hash[[n]][,-6]
-      
-      
-      # Filter info column, excluding unwanted conditions (too old, too young, wrong part of plant, etc)
-      gene_hash[[n]] <-
-        gene_hash[[n]][!grepl("mutant", gene_hash[[n]]$info) &
-                         !grepl("mature", gene_hash[[n]]$info) &
-                         !grepl("senescent", gene_hash[[n]]$info) &
-                         !grepl("inflorescence", gene_hash[[n]]$info) &
-                         !grepl("drought", gene_hash[[n]]$info) &
-                         !grepl("old", gene_hash[[n]]$info) &
-                         !grepl("min", gene_hash[[n]]$info) &
-                         !grepl("endosperm", gene_hash[[n]]$info) &
-                         !grepl("-se-", gene_hash[[n]]$info) &
-                         !grepl("-TSA-", gene_hash[[n]]$info) &
-                         !grepl("-GSNO-", gene_hash[[n]]$info) &
-                         !grepl("flg22", gene_hash[[n]]$info) &
-                         !grepl("transgenic", gene_hash[[n]]$info) &
-                         !grepl("GSH", gene_hash[[n]]$info) &
-                         !grepl("-acc1", gene_hash[[n]]$info) &
-                         !grepl("-ethylene", gene_hash[[n]]$info) &
-                         !grepl("-C2H4", gene_hash[[n]]$info) &
-                         !grepl("leaves_3w-K36M-homoz", gene_hash[[n]]$info) &
-                         !grepl("undef_seedling_10d-h3-1kd-1", gene_hash[[n]]$info) &
-                         !grepl("-air", gene_hash[[n]]$info) &
-                         !grepl("-ehylene", gene_hash[[n]]$info) &
-                         !grepl("-swap", gene_hash[[n]]$info) &
-                         !grepl("-K36M", gene_hash[[n]]$info) &
-                         !grepl("-H3-KD", gene_hash[[n]]$info) &
-                         !grepl("-water", gene_hash[[n]]$info) &
-                         !grepl("undef_seedling_10d-h3-1kd-2", gene_hash[[n]]$info) &
-                         !grepl("seedling_3d-wt-ehylene", gene_hash[[n]]$info) &
-                         !grepl("GSE67322", gene_hash[[n]]$exp.) &
-                         !grepl("GSE42695", gene_hash[[n]]$exp.) &
-                         !grepl("GSE75071", gene_hash[[n]]$exp.) &
-                         !grepl("GSE62615", gene_hash[[n]]$exp.) &
-                         !grepl("GSE103361", gene_hash[[n]]$exp.) &
-                         !grepl("GSE50636", gene_hash[[n]]$exp.) &
-                         !grepl("GSE93223", gene_hash[[n]]$exp.) &
-                         !grepl("GSE37644", gene_hash[[n]]$exp.) &
-                         !grepl("GSE108414", gene_hash[[n]]$exp.) &
-                         !grepl("GSE22276", gene_hash[[n]]$exp.) &
-                         !grepl("GSE89768", gene_hash[[n]]$exp.) &
-                         !grepl("GSE117391", gene_hash[[n]]$exp.) &
-                         !grepl("brm", gene_hash[[n]]$info) &
-                         !grepl("lhp1", gene_hash[[n]]$info) &
-                         !grepl("atbmi", gene_hash[[n]]$info) &
-                         !grepl("swn", gene_hash[[n]]$info) &
-                         !grepl("ref6", gene_hash[[n]]$info) &
-                         !grepl("arp6", gene_hash[[n]]$info) &
-                         !grepl("clf", gene_hash[[n]]$info) &
-                         !grepl("caa39", gene_hash[[n]]$info) &
-                         !grepl("sdg8", gene_hash[[n]]$info) &
-                         !grepl("atxr", gene_hash[[n]]$info) &
-                         !grepl("hag1", gene_hash[[n]]$info) &
-                         !grepl("OTU5", gene_hash[[n]]$info), ]
-      
-      # Filter info column, checking written plant ages and removing BAD AGES
-      
-      # For each row
-      for (row in nrow(gene_hash[[n]]):1) {
-        # Find the age if it exists (in the format 1w / 8d / 10h)
-        matches <- str_match(gene_hash[[n]][row, "info"], "_([0-9]+)([dwh])")
-        
-        # matches will be of format ["_30h", "30", "h"] (or [NA, NA, NA])
-        
-        # If we found an age (ie, matches[1] is not NA)
-        if (!is.na(matches[1])) {
-          # Convert string number into integer
-          timeValue <- as.numeric(matches[2])
-          
-          # Maximum allowed age in weeks
-          maxWeeks <- 3
-          
-          badAge <- FALSE
-          
-          if (matches[3]=="h") {
-            # If the age is measured in hours, it's too young. BAD AGE.
-            badAge <- TRUE
-          }
-          
-          else if (matches[3]=="d" & timeValue > maxWeeks*7) {
-            # If the age is measured in days and it's longer than maxWeeks (converting maxWeeks to days), it's too old. BAD AGE.
-            badAge <- TRUE
-          }
-          
-          else if (matches[3]=="w" & timeValue > maxWeeks) {
-            # If the age is measured in weeks and it's longer than maxWeeks, it's too old. BAD AGE.
-            badAge <- TRUE
-          }
-          
-          # If we had a BAD AGE, delete the corresponding row. (Otherwise, move on to the next row without deleting.)
-          if (badAge) {
-            gene_hash[[n]] <- gene_hash[[n]][-row,]
-          }
-        }
-      }
-    }
-  }
-  
-  # Tidy up 🧹
-  rm(matches, badAge, maxWeeks, row, timeValue)
-  
-  
-  # Create hash for root data.
-  RootNLRs <- hash()
-  LeafNLRs <- hash()
-  
-  
-  for(n in names(gene_hash)) {
-    # Extract root data from gene_hash and store in RootNLRs.
-    RootNLRs[[n]] <- gene_hash[[n]][grepl("roots",gene_hash[[n]]$info),]
-    # Remove root data from gene_hash.
-    LeafNLRs[[n]] <- gene_hash[[n]][!grepl("roots",gene_hash[[n]]$info),]
-  }
-  
-  # Delete gene_hash.
-  rm(gene_hash)
-  
-  
-  # Create hashes for leaf data in Col and Ler ecotypes.
-  ColLeafNLRs <- hash()
-  LerLeafNLRs <- hash()
-  
-  for (n in names(LeafNLRs)) {
-    ColLeafNLRs[[n]] <- LeafNLRs[[n]][grepl("Col-0",LeafNLRs[[n]]$ecotype),]
-    LerLeafNLRs[[n]] <- LeafNLRs[[n]][grepl("Ler",LeafNLRs[[n]]$ecotype),]
-  }
-  
-  rm(LeafNLRs)
-  
-  
-  # Select tissue type for analysis: ColLeafNLRs, LerLeafNLRs or RootNLRs.
-  dataToUse <- ColLeafNLRs
+# Choose ecotype and tissue for analsis.
+# Options: ColLeaf, ColRoot
+tissueForAnalysis <- "ColLeaf"
 
-  # Create list of chromatin modifications.
-  epiMods <- c()
-  for (n in names(dataToUse)) {
-    epiMods <- append(epiMods, unique(dataToUse[[n]]$epiMod))
-  }
+for (test in names(sampleGenes)[c(11:12)]) {
+  dataToUse <- sampleGenes[[test]]
   
-  epiMods <- unique(epiMods)
+  # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
+  allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
   
-  # Create a dictionary (hash containing hashes) with dataframes for each epiMod for each NLR.
-  ColWTdata <- hash()
+  # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
+  geneModifications <- modificationOccurrences(allModifications)
   
-  for (n in names(dataToUse)) {
-    modHash <- hash()
-    
-    for (mod in epiMods) {
-      modHash[[mod]] <- dataToUse[[n]][dataToUse[[n]]$epiMod==mod,]
-    }
-    ColWTdata[[n]] <- modHash
-  }
+  rm(allModifications)
   
-  if (test == "NLRs") {
-    forIGV <- ColWTdata
-  }
-  #else next
-  
-  rm(dataToUse, modHash)
-  
-  # Merge start and end coordinates columns to create a ranges column.
-  for (n in names(ColWTdata)) {
-    for (mod in epiMods) {
-      if (nrow(ColWTdata[[n]][[mod]]) >= 1) {
-        ColWTdata[[n]][[mod]]$ranges <- paste(ColWTdata[[n]][[mod]]$start,"-",ColWTdata[[n]][[mod]]$end, sep = "")
-      }
-      else next
-    }
-  }
+  # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
+  allOverlaps <- mergeOverlappingModifications(geneModifications)
   
   
-  # Merge overlapping modifications.
-  allOverlaps <- hash()
+  # Determine the % R-genes with a chromatin mark in each gene region (frequency)
+  # and the proportion of each gene region with that mark.
+  geneRegions <- getGeneCoordinates(dataToUse)
   
-  # For each epigenetic modification name
-  for (n in names(ColWTdata)) {
-    modOverlaps <- hash()
-    
-    for (mod in epiMods) {
-      
-      # Generate overlapSets as a list of single-item sets
-      # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
-      overlapSets <- list()
-      if (nrow(ColWTdata[[n]][[mod]])>0) {
-        
-        for (r in 1:nrow(ColWTdata[[n]][[mod]])) {
-          overlapSets <- append(overlapSets, list(sets::set(as.numeric(r))))
-        }
-        #For each gene co-ordinate comparison [k, l]
-        for (k in 1:nrow(ColWTdata[[n]][[mod]])) {
-          for (l in 1:k) {
-            
-            # If the co-ordinate ranges overlap
-            if (overlapsFunction(ColWTdata[[n]][[mod]][k, "start"], ColWTdata[[n]][[mod]][k, "end"], 
-                                 ColWTdata[[n]][[mod]][l, "start"], ColWTdata[[n]][[mod]][l, "end"])==TRUE) {
-              
-              # Find the indexes of the sets containing each range
-              kIndex <- findItem(k, overlapSets)
-              lIndex <- findItem(l, overlapSets)
-              
-              # No need to merge if the co-ordinate ranges are already in the same sets
-              if (kIndex!=lIndex) {
-                
-                # If they are in different sets, merge the two sets, replacing the old ones
-                newSet <- set_union(overlapSets[[kIndex]], overlapSets[[lIndex]])
-                overlapSets <- overlapSets[-c(kIndex, lIndex)]
-                overlapSets <- append(overlapSets, list(newSet))
-              }
-            }
-          }
-        }
-      } 
-      else next
-      modOverlaps[[mod]] <- overlapSets
-    }
-    allOverlaps[[n]] <- modOverlaps
-  }
+  modFrequencyPerRegion <- modFrequenciesFunction(geneRegions, allOverlaps, epiMods)
+  modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
   
-  rm(modOverlaps, overlapSets, kIndex, lIndex, newSet, k, l)
+  # Collect all hashes for modFrequencyPerRegion and modProportionPerRegion into single dataframes.
+  modFrequencyPerRegion <- mergeResults(modFrequencyPerRegion)
+  modProportionPerRegion <- mergeResults(modProportionPerRegion)
   
+  # Add a column to modFrequencyPerRegion and modProportionPerRegion with the numbers for 
+  # each gene region that will correspond with their position on the x axis.
+  modFrequencyPerRegion <- geneRegionAxisLocations(modFrequencyPerRegion, geneRegions)
+  modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
   
-  # Find the maximum range for the overlapping epigenetic modifications.
-  for (n in names(allOverlaps)) {
-    for (mod in epiMods) {
-      if (length(allOverlaps[[n]][[mod]])>0) {
-        
-        for (l in 1:length(allOverlaps[[n]][[mod]])) {
-          modStart <- c()
-          modEnd <- c() 
-          
-          for (o in allOverlaps[[n]][[mod]][l]) {
-            modStart <- append(modStart, ColWTdata[[n]][[mod]][as.numeric(o), "start"])
-            modEnd <- append(modEnd, ColWTdata[[n]][[mod]][as.numeric(o), "end"])
-            
-            allOverlaps[[n]][[mod]][l] <- paste(min(modStart), max(modEnd), sep = "-")
-          }
-        }
-      }
-    }
-  }
-  
-  rm(modStart, modEnd, o, l)
-  
-  
-  # Create dataframes with the information needed in the bed file.
-  for (n in names(ColWTdata)) {
-    for (mod in epiMods) {
-      df <- data.frame(seqnames = numeric(),
-                       start = numeric(),
-                       end = numeric(),
-                       width = numeric(),
-                       ranges = character(),
-                       strand = factor(),
-                       epiMod = character(),
-                       colour = character())
-      
-      if (length(allOverlaps[[n]][[mod]])>0) {
-        for (l in 1:length(allOverlaps[[n]][[mod]])) {
-          df <- rbind(df, data.frame(seqnames = ColWTdata[[n]][[mod]][1,"seqnames"],
-                                     start = str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,2],
-                                     end = str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,3],
-                                     width = as.numeric(str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,3]) - as.numeric(str_match(allOverlaps[[n]][[mod]][[l]], "^([0-9]+)-([0-9]+)$")[,2]),
-                                     ranges = allOverlaps[[n]][[mod]][[l]],
-                                     strand = ColWTdata[[n]][[mod]][1,"strand"],
-                                     epiMod = mod,
-                                     colour = ColWTdata[[n]][[mod]][1,"itemRgb"]))
-        }
-      }
-      allOverlaps[[n]][[mod]] <- df
-    }
-  }
-  
-  rm(df, l, ColWTdata, ColLeafNLRs, LerLeafNLRs, RootNLRs)
-  
-  
-  
-  # Create a hash with the data on the coordinates of each gene region.
-  regions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = promotor1000, Promotor500 = promotor500,
-                  Gene20 = geneChunks[["width20"]],  Gene40 = geneChunks[["width40"]], Gene60 = geneChunks[["width60"]], 
-                  Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]], Downstream = downstream,
-                  DownstreamIntergenic = downstreamIntergenic)
-  
-  # Create dictionaries containing the percentage of genes with a particular modification in each region
-  # and the proportion of overlap between the modification and the gene region.
-  modFrequencyPerRegion <- hash()
-  modOverlapPerRegion <- hash()
-  
-  for (r in names(regions)) {
-    modFrequenciesDF <- data.frame(Region= character(), 
-                                Modification = character(),
-                                Frequency = numeric())
-    
-    modOverlapsDF <- data.frame(Region= character(), 
-                                Modification = character(),
-                                Proportion = numeric())
-    
-    for (mod in epiMods) {
-      geneList <- c()
-      
-      for (n in names(allOverlaps)) {
-        modPresent <- FALSE
-        modOverlaps <- c()
-        
-        if (nrow(allOverlaps[[n]][[mod]]) >= 1 & n %in% regions[[r]]$Gene == TRUE) {
-          
-          for (row in 1:nrow(allOverlaps[[n]][[mod]])) {
-            if (overlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
-                                 as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end))==TRUE) {
-              modPresent <- TRUE
-            }
-            else modPresent <- modPresent
-
-            modOverlaps <- append(modOverlaps, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
-                                                                as.numeric(regions[[r]][regions[[r]]$Gene==n,]$start), as.numeric(regions[[r]][regions[[r]]$Gene==n,]$end)))
-          }
-          
-          modOverlapsDF <- rbind(modOverlapsDF, data.frame(Region = r,
-                                                           Modification = mod,
-                                                           Proportion = sum(modOverlaps)/regions[[r]][regions[[r]]$Gene==n,]$width))
-        }
-        else modOverlapsDF <- rbind(modOverlapsDF, data.frame(Region = r,
-                                                              Modification = mod,
-                                                              Proportion = 0))
-        if (modPresent == TRUE) {
-          geneList <- append(geneList, n)
-        }
-        else geneList <- geneList
-      }
-      modFrequenciesDF <- rbind(modFrequenciesDF, data.frame(Region = r,
-                                                             Modification = mod,
-                                                             Frequency = length(geneList)/length(names(allOverlaps))*100))
-    }
-    modFrequencyPerRegion[[r]] <- modFrequenciesDF
-    modOverlapPerRegion[[r]] <- modOverlapsDF
-  }
-  
-  rm(modFrequenciesDF, modOverlapsDF, geneList)
-  
-  
-  # Make a big dataframe with the modification frequencies for each gene region.
-  level = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
-            "Gene20", "Gene40", "Gene60", "Gene80", "Gene100", 
-            "Downstream", "DownstreamIntergenic")
-  
-  modFrequenciesDF <- data.frame(Region = character(),
-                                 Modification = character(),
-                                 Frequency = numeric())
-  
-  for (r in level) {
-    modFrequenciesDF <- rbind(modFrequenciesDF, modFrequencyPerRegion[[r]])
-  }
-  
-  modOverlapsDF <- data.frame(Region = character(),
-                              Modification = character(),
-                              Proportion = numeric())
-  
-  for (r in level) {
-    modOverlapsDF <- rbind(modOverlapsDF, modOverlapPerRegion[[r]])
-  }
-  
-  # Add a column to the dataframe with the numbers on the x axis that will correspond with each gene region.
-  grouping <- c(seq(from = -60, to = -20, by = 20),seq(from = 20, to = 140, by = 20))
-  regions <- unique(modFrequenciesDF$Region)
-  
-  axisGroup <- c()
-  for (c in 1:length(regions)) {
-    axisGroup <- append(axisGroup, rep(grouping[c], times = length(epiMods)))
-  }
-  
-  modFrequenciesDF <- cbind(modFrequenciesDF, axisGroup)
-  
-  
-  axisGroup <- c()
-  for (c in 1:length(regions)) {
-    axisGroup <- append(axisGroup, rep(grouping[c], times = nrow(modOverlapsDF[modOverlapsDF$Region==regions[c],])))
-  }
-  
-  modOverlapsDF <- cbind(modOverlapsDF, axisGroup)
-  
-  rm(grouping, regions, axisGroup)
-  
-  testDataFrequencies[[test]] <- modFrequenciesDF
-  testDataProportions[[test]] <- modOverlapsDF
+  # Store final results on the appropriate hash.
+  sampleGenesFrequencies[[test]] <- modFrequencyPerRegion
+  sampleGenesProportions[[test]] <- modProportionPerRegion
 }
+
+rm(tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse)
   
-rm(ReMap, row, n, mod, level, gene, c, r, testData, upstreamIntergenic, downstream, downstreamIntergenic,
-   geneChunks, promotor1000, promotor500, allOverlaps)
-
-# Merge all data into one big dataframe.
+# Merge all data from all sample gene sets into one big dataframe.
 allResultsFrequencies <- data.frame()
-allResultsOverlaps <- data.frame()
+allResultsProportions <- data.frame()
 
-for (test in names(testDataFrequencies)) {
-  df1 <- testDataFrequencies[[test]]
+for (test in names(sampleGenesFrequencies)) {
+  df1 <- sampleGenesFrequencies[[test]]
   df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1))))
   
   allResultsFrequencies <- rbind(allResultsFrequencies, df1)
   
-  df2 <- testDataProportions[[test]]
+  df2 <- sampleGenesProportions[[test]]
   df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2))))
   
-  allResultsOverlaps <- rbind(allResultsOverlaps, df2)
+  allResultsProportions <- rbind(allResultsProportions, df2)
 }
+
+rm(test, df1, df2)
+
 
 # Plot the the results.
 axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "20%", "40%", "60%", "80%", "100%", 
               "Downstream \n(200bp)", "Intergenic")
 
-
-controlData <- allResultsFrequencies[c(which(allResultsFrequencies$Test %in% unique(allResultsFrequencies$Test)[c(11:20, 22:31)])),]
-
-controlDataMeans <- data.frame(Region = character(),
-                               Modification = character(),
-                               Frequency = numeric(),
-                               axisGroup = numeric())
+# Frequencies plot for R-genes & controls.
+dataToUse <- allResultsFrequencies[c(which(allResultsFrequencies$Test %in% c(names(sampleGenes)[c(1:10,33)]))),]
 
 for (mod in epiMods) {
-  df <- controlData[controlData$Modification==mod,]
+  df <- dataToUse[dataToUse$Modification==mod,]
   
-  means <- c()
+  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
+    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+    geom_line(aes(group = Test),linewidth = 1.3) +
+    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
+    scale_colour_manual(limits = c("control1", "NLRs"), 
+                        values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
+    labs(x = "", y = "Frequency of occurrence (%)") +
+    geom_vline(xintercept=0, color="grey", size=1) +
+    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
+    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
+    theme(axis.text.x = element_text(size = 13, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
+          axis.title.y = element_text(size = 16, vjust = 2)) 
   
-  for (region in unique(df$Region)) {
-    df1 <- df[df$Region==region,]
-    
-    means <- append(means, mean(df1$Frequency))
-  }
-  controlDataMeans <- rbind(controlDataMeans, data.frame(Region = unique(df$Region),
-                                                         Modification = rep(mod, times = length(means)),
-                                                         Frequency = means,
-                                                         axisGroup = rep(unique(df$axisGroup), times = length(means))))
+  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
-
-controlDataMeans <- cbind(controlDataMeans, data.frame(Test = rep("Control", times = nrow(controlDataMeans))))
-controlDataMeans <- rbind(controlDataMeans, allResultsFrequencies[c(which(allResultsFrequencies$Test %in% unique(allResultsFrequencies$Test)[c(21,32)])),])
-
-dataToUse <- controlDataMeans
-
-# For plotting just R-genes
-for (mod in epiMods) {
-  df1 <- dataToUse[dataToUse$Modification==mod,]
   
-  modFrequenciesPlot <- ggplot(df1, aes(x = axisGroup, y = Frequency, color = Test)) + 
+# Frequencies plot for R-genes only.
+dataToUse <- 
+
+for (mod in epiMods) {
+  df <- dataToUse[dataToUse$Modification==mod,]
+  
+  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(group = Test),size = 1.3) +
+    geom_line(aes(group = Test),linewidth = 1.3) +
     geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    #scale_colour_discrete(labels = c("Silent", "Active")) +
+    scale_colour_discrete(labels = c("Silent", "Active")) +
     labs(x = "", y = "Frequency of occurrence (%)") +
     geom_vline(xintercept=0, color="grey", size=1) +
     coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
@@ -1048,33 +233,15 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2)) 
 
-  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
+  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
-# For plotting R-genes & controls
-for (mod in epiMods) {
-  df1 <- allResultsFrequencies[allResultsFrequencies$Modification==mod,]
-  
-  modFrequenciesPlot <- ggplot(df1, aes(x = axisGroup, y = Frequency, color = Test)) + 
-    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(group = Test),size = 1.3) +
-    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    scale_colour_manual(limits = c("control1", "NLRs"), values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
-    labs(x = "", y = "Frequency of occurrence (%)") +
-    geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-14,ymax=-14) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
-    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2)) 
-  
-  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = modFrequenciesPlot, width = 12, height = 6)
-}
+
 
 # Calculate the mean proportion of overlap and add as a new column to the dataframe.
 allResultsAverageProportions <- data.frame()
 
-for (test in names(testDataProportions)) {
+for (test in names(sampleGenesProportions)) {
   df <- allResultsOverlaps[allResultsOverlaps$Test==test,]
   
   for (mod in epiMods) {
@@ -1098,7 +265,7 @@ for (test in names(testDataProportions)) {
 colnames(allResultsAverageProportions)[c(6:7)] <- c("Mean", "SD")
 
 
-# Plot the results.
+# Proportions plot for R-genes only.
 for (mod in epiMods) {
   df2 <- allResultsAverageProportions[allResultsAverageProportions$Modification==mod,]
   
@@ -1120,132 +287,3 @@ for (mod in epiMods) {
 }
 
 
-# Save data corresponding to graphs that have been saved.
-write.csv(allResultsAverageProportions, file="LeafProportionMeansData_perTissue.csv")
-
-
-
-
-
-# Create a bed file with chromatin modifications in each NLR to view in IGV.
-
-allOverlaps <- hash()
-
-# For each epigenetic modification name
-for (n in names(forIGV)) {
-  modOverlaps <- hash()
-  
-  for (mod in epiMods) {
-    
-    # Generate overlapSets as a list of single-item sets
-    # eg, [ {1}, {2}, {3}, {4}, {5}, {6} ]
-    overlapSets <- list()
-    if (nrow(forIGV[[n]][[mod]])>0) {
-      
-      for (r in 1:nrow(forIGV[[n]][[mod]])) {
-        overlapSets <- append(overlapSets, list(sets::set(as.numeric(r))))
-      }
-      #For each gene co-ordinate comparison [k, l]
-      for (k in 1:nrow(forIGV[[n]][[mod]])) {
-        for (l in 1:k) {
-          
-          # If the co-ordinate ranges overlap
-          if (overlapsFunction(forIGV[[n]][[mod]][k, "start"], forIGV[[n]][[mod]][k, "end"], 
-                               forIGV[[n]][[mod]][l, "start"], forIGV[[n]][[mod]][l, "end"])==TRUE) {
-            
-            # Find the indexes of the sets containing each range
-            kIndex <- findItem(k, overlapSets)
-            lIndex <- findItem(l, overlapSets)
-            
-            # No need to merge if the co-ordinate ranges are already in the same sets
-            if (kIndex!=lIndex) {
-              
-              # If they are in different sets, merge the two sets, replacing the old ones
-              newSet <- set_union(overlapSets[[kIndex]], overlapSets[[lIndex]])
-              overlapSets <- overlapSets[-c(kIndex, lIndex)]
-              overlapSets <- append(overlapSets, list(newSet))
-            }
-          }
-        }
-      }
-    } 
-    else next
-    modOverlaps[[mod]] <- overlapSets
-  }
-  allOverlaps[[n]] <- modOverlaps
-}
-
-rm(modOverlaps, overlapSets, kIndex, lIndex, newSet)
-
-
-# Find the maximum range for the overlapping epigenetic modifications.
-for (n in names(allOverlaps)) {
-  for (mod in epiMods) {
-    if (length(allOverlaps[[n]][[mod]])>0) {
-      
-      for (l in 1:length(allOverlaps[[n]][[mod]])) {
-        modStart <- c()
-        modEnd <- c() 
-        
-        for (o in allOverlaps[[n]][[mod]][l]) {
-          modStart <- append(modStart, forIGV[[n]][[mod]][as.numeric(o), "start"])
-          modEnd <- append(modEnd, forIGV[[n]][[mod]][as.numeric(o), "end"])
-          
-          allOverlaps[[n]][[mod]][l] <- paste(min(modStart), max(modEnd), sep = "-")
-        }
-      }
-    }
-  }
-}
-
-rm(modStart, modEnd, o, l)
-
-
-# Create dataframes with the information needed in the bed file.
-for (n in names(forIGV)) {
-  for (mod in epiMods) {
-    df <- data.frame(seqnames = numeric(),
-                     ranges = character(),
-                     strand = factor(),
-                     epiMod = character(),
-                     colour = character())
-    
-    if (length(allOverlaps[[n]][[mod]])>0) {
-      for (l in 1:length(allOverlaps[[n]][[mod]])) {
-        df <- rbind(df, data.frame(seqnames = forIGV[[n]][[mod]][1,"seqnames"],
-                                   ranges = allOverlaps[[n]][[mod]][[l]],
-                                   strand = forIGV[[n]][[mod]][1,"strand"],
-                                   epiMod = mod,
-                                   colour = forIGV[[n]][[mod]][1,"itemRgb"]))
-      }
-    }
-    allOverlaps[[n]][[mod]] <- df
-  }
-}
-
-rm(df, l)
-
-
-# Combine the dataframes for each epigenetic modification into one dataframe.
-modBed <- data.frame(seqnames = numeric(),
-                     ranges = character(),
-                     strand = factor(),
-                     epiMod = character(),
-                     colour = character())
-
-for (n in names(allOverlaps)) {
-  for (mod in epiMods) {
-    modBed <- rbind(modBed, allOverlaps[[n]][[mod]])
-    
-  }
-}
-
-# Create bed file.
-modBed <- GRanges(
-  seqnames=Rle(modBed$seqnames),
-  ranges=IRanges(modBed$ranges),
-  name=modBed$epiMod,
-  itemRgb=modBed$colour)
-
-# Export bed file.
-rtracklayer::export.bed(modBed, "~/allNLRs.bed")
