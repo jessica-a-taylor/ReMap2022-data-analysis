@@ -109,8 +109,8 @@ sampleGenes <- expressionFiltered(bigExpressionData, sampleGenes)
 rm(bigExpressionData)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
-source("Functions\\Coordinates per gene region.R")
 source("Functions\\Modifications per gene.R")
+source("Functions\\Coordinates per gene region.R")
 source("Functions\\Modification frequencies & proportions.R")
 
 # Import filtered ReMap2022 data.
@@ -128,40 +128,49 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-for (test in names(sampleGenes)[33]) {
-  dataToUse <- sampleGenes[[test]]
-  
-  # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
-  allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
-  
-  # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
-  geneModifications <- modificationOccurrences(allModifications)
-  
-  rm(allModifications)
-  
-  # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
-  allOverlaps <- mergeOverlappingModifications(geneModifications)
-  
-  
-  # Determine the % R-genes with a chromatin mark in each gene region (frequency)
-  # and the proportion of each gene region with that mark.
-  geneRegions <- getGeneCoordinates(dataToUse)
-  
-  modFrequencyPerRegion <- modFrequenciesFunction(geneRegions, allOverlaps, epiMods)
-  modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
-  
-  # Collect all hashes for modFrequencyPerRegion and modProportionPerRegion into single dataframes.
-  modFrequencyPerRegion <- mergeResults(modFrequencyPerRegion)
-  modProportionPerRegion <- mergeResults(modProportionPerRegion)
-  
-  # Add a column to modFrequencyPerRegion and modProportionPerRegion with the numbers for 
-  # each gene region that will correspond with their position on the x axis.
-  modFrequencyPerRegion <- geneRegionAxisLocations(modFrequencyPerRegion, geneRegions)
-  modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
-  
-  # Store final results on the appropriate hash.
-  sampleGenesFrequencies[[test]] <- modFrequencyPerRegion
-  sampleGenesProportions[[test]] <- modProportionPerRegion
+for (tissue in names(sampleGenes)[c(11,13)]) {
+  for(test in names(sampleGenes[[tissue]])[[11]]) {
+    for (level in names(sampleGenes[[tissue]][[test]])) {
+      
+      dataToUse <- sampleGenes[[tissue]][[test]][[level]]
+      
+      # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
+      allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
+      
+      # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
+      geneModifications <- modificationOccurrences(allModifications)
+      
+      rm(allModifications)
+      
+      # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
+      allOverlaps <- mergeOverlappingModifications(geneModifications)
+      
+      
+      # Determine the % R-genes with a chromatin mark in each gene region (frequency)
+      # and the proportion of each gene region with that mark.
+      geneRegions <- getGeneCoordinates(dataToUse)
+      
+      modFrequencyPerRegion <- modFrequenciesFunction(geneRegions, allOverlaps, epiMods)
+      modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
+      
+      # Collect all hashes for modFrequencyPerRegion and modProportionPerRegion into single dataframes.
+      modFrequencyPerRegion <- mergeResults(modFrequencyPerRegion)
+      modProportionPerRegion <- mergeResults(modProportionPerRegion)
+      
+      # Add a column to modFrequencyPerRegion and modProportionPerRegion with the numbers for 
+      # each gene region that will correspond with their position on the x axis.
+      modFrequencyPerRegion <- geneRegionAxisLocations(modFrequencyPerRegion, geneRegions)
+      modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
+      
+      # Add a column to modFrequencyPerRegion and modProportionPerRegion with the current expression level.
+      modFrequencyPerRegion <- expressionColumn(modFrequencyPerRegion)
+      modProportionPerRegion <- expressionColumn(modProportionPerRegion)
+      
+      # Store final results on the appropriate hash.
+      sampleGenesFrequencies[[tissue]][[test]][[level]] <- modFrequencyPerRegion
+      sampleGenesProportions[[tissue]][[test]][[level]] <- modProportionPerRegion
+    }
+  }
 }
 
 rm(tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse, ReMap)
@@ -170,16 +179,21 @@ rm(tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion
 allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
-for (test in names(sampleGenesFrequencies)) {
-  df1 <- sampleGenesFrequencies[[test]]
-  df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1))))
-  
-  allResultsFrequencies <- rbind(allResultsFrequencies, df1)
-  
-  df2 <- sampleGenesProportions[[test]]
-  df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2))))
-  
-  allResultsProportions <- rbind(allResultsProportions, df2)
+for (tissue in names(sampleGenesFrequencies)) {
+  for (test in names(sampleGenesFrequencies[[tissue]])) {
+    for (level in names(sampleGenesFrequencies[[tissue]][[test]])) {
+      
+      df1 <- sampleGenesFrequencies[[tissue]][[test]][[level]]
+      df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1))))
+      
+      allResultsFrequencies <- rbind(allResultsFrequencies, df1)
+      
+      df2 <- sampleGenesProportions[[tissue]][[test]][[level]]
+      df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2))))
+      
+      allResultsProportions <- rbind(allResultsProportions, df2)
+    }
+  }
 }
 
 rm(test, df1, df2)
@@ -191,7 +205,7 @@ axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "Downstream \n(200bp)", "Intergenic")
 
 # Frequencies plot for R-genes & controls.
-dataToUse <- allResultsFrequencies[c(which(allResultsFrequencies$Test %in% c(names(sampleGenes)[c(1:10,33)]))),]
+dataToUse <- allResultsFrequencies
 
 for (mod in epiMods) {
   df <- dataToUse[dataToUse$Modification==mod,]

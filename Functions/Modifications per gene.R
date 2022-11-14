@@ -5,14 +5,13 @@ source("Functions\\Overlaps functions.R")
 ReMapPerGene <- function(dataToUse, tissueForAnalysis) {
   allModifications <- hash()
   
-  for (row in 1:nrow(dataToUse)) {
-    # Select rows that are within the range of each gene and on the same chromosome.
-    ReMapRows <- c(which(ReMap[,"start"] > dataToUse[row, "start"]-5000 & ReMap[,"end"] < dataToUse[row, "end"]+5000 & ReMap[,"seqnames"] == as.numeric(dataToUse[row, "seqnames"])))
-    allModifications[[dataToUse[row,"Gene"]]] <- ReMap[ReMapRows,]
+  if (nrow(dataToUse) >= 1) {
+    for (row in 1:nrow(dataToUse)) {
+      # Select rows that are within the range of each gene and on the same chromosome.
+      ReMapRows <- c(which(ReMap[,"start"] > dataToUse[row, "start"]-5000 & ReMap[,"end"] < dataToUse[row, "end"]+5000 & ReMap[,"seqnames"] == as.numeric(dataToUse[row, "seqnames"])))
+      allModifications[[dataToUse[row,"Gene"]]] <- ReMap[ReMapRows,]
+    }
   }
-  
-  rm(ReMapRows, dataToUse)
-  
   
   # Create hash for leaf and root data.
   rootGenes <- hash()
@@ -62,8 +61,7 @@ modificationOccurrences <- function(allModifications) {
     }
     geneModifications[[n]] <- modHash
   }
-  rm(modHash)
-  
+
   # Merge start and end coordinates columns to create a ranges column.
   source("Functions\\Get range - merge gene coordinates.R")
   
@@ -130,9 +128,7 @@ mergeOverlappingModifications <- function(geneModifications) {
     }
     allOverlaps[[n]] <- modOverlaps
   }
-  
-  rm(modOverlaps, overlapSets, kIndex, lIndex, newSet, k, l)
-  
+
   
   # Find the maximum range for the overlapping epigenetic modifications.
   for (n in names(allOverlaps)) {
@@ -154,9 +150,7 @@ mergeOverlappingModifications <- function(geneModifications) {
     }
   }
   
-  rm(modStart, modEnd, o, l)
-  
-  
+
   # Create dataframes with the information needed in the bed file.
   for (n in names(geneModifications)) {
     for (mod in epiMods) {

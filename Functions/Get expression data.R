@@ -125,8 +125,4 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
   return(sampleGenes)
 }
 
-
-
-
-
-
+rm(row, test, gene)

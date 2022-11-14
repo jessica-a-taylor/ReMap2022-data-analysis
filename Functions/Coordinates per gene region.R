@@ -19,28 +19,28 @@ getGeneCoordinates <- function(dataToUse) {
                     width80 = c(), 
                     width100 = c())
   
-  for (row in 1:nrow(dataToUse)) {
-    if (dataToUse[row, "strand"]=="+") {
-      geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"start"],"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.2, sep = ""))
-      geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.2+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.4, sep = ""))
-      geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.4+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.6, sep = ""))
-      geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.6+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.8, sep = ""))
-      geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.8+1,"-",dataToUse[row,"end"], sep = ""))
-    }
-    else if (dataToUse[row, "strand"]=="-"){
-      geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.2,"-", dataToUse[row,"end"], sep = ""))
-      geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.4,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.2-1, sep = ""))
-      geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.6,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.4-1, sep = ""))
-      geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.8,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.6-1, sep = ""))
-      geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"],"-",dataToUse[row,"end"] - dataToUse[row,"width"]*0.8-1, sep = ""))
+  if (nrow(dataToUse) >= 1) {
+    for (row in 1:nrow(dataToUse)) {
+      if (dataToUse[row, "strand"]=="+") {
+        geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"start"],"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.2, sep = ""))
+        geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.2+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.4, sep = ""))
+        geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.4+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.6, sep = ""))
+        geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.6+1,"-", dataToUse[row,"start"] + dataToUse[row,"width"]*0.8, sep = ""))
+        geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"] + dataToUse[row,"width"]*0.8+1,"-",dataToUse[row,"end"], sep = ""))
+      }
+      else if (dataToUse[row, "strand"]=="-"){
+        geneWidth[["width20"]] <- append(geneWidth[["width20"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.2,"-", dataToUse[row,"end"], sep = ""))
+        geneWidth[["width40"]] <- append(geneWidth[["width40"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.4,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.2-1, sep = ""))
+        geneWidth[["width60"]] <- append(geneWidth[["width60"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.6,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.4-1, sep = ""))
+        geneWidth[["width80"]] <- append(geneWidth[["width80"]], paste(dataToUse[row,"end"] - dataToUse[row,"width"]*0.8,"-", dataToUse[row,"end"] - dataToUse[row,"width"]*0.6-1, sep = ""))
+        geneWidth[["width100"]] <- append(geneWidth[["width100"]], paste(dataToUse[row,"start"],"-",dataToUse[row,"end"] - dataToUse[row,"width"]*0.8-1, sep = ""))
+      }
     }
   }
   
   for (n in names(geneChunks)) {
     geneChunks[[n]]$ranges <- geneWidth[[n]]
   }
-  
-  rm(geneWidth)
   
   for (n in names(geneChunks)) {
     start <- c()
@@ -58,26 +58,26 @@ getGeneCoordinates <- function(dataToUse) {
     geneChunks[[n]]$width <- as.numeric(geneChunks[[n]]$end) - as.numeric(geneChunks[[n]]$start)
   }
   
-  rm(start, end)
-  
   # Create new dataframe for the coordinates of the regions 200bp downstream of the TTS.
   
   downstreamRegion <- c()
-  for (row in 1:nrow(dataToUse)) {
-    if (dataToUse[row, "strand"]=="+") {
-      downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"end"],"-",dataToUse[row,"end"]+200, sep = ""))
-    }
-    else if (dataToUse[row, "strand"]=="-") {
-      downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"start"]-200,"-", dataToUse[row,"start"], sep = ""))
+  if (nrow(dataToUse) >= 1) {
+    for (row in 1:nrow(dataToUse)) {
+      if (dataToUse[row, "strand"]=="+") {
+        downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"end"],"-",dataToUse[row,"end"]+200, sep = ""))
+      }
+      else if (dataToUse[row, "strand"]=="-") {
+        downstreamRegion <- append(downstreamRegion, paste(dataToUse[row,"start"]-200,"-", dataToUse[row,"start"], sep = ""))
+      }
     }
   }
+  
   
   downstream <- dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
                                      colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))]
   
   downstream$ranges <- downstreamRegion
-  rm(downstreamRegion)
-  
+
   downstream$start <- as.numeric(str_match(downstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,2])
   downstream$end <- as.numeric(str_match(downstream$ranges, "^([0-9]+)(-)([0-9]+)$")[,4])
   downstream$width <- downstream$end - downstream$start
@@ -101,192 +101,199 @@ getGeneCoordinates <- function(dataToUse) {
   
   promotor1000 <- promotor500
   
-  for (gene in dataToUse$Gene) {
-    promotor500 <- rbind(promotor500, as.data.frame(ATpromotors500[grepl(gene,ATpromotors500$tx_name),]))
-    promotor1000 <- rbind(promotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
+  if (nrow(dataToUse) >= 1) {
+    for (gene in dataToUse$Gene) {
+      promotor500 <- rbind(promotor500, as.data.frame(ATpromotors500[grepl(gene,ATpromotors500$tx_name),]))
+      promotor1000 <- rbind(promotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
+    }
+    # Alter coordinates of promotor1000 to be only 500bp upstream of promotor500.
+    for (row in 1:nrow(promotor1000)) {
+      if (promotor1000[row, "strand"]=="+") {
+        promotor1000[row, "end"] <- promotor1000[row, "start"]+500
+      }
+      else if (promotor1000[row, "strand"]=="-") {
+        promotor1000[row, "start"] <- promotor1000[row, "end"]-500
+      }
+    }
+    
+    # Create a ranges column by merging the start and end columns.
+    promotor500$ranges <- paste(promotor500$start,"-",promotor500$end, sep = "")
+    promotor1000$ranges <- paste(promotor1000$start,"-",promotor1000$end, sep = "")
+    
+    
+    # Add a new column for the gene name, removing ".1" from the end.
+    promotor500$Gene <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
+    promotor1000$Gene <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
   }
   
-  # Alter coordinates of promotor1000 to be only 500bp upstream of promotor500.
-  for (row in 1:nrow(promotor1000)) {
-    if (promotor1000[row, "strand"]=="+") {
-      promotor1000[row, "end"] <- promotor1000[row, "start"]+500
-    }
-    else if (promotor1000[row, "strand"]=="-") {
-      promotor1000[row, "start"] <- promotor1000[row, "end"]-500
-    }
-  }
   
-  # Create a ranges column by merging the start and end columns.
-  promotor500$ranges <- paste(promotor500$start,"-",promotor500$end, sep = "")
-  promotor1000$ranges <- paste(promotor1000$start,"-",promotor1000$end, sep = "")
-  
-  
-  # Add a new column for the gene name, removing ".1" from the end.
-  promotor500$Gene <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
-  promotor1000$Gene <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
-  
-  rm(ATpromotors500, ATpromotors1000)
-  
+ 
   # Get the coordinates for the upstream intergenic regions.
   usCoordinates <- c()
   
-  for (gene in dataToUse$Gene) {
-    currentGene <- which(withoutTEs$Gene==gene)
-    
-    if (withoutTEs[currentGene, "strand"]=="+") {
-      previousGene <- currentGene - 1
+  if (nrow(dataToUse) >= 1) {
+    for (gene in dataToUse$Gene) {
+      currentGene <- which(withoutTEs$Gene==gene)
       
-      if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
-        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-            withoutTEs[previousGene, "strand"]=="+") {
-          
-          distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 201)
-          
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 201, "-", withoutTEs[previousGene, "end"] + 201 + distance, sep = "")) 
-          } 
-          else usCoordinates <- append(usCoordinates, NA)
-        }
+      if (withoutTEs[currentGene, "strand"]=="+") {
+        previousGene <- currentGene - 1
         
-        else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-                 withoutTEs[previousGene, "strand"]=="-") {
+        if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
+          if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
+              withoutTEs[previousGene, "strand"]=="+") {
+            
+            distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 201)
+            
+            if (distance > 0) {
+              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 201, "-", withoutTEs[previousGene, "end"] + 201 + distance, sep = "")) 
+            } 
+            else usCoordinates <- append(usCoordinates, NA)
+          }
           
-          distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 1001)
-          
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 1001, "-", withoutTEs[previousGene, "end"] + 1001 + distance, sep = "")) 
+          else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
+                   withoutTEs[previousGene, "strand"]=="-") {
+            
+            distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 1001)
+            
+            if (distance > 0) {
+              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 1001, "-", withoutTEs[previousGene, "end"] + 1001 + distance, sep = "")) 
+            } 
+            else usCoordinates <- append(usCoordinates, NA)
+            
           } 
-          else usCoordinates <- append(usCoordinates, NA)
-          
-        } 
+        }
+        else usCoordinates <- append(usCoordinates, NA)
       }
-      else usCoordinates <- append(usCoordinates, NA)
+      
+      else if (withoutTEs[currentGene, "strand"]=="-") {
+        previousGene <- currentGene + 1
+        
+        if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
+          if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) &
+              withoutTEs[previousGene, "strand"]=="+") {
+            
+            distance <- (withoutTEs[previousGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 1001)
+            
+            if (distance > 0) {
+              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 1001 - distance, "-", withoutTEs[previousGene, "start"] - 1001, sep = "")) 
+            } 
+            else usCoordinates <- append(usCoordinates, NA)
+            
+          }
+          
+          else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
+                   withoutTEs[previousGene, "strand"]=="-") {
+            
+            distance <- (withoutTEs[previousGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 1001)
+            if (distance > 0) {
+              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 201 - distance, "-", withoutTEs[previousGene, "start"] - 201, sep = "")) 
+            } 
+            else usCoordinates <- append(usCoordinates, NA)
+            
+          }
+        }
+        else usCoordinates <- append(usCoordinates, NA)
+      } 
     }
-    
-    else if (withoutTEs[currentGene, "strand"]=="-") {
-      previousGene <- currentGene + 1
-      
-      if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
-        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) &
-            withoutTEs[previousGene, "strand"]=="+") {
-          
-          distance <- (withoutTEs[previousGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 1001)
-          
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 1001 - distance, "-", withoutTEs[previousGene, "start"] - 1001, sep = "")) 
-          } 
-          else usCoordinates <- append(usCoordinates, NA)
-          
-        }
-        
-        else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-                 withoutTEs[previousGene, "strand"]=="-") {
-          
-          distance <- (withoutTEs[previousGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 1001)
-          if (distance > 0) {
-            usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 201 - distance, "-", withoutTEs[previousGene, "start"] - 201, sep = "")) 
-          } 
-          else usCoordinates <- append(usCoordinates, NA)
-          
-        }
-      }
-      else usCoordinates <- append(usCoordinates, NA)
-    } 
   }
+  
   
   upstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
   upstreamIntergenic$ranges <- usCoordinates 
   
-  for (row in 1:nrow(upstreamIntergenic)) {
-    upstreamIntergenic[row, "start"] <- str_match(upstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,2]
-    upstreamIntergenic[row, "end"] <- str_match(upstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,3]
-    
-    if (!is.na(upstreamIntergenic[row, "ranges"])) {
-      upstreamIntergenic[row, "width"] <- as.numeric(upstreamIntergenic[row, "end"]) - as.numeric(upstreamIntergenic[row, "start"])
+  if (nrow(upstreamIntergenic) >= 1) {
+    for (row in 1:nrow(upstreamIntergenic)) {
+      upstreamIntergenic[row, "start"] <- str_match(upstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,2]
+      upstreamIntergenic[row, "end"] <- str_match(upstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,3]
+      
+      if (!is.na(upstreamIntergenic[row, "ranges"])) {
+        upstreamIntergenic[row, "width"] <- as.numeric(upstreamIntergenic[row, "end"]) - as.numeric(upstreamIntergenic[row, "start"])
+      }
+      else upstreamIntergenic[row, "width"] <- NA
     }
-    else upstreamIntergenic[row, "width"] <- NA
   }
   
   upstreamIntergenic <- upstreamIntergenic[-c(which(is.na(upstreamIntergenic$ranges))),]
   
-  rm(usCoordinates)
-  
+
   # Get the coordinates for the downstream intergenic regions.
   dsCoordinates <- c()
   
-  for (gene in dataToUse$Gene) {
-    currentGene <- which(withoutTEs$Gene==gene)
-    
-    if (withoutTEs[currentGene, "strand"]=="-") {
-      nextGene <- currentGene - 1
+  if (nrow(dataToUse) >= 1) {
+    for (gene in dataToUse$Gene) {
+      currentGene <- which(withoutTEs$Gene==gene)
       
-      if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
-        if (withoutTEs[nextGene, "strand"]=="-") {
-          distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 1001)
-          
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 1001, "-", withoutTEs[nextGene, "end"] + 1001 + distance, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA) 
-        }
+      if (withoutTEs[currentGene, "strand"]=="-") {
+        nextGene <- currentGene - 1
         
-        else if (withoutTEs[nextGene, "strand"]=="+") {
-          distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 201)
+        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
+          if (withoutTEs[nextGene, "strand"]=="-") {
+            distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 1001)
+            
+            if (distance > 0) {
+              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 1001, "-", withoutTEs[nextGene, "end"] + 1001 + distance, sep = "")) 
+            } 
+            else dsCoordinates <- append(dsCoordinates, NA) 
+          }
           
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 201, "-", withoutTEs[nextGene, "end"] + 201 + distance, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA)
-          
+          else if (withoutTEs[nextGene, "strand"]=="+") {
+            distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 201)
+            
+            if (distance > 0) {
+              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 201, "-", withoutTEs[nextGene, "end"] + 201 + distance, sep = "")) 
+            } 
+            else dsCoordinates <- append(dsCoordinates, NA)
+            
+          }
         }
+        else dsCoordinates <- append(dsCoordinates, NA)
       }
-      else dsCoordinates <- append(dsCoordinates, NA)
+      
+      else if (withoutTEs[currentGene, "strand"]=="+") {
+        nextGene <- currentGene + 1
+        
+        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
+          if (withoutTEs[nextGene, "strand"]=="+") {
+            distance <- (withoutTEs[nextGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 201)
+            
+            if (distance > 0) {
+              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 1001 - distance, "-", withoutTEs[nextGene, "start"] - 1001, sep = "")) 
+            } 
+            else dsCoordinates <- append(dsCoordinates, NA) 
+            
+          }
+          
+          else if (withoutTEs[nextGene, "strand"]=="-") {
+            distance <- (withoutTEs[nextGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 201)
+            if (distance > 0) {
+              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 201 - distance, "-", withoutTEs[nextGene, "start"] - 201, sep = "")) 
+            } 
+            else dsCoordinates <- append(dsCoordinates, NA) 
+            
+          }
+        }
+        else dsCoordinates <- append(dsCoordinates, NA)
+      } 
     }
-    
-    else if (withoutTEs[currentGene, "strand"]=="+") {
-      nextGene <- currentGene + 1
-      
-      if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
-        if (withoutTEs[nextGene, "strand"]=="+") {
-          distance <- (withoutTEs[nextGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 201)
-          
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 1001 - distance, "-", withoutTEs[nextGene, "start"] - 1001, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA) 
-          
-        }
-        
-        else if (withoutTEs[nextGene, "strand"]=="-") {
-          distance <- (withoutTEs[nextGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 201)
-          if (distance > 0) {
-            dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 201 - distance, "-", withoutTEs[nextGene, "start"] - 201, sep = "")) 
-          } 
-          else dsCoordinates <- append(dsCoordinates, NA) 
-          
-        }
-      }
-      else dsCoordinates <- append(dsCoordinates, NA)
-    } 
   }
   
   downstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
   downstreamIntergenic$ranges <- dsCoordinates 
   
-  for (row in 1:nrow(downstreamIntergenic)) {
-    downstreamIntergenic[row, "start"] <- str_match(downstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,2]
-    downstreamIntergenic[row, "end"] <- str_match(downstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,3]
-    
-    if (!is.na(downstreamIntergenic[row, "ranges"])) {
-      downstreamIntergenic[row, "width"] <- as.numeric(downstreamIntergenic[row, "end"]) - as.numeric(downstreamIntergenic[row, "start"])
+  if (nrow(downstreamIntergenic) >= 1) {
+    for (row in 1:nrow(downstreamIntergenic)) {
+      downstreamIntergenic[row, "start"] <- str_match(downstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,2]
+      downstreamIntergenic[row, "end"] <- str_match(downstreamIntergenic[row, "ranges"], "^([0-9]+)-([0-9]+)$")[,3]
+      
+      if (!is.na(downstreamIntergenic[row, "ranges"])) {
+        downstreamIntergenic[row, "width"] <- as.numeric(downstreamIntergenic[row, "end"]) - as.numeric(downstreamIntergenic[row, "start"])
+      }
+      else downstreamIntergenic[row, "width"] <- NA
     }
-    else downstreamIntergenic[row, "width"] <- NA
   }
   
   downstreamIntergenic <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
-  
-  rm(currentGene, previousGene, nextGene, dsCoordinates, distance)
-  
+
   geneRegions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = promotor1000, Promotor500 = promotor500,
                   Gene20 = geneChunks[["width20"]],  Gene40 = geneChunks[["width40"]], Gene60 = geneChunks[["width60"]], 
                   Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]], Downstream = downstream,

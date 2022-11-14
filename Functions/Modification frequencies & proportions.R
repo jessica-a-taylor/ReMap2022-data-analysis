@@ -10,32 +10,34 @@ modFrequenciesFunction <- function (geneRegions, allOverlaps, epiMods) {
     modFrequenciesDF <- data.frame(Region= character(), 
                                    Modification = character(),
                                    Frequency = numeric())
-    
-    for (mod in epiMods) {
-      geneList <- c()
-      
-      for (n in names(allOverlaps)) {
-        modPresent <- FALSE
-
-        if (nrow(allOverlaps[[n]][[mod]]) >= 1 & n %in% geneRegions[[r]]$Gene == TRUE) {
+    if (length(names(allOverlaps)) >= 1) {
+      for (mod in epiMods) {
+        geneList <- c()
+        
+        for (n in names(allOverlaps)) {
+          modPresent <- FALSE
           
-          for (row in 1:nrow(allOverlaps[[n]][[mod]])) {
-            if (overlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
-                                 as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$start), as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$end))==TRUE) {
-              modPresent <- TRUE
+          if (nrow(allOverlaps[[n]][[mod]]) >= 1 & n %in% geneRegions[[r]]$Gene == TRUE) {
+            
+            for (row in 1:nrow(allOverlaps[[n]][[mod]])) {
+              if (overlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
+                                   as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$start), as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$end))==TRUE) {
+                modPresent <- TRUE
+              }
+              else modPresent <- modPresent
             }
-            else modPresent <- modPresent
+            if (modPresent == TRUE) {
+              geneList <- append(geneList, n)
             }
-          if (modPresent == TRUE) {
-            geneList <- append(geneList, n)
+            else geneList <- geneList
           }
-          else geneList <- geneList
         }
+        modFrequenciesDF <- rbind(modFrequenciesDF, data.frame(Region = r,
+                                                               Modification = mod,
+                                                               Frequency = length(geneList)/length(names(allOverlaps))*100))
       }
-      modFrequenciesDF <- rbind(modFrequenciesDF, data.frame(Region = r,
-                                                             Modification = mod,
-                                                             Frequency = length(geneList)/length(names(allOverlaps))*100))
-    }
+    } else modFrequenciesDF <- modFrequenciesDF
+    
     modFrequencyPerRegion[[r]] <- modFrequenciesDF
   }
   return(modFrequencyPerRegion)
@@ -50,30 +52,31 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
                                   Modification = character(),
                                   Proportion = numeric())
     
-    
-    
-    for (mod in epiMods) {
-      geneList <- c()
-      
-      for (n in names(allOverlaps)) {
-        modPresent <- FALSE
-        modOverlaps <- c()
+    if (length(names(allOverlaps)) >= 1) {
+      for (mod in epiMods) {
+        geneList <- c()
         
-        if (nrow(allOverlaps[[n]][[mod]]) >= 1 & n %in% geneRegions[[r]]$Gene == TRUE) {
+        for (n in names(allOverlaps)) {
+          modPresent <- FALSE
+          modOverlaps <- c()
           
-          for (row in 1:nrow(allOverlaps[[n]][[mod]])) {
-            modOverlaps <- append(modOverlaps, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
-                                                                   as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$start), as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$end)))
+          if (nrow(allOverlaps[[n]][[mod]]) >= 1 & n %in% geneRegions[[r]]$Gene == TRUE) {
+            
+            for (row in 1:nrow(allOverlaps[[n]][[mod]])) {
+              modOverlaps <- append(modOverlaps, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
+                                                                     as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$start), as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$end)))
+            }
+            modProportionDF <- rbind(modProportionDF, data.frame(Region = r,
+                                                                 Modification = mod,
+                                                                 Proportion = sum(modOverlaps)/geneRegions[[r]][geneRegions[[r]]$Gene==n,]$width))
           }
-          modProportionDF <- rbind(modProportionDF, data.frame(Region = r,
-                                                               Modification = mod,
-                                                               Proportion = sum(modOverlaps)/geneRegions[[r]][geneRegions[[r]]$Gene==n,]$width))
+          else modProportionDF <- rbind(modProportionDF, data.frame(Region = r,
+                                                                    Modification = mod,
+                                                                    Proportion = 0))
         }
-        else modProportionDF <- rbind(modProportionDF, data.frame(Region = r,
-                                                                  Modification = mod,
-                                                                  Proportion = 0))
       }
-    }
+    } else modProportionDF <- modProportionDF
+    
     modProportionPerRegion[[r]] <- modProportionDF
   }
   return(modProportionPerRegion)
@@ -108,4 +111,14 @@ geneRegionAxisLocations <- function(dataToUse, geneRegions) {
   dataToUse <- cbind(dataToUse, axisGroup)
  
   return(dataToUse) 
+}
+
+
+# Function to add a column for expression level.
+expressionColumn <- function(dataToUse) {
+  if (nrow(dataToUse) >= 1) {
+    dataToUse <- cbind(dataToUse, data.frame(Expression = rep(level, times = nrow(dataToUse))))
+  }
+  else dataToUse <- dataToUse
+  return(dataToUse)
 }
