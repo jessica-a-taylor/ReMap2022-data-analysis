@@ -19,7 +19,7 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
     bigExpressionData[[test]] <- bigExpressionData[[test]][c(which(bigExpressionData[[test]]$Tissue %in% tissue)),]
     
     # Get the mean expression in each tissue type.
-    meanExpression <- data.frame(matrix(ncol = 155, nrow = 0))
+    meanExpression <- data.frame(matrix(ncol = length(bigExpressionData[[test]])-8, nrow = 0))
     
     for(t in tissue) {
       df <- bigExpressionData[[test]][bigExpressionData[[test]]$Tissue==t,]
@@ -35,6 +35,7 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
     bigExpressionData[[test]] <- meanExpression
     bigExpressionData[[test]]$Tissue <- tissue
   }
+  
   
   # Rewrite sampleGenes to match genes with downloaded expression data.
   for (test in names(sampleGenes)) {
@@ -55,7 +56,7 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
                                                          Expression = mean(leafMeans[,col])))
     }
     
-    rootMeans <- meanExpression[bigExpressionData[[test]]$Tissue =="root",][,-length(bigExpressionData[[test]])]
+    rootMeans <- bigExpressionData[[test]][bigExpressionData[[test]]$Tissue =="root",][,-length(bigExpressionData[[test]])]
     
     rootExpression <- data.frame(Gene = character(),
                                  Expression = numeric())
@@ -68,24 +69,59 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
     bigExpressionData[[paste("leaf_", test, sep = "")]] <- leafExpression
     bigExpressionData[[paste("root_", test, sep = "")]] <- rootExpression
   }
-
-    # Make a list for gene expression in leaves and roots. 
-    # Considered not expressed if the expression level in below 0.
-    for (test in names(bigExpressionData)[c(11:21)]) {
-      LeafActive <- bigExpressionData[[test]][-c(which(bigExpressionData[[test]]$Expression==0)),]
-      LeafSilent <- bigExpressionData[[test]][c(which(bigExpressionData[[test]]$Expression==0)),]
+  
+  # Create a hash for leaf-expressed and root-expressed genes.
+  leafExpression <- hash()
+  rootExpression <- hash()
+  
+  # Sort leaf- and root-expressed genes into groups based on expression level.
+  tissues <- c("leaf", "root")
+  
+  for (t in tissues) {
+    for (test in names(sampleGenes)) {
+      df <- sampleGenes[[test]]
       
-      sampleGenes[[paste("LeafActive_", test, sep = "")]] <- withoutTEs[c(which(withoutTEs$Gene %in% LeafActive$Gene)),]
-      sampleGenes[[paste("LeafSilent_", test, sep = "")]] <- withoutTEs[c(which(withoutTEs$Gene %in% LeafSilent$Gene)),]
-    }
-    
-    for (test in names(bigExpressionData)[c(23:33)]) {
-      RootActive <- bigExpressionData[[test]][-c(which(bigExpressionData[[test]]$Expression==0)),]
-      RootSilent <- bigExpressionData[[test]][c(which(bigExpressionData[[test]]$Expression==0)),]
+      expressionList <- c()
+      for (gene in sampleGenes[[test]]$Gene) {
+        geneExpression <- bigExpressionData[[paste(t, "_", test, sep = "")]][bigExpressionData[[paste(t, "_", test, sep = "")]]$Gene==gene,]
+        
+        expressionList <- append(expressionList, geneExpression$Expression)
+      }
+      df <- cbind(df, data.frame(Expression = expressionList))
       
-      sampleGenes[[paste("RootActive_", test, sep = "")]] <- withoutTEs[c(which(withoutTEs$Gene %in% RootActive$Gene)),]
-      sampleGenes[[paste("RootSilent_", test, sep = "")]] <- withoutTEs[c(which(withoutTEs$Gene %in% RootSilent$Gene)),]
+      tissueExpression <- hash(NoExpression = data.frame(),
+                               LowExpression = data.frame(),
+                               MedExpression = data.frame(),
+                               HighExpression = data.frame(),
+                               V.HighExpression = data.frame())
+      
+      
+      for (row in 1:nrow(df)) {
+        if (df[row, "Expression"] == 0) {
+          tissueExpression[["NoExpression"]] <- rbind(tissueExpression[["NoExpression"]], df[row,])
+        }
+        else if (0 < df[row, "Expression"] & df[row, "Expression"] <= 10) {
+          tissueExpression[["LowExpression"]] <- rbind(tissueExpression[["LowExpression"]], df[row,])
+        }
+        else if (10 < df[row, "Expression"] & df[row, "Expression"] <= 50) {
+          tissueExpression[["MedExpression"]] <- rbind(tissueExpression[["MedExpression"]], df[row,])
+        }
+        else if (50 < df[row, "Expression"] & df[row, "Expression"]<= 100) {
+          tissueExpression[["HighExpression"]] <- rbind(tissueExpression[["HighExpression"]], df[row,])
+        }
+        else if (df[row, "Expression"] > 100) {
+          tissueExpression[["V.HighExpression"]] <- rbind(tissueExpression[["V.HighExpression"]], df[row,])
+        }
+      }
+      if (t == "leaf") {
+        leafExpression[[test]] <- tissueExpression
+      }
+      else rootExpression[[test]] <- tissueExpression
     }
+  }
+  sampleGenes[["leafExpression"]] <- leafExpression
+  sampleGenes[["rootExpression"]] <- rootExpression
+  
   return(sampleGenes)
 }
 

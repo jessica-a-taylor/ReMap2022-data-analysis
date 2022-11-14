@@ -5,31 +5,34 @@ for (gene in sampleGenes[["NLRs"]]$Gene) {
   expressionList <- append(expressionList, df$Expression)
 }
 
-sampleGenes[["NLRs"]] <- cbind(sampleGenes[["NLRs"]], data.frame(Expression = expressionList))
+Leaf_NLRs <- sampleGenes[["NLRs"]]
+Leaf_NLRs <- cbind(Leaf_NLRs, data.frame(Expression = expressionList))
 
 
-expressionLevels <- hash(NoExpression = data.frame(),
+LeafExpression <- hash(NoExpression = data.frame(),
                     LowExpression = data.frame(),
                     MedExpression = data.frame(),
                     HighExpression = data.frame(),
                     V.HighExpression = data.frame())
 
-for (row in 1:nrow(sampleGenes[["NLRs"]])) {
-  if (sampleGenes[["NLRs"]][row, "Expression"] == 0) {
-    expressionLevels[["NoExpression"]] <- rbind(expressionLevels[["NoExpression"]], sampleGenes[["NLRs"]][row,])
+
+for (row in 1:nrow(Leaf_NLRs)) {
+  if (Leaf_NLRs[row, "Expression"] == 0) {
+    LeafExpression[["NoExpression"]] <- rbind(LeafExpression[["NoExpression"]], Leaf_NLRs[row,])
   }
-  else if (0 < bigExpressionData[["leaf_NLRs"]][row, "Expression"] & bigExpressionData[["leaf_NLRs"]][row, "Expression"] <= 10) {
-    expressionLevels[["LowExpression"]] <- rbind(expressionLevels[["LowExpression"]], sampleGenes[["NLRs"]][row,])
+  else if (0 < Leaf_NLRs[row, "Expression"] & Leaf_NLRs[row, "Expression"] <= 10) {
+    LeafExpression[["LowExpression"]] <- rbind(LeafExpression[["LowExpression"]], Leaf_NLRs[row,])
   }
-  else if (10 < bigExpressionData[["leaf_NLRs"]][row, "Expression"] & bigExpressionData[["leaf_NLRs"]][row, "Expression"] <= 50) {
-    expressionLevels[["MedExpression"]] <- rbind(expressionLevels[["MedExpression"]], sampleGenes[["NLRs"]][row,])
+  else if (10 < Leaf_NLRs[row, "Expression"] & Leaf_NLRs[row, "Expression"] <= 50) {
+    LeafExpression[["MedExpression"]] <- rbind(LeafExpression[["MedExpression"]], Leaf_NLRs[row,])
   }
-  else if (50 < bigExpressionData[["leaf_NLRs"]][row, "Expression"] & bigExpressionData[["leaf_NLRs"]][row, "Expression"]<= 100) {
-    expressionLevels[["HighExpression"]] <- rbind(expressionLevels[["HighExpression"]], sampleGenes[["NLRs"]][row,])
+  else if (50 < Leaf_NLRs[row, "Expression"] & Leaf_NLRs[row, "Expression"]<= 100) {
+    LeafExpression[["HighExpression"]] <- rbind(LeafExpression[["HighExpression"]], Leaf_NLRs[row,])
   }
-  else if (bigExpressionData[["leaf_NLRs"]][row, "Expression"] > 100) {
-    expressionLevels[["V.HighExpression"]] <- rbind(expressionLevels[["V.HighExpression"]], sampleGenes[["NLRs"]][row,])
+  else if (Leaf_NLRs[row, "Expression"] > 100) {
+    LeafExpression[["V.HighExpression"]] <- rbind(LeafExpression[["V.HighExpression"]], Leaf_NLRs[row,])
   }
 }
 
 
+rm(Leaf_NLRs, expressionList, df)
