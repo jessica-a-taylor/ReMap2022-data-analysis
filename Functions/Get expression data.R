@@ -103,7 +103,7 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
         else if (10 < df[row, "Expression"] & df[row, "Expression"] <= 50) {
           tissueExpression[["LowExpression"]] <- rbind(tissueExpression[["LowExpression"]], df[row,])
         }
-        #else if (25 < df[row, "Expression"] & df[row, "Expression"] <= 50) {
+        #else if (50 < df[row, "Expression"] & df[row, "Expression"] <= 75) {
          # tissueExpression[["MedExpression"]] <- rbind(tissueExpression[["MedExpression"]], df[row,])
         #}
         else if (50 < df[row, "Expression"] & df[row, "Expression"]<= 100) {

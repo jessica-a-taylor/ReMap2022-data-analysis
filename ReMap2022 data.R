@@ -257,39 +257,42 @@ for (mod in epiMods) {
 # Calculate the mean proportion of overlap and add as a new column to the dataframe.
 allResultsAverageProportions <- data.frame()
 
-for (test in names(sampleGenesProportions)) {
-  df <- allResultsOverlaps[allResultsOverlaps$Test==test,]
+for (tissue in unique(allResultsProportions$Tissue)) {
+  df <- allResultsProportions[allResultsProportions$Tissue==tissue,]
   
-  for (mod in epiMods) {
-    df1 <- df[df$Modification==mod,]
-    
-    for (r in unique(df1$Region)) {
-      df2 <- df1[df1$Region==r,]
+    for (level in unique(allResultsProportions$Expression)) { 
+      df1 <- df[df$Expression==level,]
       
-      if (nrow(df2 >= 1)) {
-        df2 <- cbind(df2, rep(mean(df2$Proportion), times = nrow(df2)))
-        df2 <- cbind(df2, rep(sd(df2$Proportion), times = nrow(df2)))
-      }
-      
-      else df2 <- df2
-      
-      allResultsAverageProportions <- rbind(allResultsAverageProportions, df2)
+      if (nrow(df1) >= 1) {
+        for (mod in unique(allResultsProportions$Modification)) {
+          df2 <- df1[df1$Modification==mod,]
+          
+          for (r in unique(allResultsProportions$Region)) {
+            df3 <- df2[df2$Region==r,]
+            
+            allResultsAverageProportions <- rbind(allResultsAverageProportions, data.frame(Region = r,
+                                                                                           Modification = mod,
+                                                                                           Proportion = mean(df3$Proportion),
+                                                                                           Tissue = tissue,
+                                                                                           axisGroup = df3$axisGroup[1],
+                                                                                           Expression = level))
+          }
+        }
+      } else allResultsAverageProportions <- allResultsAverageProportions
     }
-  }
 }
 
-colnames(allResultsAverageProportions)[c(6:7)] <- c("Mean", "SD")
-
+dataToUse <- allResultsAverageProportions[allResultsAverageProportions$Tissue=="leafExpression",]
 
 # Proportions plot for R-genes only.
 for (mod in epiMods) {
-  df2 <- allResultsAverageProportions[allResultsAverageProportions$Modification==mod,]
+  df <- dataToUse[dataToUse$Modification==mod,]
   
-  modOverlapsPlot <- ggplot(df2, aes(x = axisGroup, y = Mean, color = Test)) + 
+    plot <- ggplot(df, aes(x = axisGroup, y = Proportion, color = factor(Expression, levels = expressionLevel))) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(x = axisGroup, y = Mean, group = Test),size = 1.3) + 
-    geom_point(aes(x = axisGroup, y = Mean),size = 2) +
-    scale_colour_discrete(labels = c("Silent", "Active")) +
+    geom_line(aes(x = axisGroup, y = Proportion, group = Expression),size = 1.3) + 
+    geom_point(aes(x = axisGroup, y = Proportion),size = 2) +
+    scale_colour_brewer(name = "Expression Level", palette = "Reds", direction=-1) +
     theme_minimal() + 
     labs(x = "", y = "Average proportion of gene region") +
     geom_vline(xintercept=0, color="grey", size=1) +
@@ -297,9 +300,9 @@ for (mod in epiMods) {
     annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
     annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2)) + theme
+          axis.title.y = element_text(size = 14, vjust = 2))
   
-  ggsave(paste(mod, "_", ".LeafProportionsMean.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
+  ggsave(paste(mod, "_", ".LeafProportionsMeanPerExpression.pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
 
