@@ -128,9 +128,11 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
+expressionLevel <- c("HighExpression","MedExpression", "LowExpression", "NoExpression")
+
 for (tissue in names(sampleGenes)[c(11,13)]) {
   for(test in names(sampleGenes[[tissue]])[[11]]) {
-    for (level in names(sampleGenes[[tissue]][[test]])) {
+    for (level in expressionLevel) {
       
       dataToUse <- sampleGenes[[tissue]][[test]][[level]]
       
@@ -173,30 +175,31 @@ for (tissue in names(sampleGenes)[c(11,13)]) {
   }
 }
 
-rm(tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse, ReMap)
-  
+
 # Merge all data from all sample gene sets into one big dataframe.
 allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
 for (tissue in names(sampleGenesFrequencies)) {
   for (test in names(sampleGenesFrequencies[[tissue]])) {
-    for (level in names(sampleGenesFrequencies[[tissue]][[test]])) {
+    for (level in expressionLevel) {
       
       df1 <- sampleGenesFrequencies[[tissue]][[test]][[level]]
-      df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1))))
+      df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1)),
+                                   Tissue = rep(tissue, times = nrow(df1))))
       
       allResultsFrequencies <- rbind(allResultsFrequencies, df1)
       
       df2 <- sampleGenesProportions[[tissue]][[test]][[level]]
-      df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2))))
+      df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2)),
+                                   Tissue = rep(tissue, times = nrow(df2))))
       
       allResultsProportions <- rbind(allResultsProportions, df2)
     }
   }
 }
 
-rm(test, df1, df2)
+rm(test, df1, df2, tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse, ReMap)
 
 
 # Plot the the results.
@@ -205,7 +208,7 @@ axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "Downstream \n(200bp)", "Intergenic")
 
 # Frequencies plot for R-genes & controls.
-dataToUse <- allResultsFrequencies
+dataToUse <- allResultsFrequencies[c(which(allResultsFrequencies$Test %in% c(names(sampleGenes)[c(1:10,33)]))),]
 
 for (mod in epiMods) {
   df <- dataToUse[dataToUse$Modification==mod,]
@@ -229,27 +232,26 @@ for (mod in epiMods) {
 
   
 # Frequencies plot for R-genes only.
-dataToUse <- 
+dataToUse <- allResultsFrequencies[allResultsFrequencies$Tissue=="leafExpression",]
 
 for (mod in epiMods) {
   df <- dataToUse[dataToUse$Modification==mod,]
   
-  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
+  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = factor(Expression, levels = expressionLevel))) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(group = Test),linewidth = 1.3) +
-    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    scale_colour_discrete(labels = c("Silent", "Active")) +
+    geom_line(aes(group = Expression),linewidth = 1.3) +
+    geom_point(aes(group = Expression), size = 2) + theme_minimal() + 
+    scale_colour_brewer(name = "Expression Level", palette = "Reds", direction=-1) +
     labs(x = "", y = "Frequency of occurrence (%)") +
-    geom_vline(xintercept=0, color="grey", size=1) +
+    geom_vline(xintercept=0, color="grey", linewidth=1) +
     coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
     annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-14,ymax=-14) + 
     annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2)) 
 
-  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6)
+  ggsave(paste(mod, "_", ".LeavesFrequenciesPerExprression.pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
-
 
 
 # Calculate the mean proportion of overlap and add as a new column to the dataframe.
@@ -295,7 +297,7 @@ for (mod in epiMods) {
     annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
     annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2))
+          axis.title.y = element_text(size = 14, vjust = 2)) + theme
   
   ggsave(paste(mod, "_", ".LeafProportionsMean.pdf", sep = ""), plot = modOverlapsPlot, width = 12, height = 6)
 }

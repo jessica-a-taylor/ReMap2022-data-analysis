@@ -92,25 +92,25 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
       tissueExpression <- hash(NoExpression = data.frame(),
                                LowExpression = data.frame(),
                                MedExpression = data.frame(),
-                               HighExpression = data.frame(),
-                               V.HighExpression = data.frame())
+                               HighExpression = data.frame())
+                              # V.HighExpression = data.frame())
       
       
       for (row in 1:nrow(df)) {
-        if (df[row, "Expression"] == 0) {
+        if (0 <= df[row, "Expression"] & df[row, "Expression"] <= 10) {
           tissueExpression[["NoExpression"]] <- rbind(tissueExpression[["NoExpression"]], df[row,])
         }
-        else if (0 < df[row, "Expression"] & df[row, "Expression"] <= 10) {
+        else if (10 < df[row, "Expression"] & df[row, "Expression"] <= 50) {
           tissueExpression[["LowExpression"]] <- rbind(tissueExpression[["LowExpression"]], df[row,])
         }
-        else if (10 < df[row, "Expression"] & df[row, "Expression"] <= 50) {
+        #else if (25 < df[row, "Expression"] & df[row, "Expression"] <= 50) {
+         # tissueExpression[["MedExpression"]] <- rbind(tissueExpression[["MedExpression"]], df[row,])
+        #}
+        else if (50 < df[row, "Expression"] & df[row, "Expression"]<= 100) {
           tissueExpression[["MedExpression"]] <- rbind(tissueExpression[["MedExpression"]], df[row,])
         }
-        else if (50 < df[row, "Expression"] & df[row, "Expression"]<= 100) {
-          tissueExpression[["HighExpression"]] <- rbind(tissueExpression[["HighExpression"]], df[row,])
-        }
         else if (df[row, "Expression"] > 100) {
-          tissueExpression[["V.HighExpression"]] <- rbind(tissueExpression[["V.HighExpression"]], df[row,])
+          tissueExpression[["HighExpression"]] <- rbind(tissueExpression[["HighExpression"]], df[row,])
         }
       }
       if (t == "leaf") {
@@ -125,4 +125,3 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
   return(sampleGenes)
 }
 
-rm(row, test, gene)
