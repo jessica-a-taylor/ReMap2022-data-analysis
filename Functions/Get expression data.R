@@ -92,25 +92,25 @@ expressionFiltered <- function(bigExpressionData, sampleGenes) {
       tissueExpression <- hash(NoExpression = data.frame(),
                                LowExpression = data.frame(),
                                MedExpression = data.frame(),
-                               HighExpression = data.frame())
-                              # V.HighExpression = data.frame())
+                               HighExpression = data.frame(),
+                               V.HighExpression = data.frame())
       
       
       for (row in 1:nrow(df)) {
-        if (0 <= df[row, "Expression"] & df[row, "Expression"] <= 10) {
+        if (0 <= df[row, "Expression"] & df[row, "Expression"] <= 5) {
           tissueExpression[["NoExpression"]] <- rbind(tissueExpression[["NoExpression"]], df[row,])
         }
-        else if (10 < df[row, "Expression"] & df[row, "Expression"] <= 50) {
+        else if (5 < df[row, "Expression"] & df[row, "Expression"] <= 30) {
           tissueExpression[["LowExpression"]] <- rbind(tissueExpression[["LowExpression"]], df[row,])
         }
-        #else if (50 < df[row, "Expression"] & df[row, "Expression"] <= 75) {
-         # tissueExpression[["MedExpression"]] <- rbind(tissueExpression[["MedExpression"]], df[row,])
-        #}
-        else if (50 < df[row, "Expression"] & df[row, "Expression"]<= 100) {
+        else if (30 < df[row, "Expression"] & df[row, "Expression"] <= 60) {
           tissueExpression[["MedExpression"]] <- rbind(tissueExpression[["MedExpression"]], df[row,])
         }
-        else if (df[row, "Expression"] > 100) {
+        else if (60 < df[row, "Expression"] & df[row, "Expression"]<= 90) {
           tissueExpression[["HighExpression"]] <- rbind(tissueExpression[["HighExpression"]], df[row,])
+        }
+        else if (df[row, "Expression"] > 90) {
+          tissueExpression[["V.HighExpression"]] <- rbind(tissueExpression[["V.HighExpression"]], df[row,])
         }
       }
       if (t == "leaf") {

@@ -128,9 +128,9 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-expressionLevel <- c("HighExpression","MedExpression", "LowExpression", "NoExpression")
+expressionLevel <- c("HighExpression","MedExpression", "LowExpression")
 
-for (tissue in names(sampleGenes)[c(11,13)]) {
+for (tissue in names(sampleGenes)[11]) {
   for(test in names(sampleGenes[[tissue]])[[11]]) {
     for (level in expressionLevel) {
       
@@ -275,7 +275,8 @@ for (tissue in unique(allResultsProportions$Tissue)) {
                                                                                            Proportion = mean(df3$Proportion),
                                                                                            Tissue = tissue,
                                                                                            axisGroup = df3$axisGroup[1],
-                                                                                           Expression = level))
+                                                                                           Expression = level,
+                                                                                           n = nrow(df3)))
           }
         }
       } else allResultsAverageProportions <- allResultsAverageProportions
