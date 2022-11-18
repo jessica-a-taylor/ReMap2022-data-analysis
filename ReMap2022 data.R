@@ -87,26 +87,13 @@ sampleGenes[["NLRs"]] <- NLRgenes
 
 rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 
-# For each gene set in sampleGenes, save the list of genes. 
-for (test in names(sampleGenes)) {
-  write(paste(sampleGenes[[test]]$Gene, sep = "", collapse = ","), file = paste(test, "_geneList",".txt", sep = ""))
-}
-
-# Import expression data.
-bigExpressionData <- hash()
-
-for (test in names(sampleGenes)) {
-  bigExpressionData[[test]] <- as.data.frame(read_xlsx(paste("Data\\result_", test, ".xlsx", sep = "")))
-}
-
 
 # Get filtered expression data for each set of sample genes in each tissue. 
 # Add dataframes to sampleGenes for gene sets with particular expression levels.
-source("Functions\\Get expression data.R")
+source("Functions\\PlantExp.R")
 
-sampleGenes <- expressionFiltered(bigExpressionData, sampleGenes)
+sampleGenes <- PlantExp(sampleGenes)
 
-rm(bigExpressionData)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
 source("Functions\\Modifications per gene.R")
@@ -128,51 +115,45 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-expressionLevel <- c("HighExpression","MedExpression", "LowExpression")
+for (test in names(sampleGenes)[-c(1,5,9,13,17,21,25,29,33,37,41)]) {
 
-for (tissue in names(sampleGenes)[11]) {
-  for(test in names(sampleGenes[[tissue]])[[11]]) {
-    for (level in expressionLevel) {
-      
-      dataToUse <- sampleGenes[[tissue]][[test]][[level]]
-      
-      # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
-      allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
-      
-      # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
-      geneModifications <- modificationOccurrences(allModifications)
-      
-      rm(allModifications)
-      
-      # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
-      allOverlaps <- mergeOverlappingModifications(geneModifications)
-      
-      
-      # Determine the % R-genes with a chromatin mark in each gene region (frequency)
-      # and the proportion of each gene region with that mark.
-      geneRegions <- getGeneCoordinates(dataToUse)
-      
-      modFrequencyPerRegion <- modFrequenciesFunction(geneRegions, allOverlaps, epiMods)
-      modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
-      
-      # Collect all hashes for modFrequencyPerRegion and modProportionPerRegion into single dataframes.
-      modFrequencyPerRegion <- mergeResults(modFrequencyPerRegion)
-      modProportionPerRegion <- mergeResults(modProportionPerRegion)
-      
-      # Add a column to modFrequencyPerRegion and modProportionPerRegion with the numbers for 
-      # each gene region that will correspond with their position on the x axis.
-      modFrequencyPerRegion <- geneRegionAxisLocations(modFrequencyPerRegion, geneRegions)
-      modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
-      
-      # Add a column to modFrequencyPerRegion and modProportionPerRegion with the current expression level.
-      modFrequencyPerRegion <- expressionColumn(modFrequencyPerRegion)
-      modProportionPerRegion <- expressionColumn(modProportionPerRegion)
-      
-      # Store final results on the appropriate hash.
-      sampleGenesFrequencies[[tissue]][[test]][[level]] <- modFrequencyPerRegion
-      sampleGenesProportions[[tissue]][[test]][[level]] <- modProportionPerRegion
-    }
-  }
+  dataToUse <- sampleGenes[[test]]
+  
+  # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
+  allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
+  
+  # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
+  geneModifications <- modificationOccurrences(allModifications)
+  
+  rm(allModifications)
+  
+  # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
+  allOverlaps <- mergeOverlappingModifications(geneModifications)
+  
+  
+  # Determine the % R-genes with a chromatin mark in each gene region (frequency)
+  # and the proportion of each gene region with that mark.
+  geneRegions <- getGeneCoordinates(dataToUse)
+  
+  modFrequencyPerRegion <- modFrequenciesFunction(geneRegions, allOverlaps, epiMods)
+  modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
+  
+  # Collect all hashes for modFrequencyPerRegion and modProportionPerRegion into single dataframes.
+  modFrequencyPerRegion <- mergeResults(modFrequencyPerRegion)
+  modProportionPerRegion <- mergeResults(modProportionPerRegion)
+  
+  # Add a column to modFrequencyPerRegion and modProportionPerRegion with the numbers for 
+  # each gene region that will correspond with their position on the x axis.
+  modFrequencyPerRegion <- geneRegionAxisLocations(modFrequencyPerRegion, geneRegions)
+  modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
+  
+  # Add a column to modFrequencyPerRegion and modProportionPerRegion with the current expression level.
+  modFrequencyPerRegion <- expressionColumn(modFrequencyPerRegion)
+  modProportionPerRegion <- expressionColumn(modProportionPerRegion)
+  
+  # Store final results on the appropriate hash.
+  sampleGenesFrequencies[[test]] <- modFrequencyPerRegion
+  sampleGenesProportions[[test]] <- modProportionPerRegion
 }
 
 

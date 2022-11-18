@@ -38,7 +38,8 @@ PlantExp <- function(dataToUse) {
                                            FPKM = mean(df$FPKM),
                                            tissue = t))
       }
-      sampleGenes[[paste(test, "_", t, sep = "")]] <- dataDF
+      dataToUse[[paste(test, "_", t, sep = "")]] <- dataToUse[[test]][c(which(dataToUse[[test]]$Gene %in% dataDF$geneId)),]
+      dataToUse[[paste(test, "_", t, sep = "")]] <- cbind(dataToUse[[paste(test, "_", t, sep = "")]], dataDF[,c(2:3)])  
     }
   }
   # Set thresholds for expression levels.
@@ -49,29 +50,30 @@ PlantExp <- function(dataToUse) {
                            HighExpression = data.frame(),
                            V.HighExpression = data.frame())
   
-  for (test in names(sampleGenes)[-c(1,5,9,13,17,21,25,29,33,37,41)]) {
+  for (test in names(dataToUse)[-c(1,5,9,13,17,21,25,29,33,37,41)]) {
     
     expressionLevel <- c()
-    for (row in 1:nrow(sampleGenes[[test]])) {
-      if (0 <= sampleGenes[[test]][row, "FPKM"] & sampleGenes[[test]][row, "FPKM"] <= 5) {
+    for (row in 1:nrow(dataToUse[[test]])) {
+      if (0 <= dataToUse[[test]][row, "FPKM"] & dataToUse[[test]][row, "FPKM"] <= 5) {
         expressionLevel <- append(expressionLevel, "No Expression")
       }
-      else if (5 < sampleGenes[[test]][row, "FPKM"] & sampleGenes[[test]][row, "FPKM"] <= 25) {
+      else if (5 < dataToUse[[test]][row, "FPKM"] & dataToUse[[test]][row, "FPKM"] <= 25) {
         expressionLevel <- append(expressionLevel, "V.Low Expression")
       }
-      else if (25 < sampleGenes[[test]][row, "FPKM"] & sampleGenes[[test]][row, "FPKM"] <= 55) {
+      else if (25 < dataToUse[[test]][row, "FPKM"] & dataToUse[[test]][row, "FPKM"] <= 55) {
         expressionLevel <- append(expressionLevel, "Low Expression")
       }
-      else if (55 < sampleGenes[[test]][row, "FPKM"] & sampleGenes[[test]][row, "FPKM"] <= 100) {
+      else if (55 < dataToUse[[test]][row, "FPKM"] & dataToUse[[test]][row, "FPKM"] <= 100) {
         expressionLevel <- append(expressionLevel, "Intermediate Expression")
       }
-      else if (100 < sampleGenes[[test]][row, "FPKM"] & sampleGenes[[test]][row, "FPKM"]<= 200) {
+      else if (100 < dataToUse[[test]][row, "FPKM"] & dataToUse[[test]][row, "FPKM"]<= 200) {
         expressionLevel <- append(expressionLevel, "High Expression")
       }
-      else if (sampleGenes[[test]][row, "FPKM"] > 200) {
+      else if (dataToUse[[test]][row, "FPKM"] > 200) {
         expressionLevel <- append(expressionLevel, "V.High Expression")
       }
     }
-    sampleGenes[[test]] <- cbind(sampleGenes[[test]], data.frame(ExpressionLevel = expressionLevel))
+    dataToUse[[test]] <- cbind(dataToUse[[test]], data.frame(ExpressionLevel = expressionLevel))
   }
+  return(dataToUse)
 }
