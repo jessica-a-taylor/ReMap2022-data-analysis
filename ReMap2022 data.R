@@ -115,7 +115,7 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-for (test in names(sampleGenes)[-c(1,5,9,13,17,21,25,29,33,37,41)]) {
+for (test in names(sampleGenes)[c(42:44)]) {
 
   dataToUse <- sampleGenes[[test]]
   
@@ -161,23 +161,17 @@ for (test in names(sampleGenes)[-c(1,5,9,13,17,21,25,29,33,37,41)]) {
 allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
-for (tissue in names(sampleGenesFrequencies)) {
-  for (test in names(sampleGenesFrequencies[[tissue]])) {
-    for (level in expressionLevel) {
-      
-      df1 <- sampleGenesFrequencies[[tissue]][[test]][[level]]
-      df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1)),
-                                   Tissue = rep(tissue, times = nrow(df1))))
-      
-      allResultsFrequencies <- rbind(allResultsFrequencies, df1)
-      
-      df2 <- sampleGenesProportions[[tissue]][[test]][[level]]
-      df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2)),
-                                   Tissue = rep(tissue, times = nrow(df2))))
-      
-      allResultsProportions <- rbind(allResultsProportions, df2)
-    }
-  }
+for (test in names(sampleGenesFrequencies)) {
+
+  df1 <- sampleGenesFrequencies[[test]]
+  df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1))))
+  
+  allResultsFrequencies <- rbind(allResultsFrequencies, df1)
+  
+  df2 <- sampleGenesProportions[[test]]
+  df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2))))
+  
+  allResultsProportions <- rbind(allResultsProportions, df2)
 }
 
 rm(test, df1, df2, tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse, ReMap)
@@ -238,8 +232,8 @@ for (mod in epiMods) {
 # Calculate the mean proportion of overlap and add as a new column to the dataframe.
 allResultsAverageProportions <- data.frame()
 
-for (tissue in unique(allResultsProportions$Tissue)) {
-  df <- allResultsProportions[allResultsProportions$Tissue==tissue,]
+for (test in unique(allResultsProportions$Test)) {
+  df <- allResultsProportions[allResultsProportions$Test==test,]
   
     for (level in unique(allResultsProportions$Expression)) { 
       df1 <- df[df$Expression==level,]
