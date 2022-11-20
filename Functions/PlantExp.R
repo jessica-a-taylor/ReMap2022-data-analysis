@@ -1,5 +1,5 @@
 # Function to get filtered expression data for each set of sample genes in each tissue. 
-PlantExp <- function(dataToUse) {
+PlantExp <- function(dataToUse, exLevel) {
   
   # Get a list of tissue types for which there is expression data.
   tissue <- list.files(path = "Data\\PlantExp data")
@@ -62,8 +62,12 @@ PlantExp <- function(dataToUse) {
       PlantExpData <- cbind(PlantExpData, data.frame(ExpressionLevel = expressionLevel))
       
       # Sort genes to hashes based on expression level.
-      for (level in unique(PlantExpData$ExpressionLevel)) {
-        sampleGenes[[paste(test, "_", t, sep = "")]][[level]] <- PlantExpData[PlantExpData$ExpressionLevel==level,]
+      for (level in exLevel) {
+        df <- PlantExpData[PlantExpData$ExpressionLevel==level,]
+
+        sampleGenes[[paste(test, "_", t, sep = "")]][[level]] <- sampleGenes[[test]][c(which(sampleGenes[[test]]$Gene %in% df$geneId)),]
+        
+        sampleGenes[[paste(test, "_", t, sep = "")]][[level]] <- cbind(sampleGenes[[paste(test, "_", t, sep = "")]][[level]], df[,c(2:4)])
       } 
     }
   }
