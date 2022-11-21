@@ -91,7 +91,7 @@ rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 # Get filtered expression data for each set of sample genes in each tissue. 
 # Add dataframes to sampleGenes for gene sets with particular expression levels.
 source("Functions\\PlantExp.R")
-exLevel <- c("No Expression", "V.Low Expression", "Low Expression", "Intermediate Expression",
+exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
              "High Expression", "V.High Expression")
 
 sampleGenes <- PlantExp(sampleGenes, exLevel)
@@ -117,11 +117,13 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
+genesForAnalysis <- c("AT4G16860","AT4G16890","AT4G16900","AT4G16920","AT4G16930","AT4G16940","AT4G16950","AT4G16960","AT4G16990")
+
 
 for (test in names(sampleGenes)[42]) {
 
   for (level in exLevel) {
-    dataToUse <- sampleGenes[[test]][[level]]
+    dataToUse <- sampleGenes[[test]][[level]][c(which(sampleGenes[[test]][[level]]$Gene %in% genesForAnalysis)),]
     
     # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
     allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
@@ -285,7 +287,7 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2))
   
-  ggsave(paste(df$Tissue[1], "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
+  ggsave(paste("RPP4_Leaf", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
 
