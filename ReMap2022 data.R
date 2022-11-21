@@ -117,7 +117,7 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-genesForAnalysis <- c("AT4G16860","AT4G16890","AT4G16900","AT4G16920","AT4G16930","AT4G16940","AT4G16950","AT4G16960","AT4G16990")
+genesForAnalysis <- c("AT4G19500","AT4G19510","AT4G19520","AT4G19530")
 
 
 for (test in names(sampleGenes)[42]) {
@@ -287,7 +287,7 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2))
   
-  ggsave(paste("RPP4_Leaf", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
+  ggsave(paste("RPP2_Leaf", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
 
