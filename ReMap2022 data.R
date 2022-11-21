@@ -91,8 +91,10 @@ rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 # Get filtered expression data for each set of sample genes in each tissue. 
 # Add dataframes to sampleGenes for gene sets with particular expression levels.
 source("Functions\\PlantExp.R")
+exLevel <- c("No Expression", "V.Low Expression", "Low Expression", "Intermediate Expression",
+             "High Expression", "V.High Expression")
 
-sampleGenes <- PlantExp(sampleGenes)
+sampleGenes <- PlantExp(sampleGenes, exLevel)
 
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
@@ -115,13 +117,10 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-expressionLevel <- c("No Expression", "V.Low  Expression", "Low Expression", "Intermediate Expression",
-                     "High Expression", "V.High Expression")
 
+for (test in names(sampleGenes)[42]) {
 
-for (test in names(sampleGenes)[c(42:44)]) {
-
-  for (level in expressionLevel) {
+  for (level in exLevel) {
     dataToUse <- sampleGenes[[test]][[level]]
     
     # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
@@ -168,19 +167,20 @@ allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
 for (test in names(sampleGenesFrequencies)) {
-
-  df1 <- sampleGenesFrequencies[[test]]
-  df1 <- cbind(df1, data.frame(Test = rep(test, times = nrow(df1))))
-  
-  allResultsFrequencies <- rbind(allResultsFrequencies, df1)
-  
-  df2 <- sampleGenesProportions[[test]]
-  df2 <- cbind(df2, data.frame(Test = rep(test, times = nrow(df2))))
-  
-  allResultsProportions <- rbind(allResultsProportions, df2)
+  for (level in exLevel) {
+    df1 <- sampleGenesFrequencies[[test]][[level]]
+    df1 <- cbind(df1, data.frame(SampleGenes = rep(test, times = nrow(df1))))
+    
+    allResultsFrequencies <- rbind(allResultsFrequencies, df1)
+    
+    df2 <- sampleGenesProportions[[test]][[level]]
+    df2 <- cbind(df2, data.frame(SampleGenes = rep(test, times = nrow(df2))))
+    
+    allResultsProportions <- rbind(allResultsProportions, df2)
+  }
 }
 
-rm(test, df1, df2, tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse, ReMap)
+rm(test, df1, df2, tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse)
 
 
 # Plot the the results.
@@ -238,8 +238,8 @@ for (mod in epiMods) {
 # Calculate the mean proportion of overlap and add as a new column to the dataframe.
 allResultsAverageProportions <- data.frame()
 
-for (test in unique(allResultsProportions$Test)) {
-  df <- allResultsProportions[allResultsProportions$Test==test,]
+for (test in unique(allResultsProportions$SampleGenes)) {
+  df <- allResultsProportions[allResultsProportions$SampleGenes==test,]
   
     for (level in unique(allResultsProportions$Expression)) { 
       df1 <- df[df$Expression==level,]
@@ -254,27 +254,28 @@ for (test in unique(allResultsProportions$Test)) {
             allResultsAverageProportions <- rbind(allResultsAverageProportions, data.frame(Region = r,
                                                                                            Modification = mod,
                                                                                            Proportion = mean(df3$Proportion),
-                                                                                           Tissue = tissue,
+                                                                                           Tissue = df3$SampleGenes[1],
                                                                                            axisGroup = df3$axisGroup[1],
                                                                                            Expression = level,
-                                                                                           n = nrow(df3)))
+                                                                                           SampleSize = paste(level, 
+                                                                                                              paste("(n = ", nrow(df3), ")", sep = ""), sep = " ")))
           }
         }
       } else allResultsAverageProportions <- allResultsAverageProportions
     }
 }
 
-dataToUse <- allResultsAverageProportions[allResultsAverageProportions$Tissue=="leafExpression",]
+dataToUse <- allResultsAverageProportions[grepl("NLRs_Leaf", allResultsAverageProportions$Tissue),]
 
 # Proportions plot for R-genes only.
 for (mod in epiMods) {
   df <- dataToUse[dataToUse$Modification==mod,]
   
-    plot <- ggplot(df, aes(x = axisGroup, y = Proportion, color = factor(Expression, levels = expressionLevel))) + 
+    plot <- ggplot(df, aes(x = axisGroup, y = Proportion, color = factor(Expression, levels = exLevel))) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
     geom_line(aes(x = axisGroup, y = Proportion, group = Expression),size = 1.3) + 
     geom_point(aes(x = axisGroup, y = Proportion),size = 2) +
-    scale_colour_brewer(name = "Expression Level", palette = "Reds", direction=-1) +
+    scale_colour_brewer(name = "Expression Level", palette = "Reds", direction=1, labels = c(unique(df$SampleSize))) +
     theme_minimal() + 
     labs(x = "", y = "Average proportion of gene region") +
     geom_vline(xintercept=0, color="grey", size=1) +
@@ -284,7 +285,7 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2))
   
-  ggsave(paste(mod, "_", ".LeafProportionsMeanPerExpression.pdf", sep = ""), plot = plot, width = 12, height = 6)
+  ggsave(paste(df$Tissue[1], "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
 
