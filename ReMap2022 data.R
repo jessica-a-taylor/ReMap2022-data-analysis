@@ -299,33 +299,44 @@ for (mod in epiMods) {
 # Plot the expression of all R-genes and controls.
 geneExpression <- data.frame()
 
-for (test in names(sampleGenes[["NLRs_Root"]])) {
-  geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[["NLRs_Root"]][[test]]$Gene,
-                                                   Expression = sampleGenes[["NLRs_Root"]][[test]]$FPKM,
-                                                   Level = sampleGenes[["NLRs_Root"]][[test]]$ExpressionLevel))
+for (test in names(sampleGenes[["NLRs_Seedling"]])) {
+  if (nrow(sampleGenes[["NLRs_Seedling"]][[test]]) >= 1) {
+    
+  geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[["NLRs_Seedling"]][[test]]$Gene,
+                                                   Expression = sampleGenes[["NLRs_Seedling"]][[test]]$FPKM,
+                                                   Level = sampleGenes[["NLRs_Seedling"]][[test]]$ExpressionLevel,
+                                                   SampleSize = paste(sampleGenes[["NLRs_Seedling"]][[test]]$ExpressionLevel, 
+                                                                      paste("(n = ", length(sampleGenes[["NLRs_Seedling"]][[test]]$Gene), ")", sep = ""), sep = " ")))
+  }
+  else geneExpression <- geneExpression
 }
 
-plot <- ggplot(geneExpression, aes(x = Gene, y = Expression, fill = factor(Level, levels = exLevel))) +
+plot <- ggplot(geneExpression, aes(x = Gene, y = Expression, fill = SampleSize)) +
   geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
   theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) +
-  scale_fill_brewer(palette = "Reds", direction=1, name = "Expression Level")
+  scale_fill_brewer(palette = "Reds", direction=-1, name = "Expression Level", labels = c(unique(geneExpression$SampleSize)))
 
-ggsave("R-gene Root Expression.pdf", plot = plot, width = 30, height = 6)
+ggsave("R-gene Seedling Expression.pdf", plot = plot, width = 30, height = 6)
 
 
 for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes)) & grepl("control", names(sampleGenes))]) {
   geneExpression <- data.frame()
   
-  for (n in names(sampleGenes[[test]])) {
-    geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[[test]][[n]]$Gene,
-                                                       Expression = sampleGenes[[test]][[n]]$FPKM,
-                                                       Level = sampleGenes[[test]][[n]]$ExpressionLevel))
+  for (n in exLevel) {
+    if (nrow(sampleGenes[[test]][[n]]) >= 1) {
+      geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[[test]][[n]]$Gene,
+                                                         Expression = sampleGenes[[test]][[n]]$FPKM,
+                                                         Level = sampleGenes[[test]][[n]]$ExpressionLevel,
+                                                         SampleSize = paste(sampleGenes[[test]][[n]]$ExpressionLevel, 
+                                                                            paste("(n = ", length(sampleGenes[[test]][[n]]$Gene), ")", sep = ""), sep = " ")))
+    }
+    else geneExpression <- geneExpression
   }
   
   plot <- ggplot(geneExpression, aes(x = Gene, y = Expression, fill = factor(Level, levels = exLevel))) +
     geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
     theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) +
-    scale_fill_brewer(palette = "Reds", direction=1, name = "Expression Level")
+    scale_fill_brewer(palette = "Reds", direction=1, name = "Expression Level", labels = c(unique(geneExpression$SampleSize)))
   
   ggsave(paste(test,"Expression.pdf", sep = " "), plot = plot, width = 36, height = 6)
 }
@@ -341,8 +352,10 @@ for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes))]) {
   }
 }
 
-plot <- ggplot(geneExpression, aes(x = GeneSet, y = Expression)) +
+geneExpressionCut <- geneExpression[c(which(geneExpression$Expression <= 50)),]
+
+plot <- ggplot(geneExpressionCut, aes(x = GeneSet, y = Expression)) +
                  geom_boxplot(aes(group = GeneSet)) + theme_minimal() + labs(x = "Gene set", y = "Expression (FPKM)") +
-                 theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) + coord_cartesian(ylim = 500)
+                 theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1))
 
 ggsave(paste(test,"Expression.pdf", sep = " "), plot = plot, width = 36, height = 6)
