@@ -121,10 +121,11 @@ genesForAnalysis <- c("AT1G72840","AT1G72850","AT1G72852","AT1G72860","AT1G72870
                       "AT1G72900","AT1G72910","AT1G72920","AT1G72930", "AT1G72940","AT1G72950")
 
 
-for (test in names(sampleGenes)[42]) {
+for (test in names(sampleGenes)[44]) {
 
   for (level in exLevel) {
-    dataToUse <- sampleGenes[[test]][[level]][c(which(sampleGenes[[test]][[level]]$Gene %in% genesForAnalysis)),]
+    dataToUse <- sampleGenes[[test]][[level]]
+   # dataToUse <- sampleGenes[[test]][[level]][c(which(sampleGenes[[test]][[level]]$Gene %in% genesForAnalysis)),]
     
     # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
     allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
@@ -254,21 +255,24 @@ for (test in unique(allResultsProportions$SampleGenes)) {
           for (r in unique(allResultsProportions$Region)) {
             df3 <- df2[df2$Region==r,]
             
-            allResultsAverageProportions <- rbind(allResultsAverageProportions, data.frame(Region = r,
-                                                                                           Modification = mod,
-                                                                                           Proportion = mean(df3$Proportion),
-                                                                                           Tissue = df3$SampleGenes[1],
-                                                                                           axisGroup = df3$axisGroup[1],
-                                                                                           Expression = level,
-                                                                                           SampleSize = paste(level, 
-                                                                                                              paste("(n = ", nrow(df3), ")", sep = ""), sep = " ")))
+            if (nrow(df3) >= 10) {
+              allResultsAverageProportions <- rbind(allResultsAverageProportions, data.frame(Region = r,
+                                                                                             Modification = mod,
+                                                                                             Proportion = mean(df3$Proportion),
+                                                                                             Tissue = df3$SampleGenes[1],
+                                                                                             axisGroup = df3$axisGroup[1],
+                                                                                             Expression = level,
+                                                                                             SampleSize = paste(level, 
+                                                                                                                paste("(n = ", nrow(df3), ")", sep = ""), sep = " ")))
+            }
+            else allResultsAverageProportions <- allResultsAverageProportions
           }
         }
       } else allResultsAverageProportions <- allResultsAverageProportions
     }
 }
 
-dataToUse <- allResultsAverageProportions[grepl("NLRs_Leaf", allResultsAverageProportions$Tissue),]
+dataToUse <- allResultsAverageProportions[grepl("NLRs_Seedling", allResultsAverageProportions$Tissue),]
 
 # Proportions plot for R-genes only.
 for (mod in epiMods) {
@@ -288,23 +292,57 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2))
   
-  ggsave(paste("TN_Leaf", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
+  ggsave(paste("NLRs_Seedling", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
 
-# Plot the expression of all NLRs.
-NLRexpression <- data.frame()
+# Plot the expression of all R-genes and controls.
+geneExpression <- data.frame()
 
-for (test in names(sampleGenes[["NLRs_Leaf"]])) {
-  NLRexpression <- rbind(NLRexpression, data.frame(Gene = sampleGenes[["NLRs_Leaf"]][[test]]$Gene,
-                                                   Expression = sampleGenes[["NLRs_Leaf"]][[test]]$FPKM,
-                                                   Level = sampleGenes[["NLRs_Leaf"]][[test]]$ExpressionLevel))
+for (test in names(sampleGenes[["NLRs_Root"]])) {
+  geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[["NLRs_Root"]][[test]]$Gene,
+                                                   Expression = sampleGenes[["NLRs_Root"]][[test]]$FPKM,
+                                                   Level = sampleGenes[["NLRs_Root"]][[test]]$ExpressionLevel))
 }
 
-plot <- ggplot(NLRexpression, aes(x = Gene, y = Expression, fill = factor(Level, levels = exLevel))) +
+plot <- ggplot(geneExpression, aes(x = Gene, y = Expression, fill = factor(Level, levels = exLevel))) +
   geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
   theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) +
   scale_fill_brewer(palette = "Reds", direction=1, name = "Expression Level")
 
-for (test in names(sampleGenes)[])
+ggsave("R-gene Root Expression.pdf", plot = plot, width = 30, height = 6)
+
+
+for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes)) & grepl("control", names(sampleGenes))]) {
+  geneExpression <- data.frame()
   
+  for (n in names(sampleGenes[[test]])) {
+    geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[[test]][[n]]$Gene,
+                                                       Expression = sampleGenes[[test]][[n]]$FPKM,
+                                                       Level = sampleGenes[[test]][[n]]$ExpressionLevel))
+  }
+  
+  plot <- ggplot(geneExpression, aes(x = Gene, y = Expression, fill = factor(Level, levels = exLevel))) +
+    geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
+    theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) +
+    scale_fill_brewer(palette = "Reds", direction=1, name = "Expression Level")
+  
+  ggsave(paste(test,"Expression.pdf", sep = " "), plot = plot, width = 36, height = 6)
+}
+  
+# Expression boxplot.
+geneExpression <- data.frame()
+
+for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes))]) {
+  
+  for (n in names(sampleGenes[[test]])) {
+    geneExpression <- rbind(geneExpression, data.frame(GeneSet = rep(test, times = nrow(sampleGenes[[test]][[n]])),
+                                                       Expression = sampleGenes[[test]][[n]]$FPKM))
+  }
+}
+
+plot <- ggplot(geneExpression, aes(x = GeneSet, y = Expression)) +
+                 geom_boxplot(aes(group = GeneSet)) + theme_minimal() + labs(x = "Gene set", y = "Expression (FPKM)") +
+                 theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) + coord_cartesian(ylim = 500)
+
+ggsave(paste(test,"Expression.pdf", sep = " "), plot = plot, width = 36, height = 6)
