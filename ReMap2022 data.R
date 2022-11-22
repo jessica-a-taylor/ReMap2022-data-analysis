@@ -117,7 +117,8 @@ sampleGenesProportions <- hash()
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
-genesForAnalysis <- c("AT4G19500","AT4G19510","AT4G19520","AT4G19530")
+genesForAnalysis <- c("AT1G72840","AT1G72850","AT1G72852","AT1G72860","AT1G72870","AT1G72890",
+                      "AT1G72900","AT1G72910","AT1G72920","AT1G72930", "AT1G72940","AT1G72950")
 
 
 for (test in names(sampleGenes)[42]) {
@@ -287,7 +288,23 @@ for (mod in epiMods) {
     theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2))
   
-  ggsave(paste("RPP2_Leaf", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
+  ggsave(paste("TN_Leaf", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
 
+# Plot the expression of all NLRs.
+NLRexpression <- data.frame()
+
+for (test in names(sampleGenes[["NLRs_Leaf"]])) {
+  NLRexpression <- rbind(NLRexpression, data.frame(Gene = sampleGenes[["NLRs_Leaf"]][[test]]$Gene,
+                                                   Expression = sampleGenes[["NLRs_Leaf"]][[test]]$FPKM,
+                                                   Level = sampleGenes[["NLRs_Leaf"]][[test]]$ExpressionLevel))
+}
+
+plot <- ggplot(NLRexpression, aes(x = Gene, y = Expression, fill = factor(Level, levels = exLevel))) +
+  geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
+  theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) +
+  scale_fill_brewer(palette = "Reds", direction=1, name = "Expression Level")
+
+for (test in names(sampleGenes)[])
+  
