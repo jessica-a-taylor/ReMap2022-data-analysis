@@ -73,17 +73,17 @@ sampleGenes <- geneSets(dataToUse)
 
 # Import list of R-genes.
 ArabidopsisNLRs <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 1))
+clusteredNLRs <- ArabidopsisNLRs[c(which(ArabidopsisNLRs$Clustering =="cluster"), which(ArabidopsisNLRs$Clustering == "double")),]
+notClusteredNLRs <- ArabidopsisNLRs[c(which(ArabidopsisNLRs$Clustering =="single")),]
 
 NLRgenes <- dataToUse[which(dataToUse$Gene %in% ArabidopsisNLRs$Gene),]
-
-# Create a ranges column by merging the start and end columns.
-dataToUse <- NLRgenes
-
-NLRgenes$ranges <- mergeCoordinates(dataToUse)
-
+clusteredNLRs <- dataToUse[which(dataToUse$Gene %in% clusteredNLRs$Gene),]
+notClusteredNLRs <- dataToUse[which(dataToUse$Gene %in% notClusteredNLRs$Gene),]
 
 # Add R-genes to sampleGenes.
 sampleGenes[["NLRs"]] <- NLRgenes
+sampleGenes[["clusteredNLRs"]] <- clusteredNLRs
+sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRs
 
 rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 
@@ -121,7 +121,7 @@ genesForAnalysis <- c("AT1G72840","AT1G72850","AT1G72852","AT1G72860","AT1G72870
                       "AT1G72900","AT1G72910","AT1G72920","AT1G72930", "AT1G72940","AT1G72950")
 
 
-for (test in names(sampleGenes)[44]) {
+for (test in names(sampleGenes)[c(2:4,48:52)]) {
 
   for (level in exLevel) {
     dataToUse <- sampleGenes[[test]][[level]]
@@ -295,6 +295,29 @@ for (mod in epiMods) {
   ggsave(paste("NLRs_Seedling", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
 }
 
+# Proportions plot for R-genes & controls.
+dataToUse <- allResultsAverageProportions[c(which(allResultsAverageProportions$Test %in% c(names(sampleGenes)[c(1:10,33)]))),]
+
+for (mod in epiMods) {
+  df <- dataToUse[dataToUse$Modification==mod,]
+  
+  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
+    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+    geom_line(aes(group = Test),linewidth = 1.3) +
+    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
+    scale_colour_manual(limits = c("control1", "NLRs"), 
+                        values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
+    labs(x = "", y = "Frequency of occurrence (%)") +
+    geom_vline(xintercept=0, color="grey", size=1) +
+    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
+    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
+    theme(axis.text.x = element_text(size = 13, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
+          axis.title.y = element_text(size = 16, vjust = 2)) 
+  
+  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6)
+}
+
 
 # Plot the expression of all R-genes and controls.
 geneExpression <- data.frame()
@@ -311,12 +334,16 @@ for (test in names(sampleGenes[["NLRs_Seedling"]])) {
   else geneExpression <- geneExpression
 }
 
-plot <- ggplot(geneExpression, aes(x = Gene, y = Expression, fill = SampleSize)) +
-  geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
-  theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) +
-  scale_fill_brewer(palette = "Reds", direction=-1, name = "Expression Level", labels = c(unique(geneExpression$SampleSize)))
+geneExpression <- geneExpression[order(geneExpression$Gene),] 
 
-ggsave("R-gene Seedling Expression.pdf", plot = plot, width = 30, height = 6)
+plot <- ggplot(geneExpression[c(125:155),], aes(x = Gene, y = Expression, fill = SampleSize)) +
+  geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
+  theme(axis.text.x = element_text(angle = 90, size = 10), axis.text.y = element_text(size = 10), 
+        axis.title = element_text(size = 12), panel.background = element_rect(fill = "white", color = "white")) +
+  scale_fill_brewer(palette = "Reds", direction=-1, name = "Expression Level", labels = c(unique(geneExpression$SampleSize))) + 
+  coord_cartesian(ylim = c(0,65))
+
+ggsave("R-gene Seedling Expression 5.png", plot = plot, width = 15, height = 6)
 
 
 for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes)) & grepl("control", names(sampleGenes))]) {
@@ -352,10 +379,19 @@ for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes))]) {
   }
 }
 
+geneExpressionMean <- data.frame(GeneSet = "Controls",
+                                 Expression = geneExpression[c(grep("control", geneExpression$GeneSet)), "Expression"])
+
+geneExpressionMean <- rbind(geneExpressionMean, data.frame(GeneSet = "R-genes",
+                                                            Expression = geneExpression[c(grep("NLR", geneExpression$GeneSet)), "Expression"]))
+
 geneExpressionCut <- geneExpression[c(which(geneExpression$Expression <= 50)),]
 
 plot <- ggplot(geneExpressionCut, aes(x = GeneSet, y = Expression)) +
                  geom_boxplot(aes(group = GeneSet)) + theme_minimal() + labs(x = "Gene set", y = "Expression (FPKM)") +
                  theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1))
 
-ggsave(paste(test,"Expression.pdf", sep = " "), plot = plot, width = 36, height = 6)
+
+ggsave("Expression boxplot.pdf", plot = plot, width = 12, height = 6)
+
+statTest <- wilcox.test(Expression~GeneSet, geneExpressionMean)
