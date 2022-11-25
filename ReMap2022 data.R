@@ -73,17 +73,23 @@ sampleGenes <- geneSets(dataToUse)
 
 # Import list of R-genes.
 ArabidopsisNLRs <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 1))
-clusteredNLRs <- ArabidopsisNLRs[c(which(ArabidopsisNLRs$Clustering =="cluster"), which(ArabidopsisNLRs$Clustering == "double")),]
+clusteredNLRs <- ArabidopsisNLRs[grepl("cluster", ArabidopsisNLRs$Clustering),]
 notClusteredNLRs <- ArabidopsisNLRs[c(which(ArabidopsisNLRs$Clustering =="single")),]
 
 NLRgenes <- dataToUse[which(dataToUse$Gene %in% ArabidopsisNLRs$Gene),]
-clusteredNLRs <- dataToUse[which(dataToUse$Gene %in% clusteredNLRs$Gene),]
-notClusteredNLRs <- dataToUse[which(dataToUse$Gene %in% notClusteredNLRs$Gene),]
+clusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% clusteredNLRs$Gene),]
+clusteredNLRgenes <- cbind(clusteredNLRgenes, 
+                           data.frame(Clustering = clusteredNLRs[which(clusteredNLRs$Gene %in% clusteredNLRgenes$Gene),"Clustering"]))
+
+notClusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% notClusteredNLRs$Gene),]
+notClusteredNLRgenes <- cbind(notClusteredNLRgenes, 
+                              data.frame(Clustering = notClusteredNLRs[which(notClusteredNLRs$Gene %in% notClusteredNLRgenes$Gene),"Clustering"]))
+
 
 # Add R-genes to sampleGenes.
 sampleGenes[["NLRs"]] <- NLRgenes
-sampleGenes[["clusteredNLRs"]] <- clusteredNLRs
-sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRs
+sampleGenes[["clusteredNLRs"]] <- clusteredNLRgenes
+sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRgenes
 
 rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 
@@ -121,7 +127,7 @@ genesForAnalysis <- c("AT1G72840","AT1G72850","AT1G72852","AT1G72860","AT1G72870
                       "AT1G72900","AT1G72910","AT1G72920","AT1G72930", "AT1G72940","AT1G72950")
 
 
-for (test in names(sampleGenes)[c(2:4,48:52)]) {
+for (test in names(sampleGenes)[c(4,52)]) {
 
   for (level in exLevel) {
     dataToUse <- sampleGenes[[test]][[level]]
@@ -371,7 +377,7 @@ for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes)) & grepl("c
 # Expression boxplot.
 geneExpression <- data.frame()
 
-for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes))]) {
+for (test in names(sampleGenes)[c(4,52)]) {
   
   for (n in names(sampleGenes[[test]])) {
     geneExpression <- rbind(geneExpression, data.frame(GeneSet = rep(test, times = nrow(sampleGenes[[test]][[n]])),
@@ -387,7 +393,7 @@ geneExpressionMean <- rbind(geneExpressionMean, data.frame(GeneSet = "R-genes",
 
 geneExpressionCut <- geneExpression[c(which(geneExpression$Expression <= 50)),]
 
-plot <- ggplot(geneExpressionCut, aes(x = GeneSet, y = Expression)) +
+plot <- ggplot(geneExpression, aes(x = GeneSet, y = Expression)) +
                  geom_boxplot(aes(group = GeneSet)) + theme_minimal() + labs(x = "Gene set", y = "Expression (FPKM)") +
                  theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1))
 
@@ -395,3 +401,53 @@ plot <- ggplot(geneExpressionCut, aes(x = GeneSet, y = Expression)) +
 ggsave("Expression boxplot.pdf", plot = plot, width = 12, height = 6)
 
 statTest <- wilcox.test(Expression~GeneSet, geneExpressionMean)
+
+# Determine whether the expression is more similar between genes within a cluster than between genes outside the cluster.
+clusteredExpression <- data.frame()
+
+for (test in names(sampleGenes[["clusteredNLRs_Seedling"]])) {
+  clusteredExpression <- rbind(clusteredExpression, data.frame(Gene = sampleGenes[["clusteredNLRs_Seedling"]][[test]]$Gene,
+                                                               Cluster = sampleGenes[["clusteredNLRs_Seedling"]][[test]]$Clustering,
+                                                               Expression = sampleGenes[["clusteredNLRs_Seedling"]][[test]]$FPKM))
+}
+
+expressionDifference_Clusters <- c()
+
+for (cluster in unique(clusteredExpression$Cluster)) {
+  df <- clusteredExpression[clusteredExpression$Cluster == cluster,]
+  
+  for (i in 1:nrow(df)) {
+    for (j in 1:nrow(df)) {
+      if (i != j & j > i) {
+        expressionDifference_Clusters <- append(expressionDifference_Clusters, abs(df[i, "Expression"]-df[j, "Expression"]))
+      }
+    }
+  }
+}
+
+allExpression <- data.frame()
+
+for (test in names(sampleGenes[["NLRs_Seedling"]])) {
+  allExpression <- rbind(allExpression, data.frame(Gene = sampleGenes[["NLRs_Seedling"]][[test]]$Gene,
+                                                   Expression = sampleGenes[["NLRs_Seedling"]][[test]]$FPKM))
+}
+
+expressionDifference_all <- c()
+
+for (i in 1:nrow(allExpression)) {
+  for (j in 1:nrow(allExpression)) {
+    if (i != j & j > i) {
+      expressionDifference_all <- append(expressionDifference_all, abs(allExpression[i, "Expression"]-allExpression[j, "Expression"]))
+    }
+  }
+}
+
+expressionDifference <- data.frame(Clustering = rep("Clustered", times = length(expressionDifference_Clusters)),
+                                   ExpressionDifference = expressionDifference_Clusters)
+
+expressionDifference <- rbind(expressionDifference, data.frame(Clustering = rep("Unclustered", times = length(expressionDifference_all)),
+                                                               ExpressionDifference = expressionDifference_all))
+
+plot <- ggplot(expressionDifference, aes(x = Clustering, y = ExpressionDifference)) +
+  geom_boxplot(aes(group = Clustering)) + theme_minimal() + labs(x = "Clustering", y = "Expression Difference (FPKM)") +
+  theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1))
