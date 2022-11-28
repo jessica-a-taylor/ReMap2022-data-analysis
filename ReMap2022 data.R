@@ -14,6 +14,7 @@ library(TxDb.Athaliana.BioMart.plantsmart28)
 library(ggplot2)
 library(data.table)
 library(grid)
+library(readr)
 
 source("Functions\\Get range - merge gene coordinates.R")
 
@@ -77,6 +78,10 @@ clusteredNLRs <- ArabidopsisNLRs[grepl("cluster", ArabidopsisNLRs$Clustering),]
 notClusteredNLRs <- ArabidopsisNLRs[c(which(ArabidopsisNLRs$Clustering =="single")),]
 
 NLRgenes <- dataToUse[which(dataToUse$Gene %in% ArabidopsisNLRs$Gene),]
+NLRgenes <- cbind(NLRgenes, 
+                           data.frame(Clustering = ArabidopsisNLRs[which(ArabidopsisNLRs$Gene %in% NLRgenes$Gene),"Clustering"]))
+
+
 clusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% clusteredNLRs$Gene),]
 clusteredNLRgenes <- cbind(clusteredNLRgenes, 
                            data.frame(Clustering = clusteredNLRs[which(clusteredNLRs$Gene %in% clusteredNLRgenes$Gene),"Clustering"]))
@@ -302,20 +307,18 @@ for (mod in epiMods) {
 }
 
 # Proportions plot for R-genes & controls.
-dataToUse <- allResultsAverageProportions[c(which(allResultsAverageProportions$Test %in% c(names(sampleGenes)[c(1:10,33)]))),]
+dataToUse <- allResultsAverageProportions
 
 for (mod in epiMods) {
   df <- dataToUse[dataToUse$Modification==mod,]
   
-  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
+  plot <- ggplot(df, aes(x = axisGroup, y = Proportion, color = Tissue)) + 
     scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(group = Test),linewidth = 1.3) +
-    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    scale_colour_manual(limits = c("control1", "NLRs"), 
-                        values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
-    labs(x = "", y = "Frequency of occurrence (%)") +
+    geom_line(aes(group = Tissue),linewidth = 1.3) +
+    geom_point(aes(group = Tissue), size = 2) + theme_minimal() +
+    labs(x = "", y = "Average proportion of gene region") +
     geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
     annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
     annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
     theme(axis.text.x = element_text(size = 13, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
@@ -402,7 +405,7 @@ ggsave("Expression boxplot.pdf", plot = plot, width = 12, height = 6)
 
 statTest <- wilcox.test(Expression~GeneSet, geneExpressionMean)
 
-# Determine whether the expression is more similar between genes within a cluster than between genes outside the cluster.
+# Determine whether the expression is more similar between genes within a cluster than between all genes.
 clusteredExpression <- data.frame()
 
 for (test in names(sampleGenes[["clusteredNLRs_Seedling"]])) {
@@ -442,12 +445,133 @@ for (i in 1:nrow(allExpression)) {
   }
 }
 
-expressionDifference <- data.frame(Clustering = rep("Clustered", times = length(expressionDifference_Clusters)),
+expressionDifference <- data.frame(Comparison = rep("Between clustered genes", times = length(expressionDifference_Clusters)),
                                    ExpressionDifference = expressionDifference_Clusters)
 
-expressionDifference <- rbind(expressionDifference, data.frame(Clustering = rep("Unclustered", times = length(expressionDifference_all)),
+expressionDifference <- rbind(expressionDifference, data.frame(Comparison = rep("Between all genes", times = length(expressionDifference_all)),
                                                                ExpressionDifference = expressionDifference_all))
 
-plot <- ggplot(expressionDifference, aes(x = Clustering, y = ExpressionDifference)) +
-  geom_boxplot(aes(group = Clustering)) + theme_minimal() + labs(x = "Clustering", y = "Expression Difference (FPKM)") +
-  theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1))
+plot <- ggplot(expressionDifference, aes(x = Comparison, y = ExpressionDifference, fill = Comparison)) +
+  geom_boxplot(aes(group = Comparison)) + theme_minimal() + labs(x = "Comparison", y = "Expression Difference (FPKM)") +
+  theme(axis.text.x = element_text(size = 10), axis.title.x = element_blank(), legend.position = "none")
+
+
+
+# Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
+# than between all genes.
+
+# Create a hash for storing the proportion of each R-gene region modified with each mark.
+sampleGenesProportions <- hash()
+
+# Choose ecotype and tissue for analsis.
+# Options: ColLeaf, ColRoot
+tissueForAnalysis <- "ColLeaf"
+
+for (test in names(sampleGenes)[c(1,49)]) {
+  
+  for (cluster in unique(sampleGenes[[test]]$Clustering)) {
+    dataToUse <- sampleGenes[[test]][sampleGenes[[test]]$Clustering == cluster,]
+
+    # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
+    allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
+    
+    # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
+    geneModifications <- modificationOccurrences(allModifications)
+    
+    rm(allModifications)
+    
+    # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
+    allOverlaps <- mergeOverlappingModifications(geneModifications)
+    
+    
+    # Determine the % R-genes with a chromatin mark in each gene region (frequency)
+    # and the proportion of each gene region with that mark.
+    geneRegions <- getGeneCoordinates(dataToUse)
+    
+    modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
+    
+    # Collect all hashes for modProportionPerRegion into single dataframes.
+    modProportionPerRegion <- mergeResults(modProportionPerRegion)
+    
+    # Add a column to modProportionPerRegion with the numbers for 
+    # each gene region that will correspond with their position on the x axis.
+    modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
+    
+    # Add a column to modProportionPerRegion with the current expression level.
+    modProportionPerRegion <- expressionColumn(modProportionPerRegion, cluster)
+    
+    # Store final results on the appropriate hash.
+    sampleGenesProportions[[test]][[cluster]] <- modProportionPerRegion
+  }
+}
+
+
+# Merge all data from all sample gene sets into one big dataframe.
+allResultsProportions <- data.frame()
+
+for (test in names(sampleGenesProportions)) {
+  for (cluster in names(sampleGenesProportions[[test]])) {
+    
+    df2 <- sampleGenesProportions[[test]][[cluster]]
+    df2 <- cbind(df2, data.frame(SampleGenes = rep(test, times = nrow(df2))))
+    
+    allResultsProportions <- rbind(allResultsProportions, df2)
+  }
+}
+
+# Calculate the difference in the proportion of each gene region covered by each modification between R-genes of the same cluster.
+modificationDifference_Clusters <- data.frame()
+
+for (mod in unique(allResultsProportions$Modification)) {
+  df <- allResultsProportions[allResultsProportions$Modification == mod,]
+  
+  for (r in unique(df$Region)) {
+    df1 <- df[df$Region == r,]
+    
+    for (cluster in unique(df1[grepl("cluster", df1$Expression),"Expression"])) {
+      df2 <- df1[df1$Expression == cluster,]
+      
+      # For all pairwise comparisons,
+      for (i in 1:nrow(df2)) {
+        for (j in 1:nrow(df2)) {
+          if (i != j & j > i) {
+            # calculate the difference in the proportion of each gene region covered by each modification,
+            # using the abs() function to make all values positive.
+            modificationDifference_Clusters <- rbind(modificationDifference_Clusters, 
+                                                   data.frame(Region = r,
+                                                              Modification = mod,
+                                                              axisGroup = df2$axisGroup,
+                                                              ExpressionDifference = abs(df2[i, "Proportion"]-df2[j, "Proportion"]),
+                                                              Cluster = cluster))
+          }
+        }
+      }
+    }
+  }
+}
+
+# Calculate the difference in the proportion of each gene region covered by each modification between all R-genes.
+modificationDifference_all <- data.frame()
+
+
+for (mod in c("H3K4me3","H3K36me3","H3K9ac","H3K27ac","H3K27me1","H2AK121ub","H3K27me3","H3K9me2")) {
+  df <- allResultsProportions[allResultsProportions$Modification == mod,]
+  
+  for (r in unique(df$Region)) {
+    df1 <- df[df$Region == r,]
+    
+    for (i in 1:nrow(df1)) {
+      for (j in 1:nrow(df1)) {
+        if (i != j & j > i) {
+      modificationDifference_all <- rbind(modificationDifference_all, 
+                                          data.frame(Region = r,
+                                                     Modification = mod,
+                                                     axisGroup = df1$axisGroup[1],
+                                                     ExpressionDifference = abs(df1[i, "Proportion"]-df1[j, "Proportion"])))
+        }
+      }
+    }
+    print(r)
+  }
+  print(mod)
+}
