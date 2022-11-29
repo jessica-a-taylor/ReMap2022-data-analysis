@@ -463,7 +463,7 @@ plot <- ggplot(expressionDifference, aes(x = Comparison, y = ExpressionDifferenc
 # Create a hash for storing the proportion of each R-gene region modified with each mark.
 sampleGenesProportions <- hash()
 
-# Choose ecotype and tissue for analsis.
+# Choose ecotype and tissue for analysis.
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
 
@@ -550,6 +550,8 @@ for (mod in unique(allResultsProportions$Modification)) {
   }
 }
 
+write.csv(modificationDifference_Clusters, file = "Cluster modification comparisons.csv")
+
 # Calculate the difference in the proportion of each gene region covered by each modification between all R-genes.
 modificationDifference_all <- data.frame()
 
@@ -572,6 +574,55 @@ for (mod in c("H3K4me3","H3K36me3","H3K9ac","H3K27ac","H3K27me1","H2AK121ub","H3
       }
     }
     print(r)
+    
   }
   print(mod)
 }
+
+write.csv(modificationDifference_all, file = "All R-gene modification comparisons.csv")
+
+
+expressionDifference <- data.frame(Comparison = rep("Between clustered R-genes", times = length(modificationDifference_Clusters)),
+																	 ExpressionDifference = modificationDifference_Clusters[,c(1:4)])
+
+expressionDifference <- rbind(expressionDifference, data.frame(Comparison = rep("Between all R-genes", times = length(modificationDifference_all)),
+																															 ExpressionDifference = modificationDifference_all))
+
+colnames(expressionDifference) <- c("Comparison", "Region", "Modification", "axisGroup", "Difference")
+
+statTestDF <- data.frame(Modification = character(),
+                         Region = character(),
+                         W.statistic = numeric(),
+                         p.value = numeric())
+
+for (mod in c("H3K4me3","H3K36me3","H3K9ac","H3K27ac","H3K27me1","H2AK121ub","H3K27me3","H3K9me2")) {
+	df <- expressionDifference[expressionDifference$Modification==mod,]
+	
+	for (r in unique(df$Region)) {
+	  df1 <- df[df$Region==r,]
+	  statTest <- wilcox.test(Difference~Comparison, df1)
+	  
+	  statTestDF <- rbind(statTestDF, data.frame(Modification= mod,
+	                                             Region= r,
+	                                             W.statistic = statTest$statistic,
+	                                             p.value <- statTest$p.value))
+	}
+
+	plot <- ggplot(df, aes(x = axisGroup, y = Difference)) + 
+		scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
+		geom_boxplot(aes(group = Region)) + theme_minimal() + coord_cartesian(ylim= c(0,1), clip = "off") +
+		labs(x = "", y = "Difference in proportion of gene region modified") +
+		geom_vline(xintercept=0, color="grey", linewidth=1) + theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+		annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=-10,xmax=100,ymin=-.23,ymax=-.23) + 
+		annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=-10,xmax=100,ymin=-.3,ymax=-.3) +
+		theme(axis.text.x = element_text(size = 11, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 12,colour = "black"), 
+					axis.title.y = element_text(size = 14, vjust = 2), strip.text = element_text(size = 16)) + 
+	  facet_wrap(~Comparison) + 
+	  stat_summary(fun="mean", geom="point", color="black", size=2) +
+	  stat_summary(fun="mean", geom="line", color="black", size=1)
+	
+	
+	ggsave(paste(mod, "_", "Clustered vs Unclustered.pdf", sep = ""), plot = plot, width = 16, height = 6)
+}
+
+
