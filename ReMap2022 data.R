@@ -137,6 +137,29 @@ for (test in unique(allResultsProportions$SampleGenes)) {
     }
 }
 
+# Is there a significant difference in the average proportion of coverage of each gene region by a 
+# particular modification between tissues?
+df <- allResultsAverageProportions[grepl("NLRs", allResultsAverageProportions$Tissue) & 
+                                     !grepl("clustered", allResultsAverageProportions$Tissue),]
+
+betweenTissues <- data.frame(Modification = character(),
+                             Region = character(),
+                             W.statistic = numeric(),
+                             p.value = numeric())
+
+for (mod in unique(allResultsAverageProportions$Modification)) {
+  df1 <- df[df$Modification==mod,]
+  
+  for (r in unique(allResultsAverageProportions$Region)) {
+    df2 <- df1[df1$Region==r,]
+    
+    statTest <- kruskal.test(Proportion~Tissue, df2)
+    betweenTissues <- rbind(betweenTissues, data.frame(Modification = mod,
+                                                       Region = r,
+                                                       W.statistic = statTest$statistic,
+                                                       p.value = statTest$p.value))
+  }
+}
 
 # Is there a significant difference in the average proportion of coverage of each gene region by a 
 # particular modification between R-genes and controls?
