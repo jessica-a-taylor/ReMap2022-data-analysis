@@ -1,5 +1,9 @@
 source("Functions\\Overlaps functions.R")
 
+level = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
+          "Gene20", "Gene40", "Gene60", "Gene80", "Gene100", 
+          "Downstream", "DownstreamIntergenic")
+
 # Functions for determining the % R-genes with a chromatin mark in each gene region (frequency)
 # and the proportion of each gene region with that mark.
 
@@ -34,13 +38,24 @@ modFrequenciesFunction <- function (geneRegions, allOverlaps, epiMods) {
         }
         modFrequenciesDF <- rbind(modFrequenciesDF, data.frame(Region = r,
                                                                Modification = mod,
-                                                               Frequency = length(geneList)/length(names(allOverlaps))*100))
+                                                               Frequency = length(geneList)/length(names(allOverlaps))*100,
+                                                               n = length(geneList)))
       }
     } else modFrequenciesDF <- modFrequenciesDF
     
     modFrequencyPerRegion[[r]] <- modFrequenciesDF
   }
-  return(modFrequencyPerRegion)
+  
+  # Collect all hashes into a single dataframe.
+  DF <- data.frame(Region = character(),
+                   Modification = character(),
+                   Measure = numeric(),
+                   n = numeric())
+  
+  for (r in level) {
+    DF <- rbind(DF, modFrequencyPerRegion[[r]])
+  }
+  return(DF)
 }
 
 
@@ -54,8 +69,7 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
     
     if (length(names(allOverlaps)) >= 1) {
       for (mod in epiMods) {
-        geneList <- c()
-        
+
         for (n in names(allOverlaps)) {
           modPresent <- FALSE
           modOverlaps <- c()
@@ -79,22 +93,13 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
     
     modProportionPerRegion[[r]] <- modProportionDF
   }
-  return(modProportionPerRegion)
-}
-
-
-# Function to collect all hashes for modFrequencyPerRegion and modProportionPerRegion into single dataframes.
-mergeResults <- function(dataToUse) {
-  level = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
-            "Gene20", "Gene40", "Gene60", "Gene80", "Gene100", 
-            "Downstream", "DownstreamIntergenic")
-  
+  # Collect all hashes into a single dataframe.
   DF <- data.frame(Region = character(),
                    Modification = character(),
                    Measure = numeric())
   
   for (r in level) {
-    DF <- rbind(DF, dataToUse[[r]])
+    DF <- rbind(DF, modProportionPerRegion[[r]])
   }
   return(DF)
 }
