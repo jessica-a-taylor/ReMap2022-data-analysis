@@ -18,7 +18,12 @@ library(readr)
 allResultsFrequencies <- as.data.frame(read_xlsx("Data\\allResultsFrequencies.xlsx"))
 allResultsProportions <- as.data.frame(read_xlsx("Data\\allResultsProportions.xlsx"))
 
-# Hypergeometric test.
+controlSets <- c("control1","control2","control3","control4","control5",
+                 "control6","control7","control8","control9","control10")
+
+tissue <- c("Leaf", "Root", "Seedling")
+
+# Hypergeometric test - are R-genes enriched amongst those that possess a particular chromatin modification?
 
 df <- allResultsFrequencies[grepl("_Seedling", allResultsFrequencies$SampleGenes),]
 
@@ -132,7 +137,43 @@ for (test in unique(allResultsProportions$SampleGenes)) {
     }
 }
 
-dataToUse <- allResultsAverageProportions[grepl("NLRs_Seedling", allResultsAverageProportions$Tissue),]
+
+# Is there a significant difference in the average proportion of coverage of each gene region by a 
+# particular modification between R-genes and controls?
+statTestHash <- hash()
+
+for (t in tissue) {
+  df <- allResultsAverageProportions[grepl(t, allResultsAverageProportions$Tissue),]
+  
+  for (mod in unique(allResultsAverageProportions$Modification)) {
+    df1 <- df[df$Modification==mod,]
+    
+    for (r in unique(allResultsAverageProportions$Region)) {
+      df2 <- df1[df1$Region==r,]
+      
+      df2 <- df2[!grepl("clustered", df2$Tissue),]
+      
+      statTestDF <- data.frame(Tissue = character(),
+                               Modification = character(),
+                               Region = character(),
+                               W.statistic = numeric(),
+                               p.value = numeric())
+      
+      for (set in controlSets) {
+        statTest <- wilcox.test(Proportion~Tissue, df2[grepl(set,df2$Tissue) & grepl("NLRs", df2$Tissue),])
+        statTestDF <- rbind(statTestDF, data.frame(Tissue = t,
+                                                   Modification = mod,
+                                                   Region = r,
+                                                   W.statistic = statTest$statistic,
+                                                   p.value = statTest$p.value))
+        
+        statTestHash[[set]] <- statTestDF
+      }
+    }
+  }
+}
+
+dataToUse <- allResultsAverageProportions[c(which(allResultsAverageProportions$Tissue == "control1_Seedling")),]
 
 # Proportions plot for R-genes only.
 for (mod in epiMods) {
