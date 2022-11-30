@@ -1,6 +1,6 @@
 source("Functions\\Overlaps functions.R")
 
-level = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
+region = c("UpstreamIntergenic", "Promotor1000", "Promotor500",
           "Gene20", "Gene40", "Gene60", "Gene80", "Gene100", 
           "Downstream", "DownstreamIntergenic")
 
@@ -52,7 +52,7 @@ modFrequenciesFunction <- function (geneRegions, allOverlaps, epiMods) {
                    Measure = numeric(),
                    n = numeric())
   
-  for (r in level) {
+  for (r in region) {
     DF <- rbind(DF, modFrequencyPerRegion[[r]])
   }
   return(DF)
@@ -98,7 +98,7 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
                    Modification = character(),
                    Measure = numeric())
   
-  for (r in level) {
+  for (r in region) {
     DF <- rbind(DF, modProportionPerRegion[[r]])
   }
   return(DF)

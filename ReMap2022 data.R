@@ -18,6 +18,35 @@ library(readr)
 allResultsFrequencies <- as.data.frame(read_xlsx("Data\\allResultsFrequencies.xlsx"))
 allResultsProportions <- as.data.frame(read_xlsx("Data\\allResultsProportions.xlsx"))
 
+# Hypergeometric test.
+
+df <- allResultsFrequencies[grepl("_Seedling", allResultsFrequencies$SampleGenes),]
+
+for (mod in unique(allResultsFrequencies$Modification)) {
+  df1 <- df[df$Modification==mod,]
+  
+  for (r in unique(allResultsFrequencies$Region)) {
+    df2 <- df1[df1$Region==r,]
+    
+    for (level in unique(allResultsFrequencies$Expression)) {
+      df3 <- df2[df2$Expression==level,]
+      df3 <- df3[c(2:12),]
+      
+      # Create a list of genes from each each sample set.
+      geneList <- c()
+      
+      for (row in 1:nrow(df3)) {
+        geneList <- append(geneList, rep(df3[row,"SampleGenes"], times = df3[row, "n"]))
+      }
+      
+      # NEED TO RECORD RESULTS FROM PHYPER IN A TABLE!  
+      geneSample <- sample(geneList, 200)
+      phyper(200-(length(geneSample[grepl("NLRs", geneSample)])), length(geneList[grepl("NLRs", geneList)]),
+             length(geneList[grepl("control", geneList)]), 200)
+    }
+  }
+}
+
 # Plot the the results.
 axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
               "20%", "40%", "60%", "80%", "100%", 

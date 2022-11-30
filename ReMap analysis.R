@@ -157,10 +157,6 @@ for (test in names(sampleGenes)[grepl("_",names(sampleGenes))]) {
     modFrequencyPerRegion <- modFrequenciesFunction(geneRegions, allOverlaps, epiMods)
     modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
     
-    # Collect all hashes for modFrequencyPerRegion and modProportionPerRegion into single dataframes.
-    modFrequencyPerRegion <- mergeResults(modFrequencyPerRegion)
-    modProportionPerRegion <- mergeResults(modProportionPerRegion)
-    
     # Add a column to modFrequencyPerRegion and modProportionPerRegion with the numbers for 
     # each gene region that will correspond with their position on the x axis.
     modFrequencyPerRegion <- geneRegionAxisLocations(modFrequencyPerRegion, geneRegions)
