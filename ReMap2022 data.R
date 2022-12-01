@@ -138,56 +138,56 @@ for (tissue in c("Leaf", "Root", "Seedling")) {
   allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsProportions.xlsx", sep = ""))))
 }
 
-controlSets <- c("control1","control2","control3","control4","control5",
-                 "control6","control7","control8","control9","control10")
-
 # Fisher's Exact Test - are R-genes enriched amongst those that possess a particular chromatin modification?
-df <- allResultsFrequencies[grepl("_Leaf", allResultsFrequencies$SampleGenes),]
-
-hypergeometricTest <- data.frame()
-
-for (mod in unique(allResultsFrequencies$Modification)) {
-  df1 <- df[df$Modification==mod,]
+for (tissue in c("Leaf", "Root", "Seedling")) {
+  df <- allResultsFrequencies[grepl(tissue, allResultsFrequencies$SampleGenes),]
   
-  for (r in unique(allResultsFrequencies$Region)) {
-    df2 <- df1[df1$Region==r,]
+  hypergeometricTest <- data.frame()
+  
+  for (mod in unique(allResultsFrequencies$Modification)) {
+    df1 <- df[df$Modification==mod,]
     
-    for (level in unique(allResultsFrequencies$Expression)) {
-      df3 <- df2[df2$Expression==level,]
-      df3 <- df3[!grepl("luster", df3$SampleGenes),]
+    for (r in unique(allResultsFrequencies$Region)) {
+      df2 <- df1[df1$Region==r,]
       
-      # Create a list of genes from each each sample set.
-      geneList <- c()
-      
-      for (row in 1:nrow(df3)) {
-        geneList <- append(geneList, rep(df3[row,"SampleGenes"], times = df3[row, "n"]))
-      }
-      
-      meanNLRs <- c()
-      for (n in 1:10) {
-        geneSample <- sample(geneList, length(geneList)*0.1)
-        meanNLRs <- append(meanNLRs, length(geneSample[grepl("NLRs", geneSample)]))
-      }
-      
-      meanNLRs <- mean(meanNLRs)
-      
-      if (length(geneSample) > 1) {
+      for (level in unique(allResultsFrequencies$Expression)) {
+        df3 <- df2[df2$Expression==level,]
+        df3 <- df3[!grepl("luster", df3$SampleGenes),]
         
-        statTest <- fisher.test(matrix(c(meanNLRs, length(geneList[grepl("NLRs", geneList)])-meanNLRs,
-                           length(geneSample) - meanNLRs, length(geneList[grepl("control", geneList)])-length(geneSample) - meanNLRs), 2,2), 
-                           alternative = "less")
+        # Create a list of genes from each each sample set.
+        geneList <- c()
         
-        hypergeometricTest <- rbind(hypergeometricTest, data.frame(Expression = level,
-                                                                   Modification = mod,
-                                                                   Region = r,
-                                                                   Sample.R.genes = meanNLRs,
-                                                                   Sample.all.genes = length(geneSample),
-                                                                   All.R.genes = length(geneList[grepl("NLRs", geneList)]),
-                                                                   All.genes = length(geneList),
-                                                                   p.value = statTest$p.value))
+        for (row in 1:nrow(df3)) {
+          geneList <- append(geneList, rep(df3[row,"SampleGenes"], times = df3[row, "n"]))
+        }
+        
+        meanNLRs <- c()
+        for (n in 1:10) {
+          geneSample <- sample(geneList, length(geneList)*0.1)
+          meanNLRs <- append(meanNLRs, length(geneSample[grepl("NLRs", geneSample)]))
+        }
+        
+        meanNLRs <- mean(meanNLRs)
+        
+        if (length(geneSample) > 1) {
+          
+          statTest <- fisher.test(matrix(c(meanNLRs, length(geneList[grepl("NLRs", geneList)])-meanNLRs,
+                                           length(geneSample) - meanNLRs, length(geneList[grepl("control", geneList)])-length(geneSample) - meanNLRs), 2,2), 
+                                  alternative = "less")
+          
+          hypergeometricTest <- rbind(hypergeometricTest, data.frame(Expression = level,
+                                                                     Modification = mod,
+                                                                     Region = r,
+                                                                     Sample.R.genes = meanNLRs,
+                                                                     Sample.all.genes = length(geneSample),
+                                                                     All.R.genes = length(geneList[grepl("NLRs", geneList)]),
+                                                                     All.genes = length(geneList),
+                                                                     p.value = statTest$p.value))
+        }
       }
     }
   }
+write.csv(hypergeometricTest, file = paste(tissue, "_Fisher.Test_frequencies.csv", sep = ""))
 }
 
 # Plot the the results.
