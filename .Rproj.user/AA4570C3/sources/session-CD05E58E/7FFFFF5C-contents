@@ -88,8 +88,8 @@ getGeneCoordinates <- function(dataToUse) {
   ATpromotors1000 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=1000, downstream=0, use.names = TRUE)
   
   # Remove duplicate genes (different versions).
-  ATpromotors500 <- ATpromotors500[-c(which(ATpromotors500$tx_name == str_match(ATpromotors500$tx_name, "^([0-9a-zA-Z]+)[.][2-9]+|^([0-9a-zA-Z]+)[.][1][0]$")[,1])),]
-  ATpromotors1000 <- ATpromotors1000[-c(which(ATpromotors1000$tx_name == str_match(ATpromotors1000$tx_name, "^([0-9a-zA-Z]+)[.][2-9]+|^([0-9a-zA-Z]+)[.][1][0]$")[,1])),]
+  ATpromotors500 <- ATpromotors500[-c(which(ATpromotors500$tx_name == str_match(ATpromotors500$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+  ATpromotors1000 <- ATpromotors1000[-c(which(ATpromotors1000$tx_name == str_match(ATpromotors1000$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
   
   promotor500 <- data.frame(seqnames = numeric(),
                             start = numeric(),

@@ -15,7 +15,6 @@ library(ggplot2)
 library(data.table)
 library(grid)
 library(readr)
-
 library(rstudioapi)
 
 source("Functions\\Get range - merge gene coordinates.R")
@@ -123,7 +122,7 @@ epiMods <- unique(ReMap$epiMod)
 
 
 for (tissue in c("Leaf", "Root", "Seedling")) {
-  jobRunScript("ReMap anakysis.R", name = tissue, importEnv = TRUE, exportEnv = paste("ReMapAnalyss_", tissue, sep = ""))
+  jobRunScript("ReMap analysis.R", name = tissue, importEnv = TRUE, exportEnv = paste("ReMapAnalysis_", tissue, sep = ""))
 }
 
 
