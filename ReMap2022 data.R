@@ -187,7 +187,7 @@ for (tissue in c("Leaf", "Root", "Seedling")) {
       }
     }
   }
-write.csv(hypergeometricTest, file = paste(tissue, "_Fisher.Test_frequencies.csv", sep = ""))
+write.csv(hypergeometricTest, file = paste("Tests\\", tissue, "_Fisher.Test_frequencies.csv", sep = ""))
 }
 
 # Plot the the results.
@@ -275,37 +275,28 @@ for (test in unique(allResultsProportions$SampleGenes)) {
     }
 }
 
-# Is there a significant difference in the average proportion of coverage of each gene region by a 
-# particular modification between tissues?
-df <- allResultsProportions[grepl("NLRs", allResultsProportions$Tissue) & 
-                                     !grepl("clustered", allResultsProportions$Tissue),]
-
-betweenTissues <- data.frame(Modification = character(),
-                             Region = character(),
-                             W.statistic = numeric(),
-                             p.value = numeric())
-
-for (mod in unique(allResultsProportions$Modification)) {
-  df1 <- df[df$Modification==mod,]
-  
-  for (r in unique(allResultsProportions$Region)) {
-    df2 <- df1[df1$Region==r,]
-    
-    statTest <- kruskal.test(Proportion~Tissue, df2)
-    betweenTissues <- rbind(betweenTissues, data.frame(Modification = mod,
-                                                       Region = r,
-                                                       W.statistic = statTest$statistic,
-                                                       p.value = statTest$p.value))
-  }
-}
 
 # Is there a significant difference in the average proportion of coverage of each gene region by a 
 # particular modification between R-genes and controls?
+controlSets <- c("control1","control2","control3","control4","control5",
+                 "control6","control7","control8","control9","control10")
+
 wilcoxGeneSets <- hash()
 ksGeneSets <- hash()
 
-for (t in tissue) {
-  df <- allResultsProportions[grepl(t, allResultsProportions$SampleGenes),]
+df <- allResultsProportions[grepl("Seedling", allResultsProportions$SampleGenes) & 
+                              !grepl("luster", allResultsProportions$SampleGenes),]
+
+for (set in controlSets) {
+  wilcoxDF <- data.frame(Modification = character(),
+                         Region = character(),
+                         W.statistic = numeric(),
+                         p.value = numeric())
+  
+  ksDF <- data.frame(Modification = character(),
+                     Region = character(),
+                     W.statistic = numeric(),
+                     p.value = numeric())
   
   for (mod in unique(allResultsProportions$Modification)) {
     df1 <- df[df$Modification==mod,]
@@ -313,41 +304,27 @@ for (t in tissue) {
     for (r in unique(allResultsProportions$Region)) {
       df2 <- df1[df1$Region==r,]
       
-      df2 <- df2[!grepl("clustered", df2$SampleGenes),]
+   
+      wilcoxTest <- wilcox.test(Proportion~SampleGenes, df2[c(which(df2$SampleGenes == paste(set, "_Seedling", sep = "")), which(df2$SampleGenes == "NLRs_Seedling")),])
+      wilcoxDF <- rbind(wilcoxDF, data.frame(Modification = mod,
+                                             Region = r,
+                                             W.statistic = wilcoxTest$statistic,
+                                             p.value = wilcoxTest$p.value))
       
-      wilcoxDF <- data.frame(Tissue = character(),
-                               Modification = character(),
-                               Region = character(),
-                               W.statistic = numeric(),
-                               p.value = numeric())
+      ksTest <- ks.test(df2[c(which(df2$SampleGenes == paste(set, "_Seedling", sep = ""))),"Proportion"], df2[c(which(df2$SampleGenes == "NLRs_Seedling")),"Proportion"])
+      ksDF <- rbind(ksDF, data.frame(Modification = mod,
+                                     Region = r,
+                                     W.statistic = ksTest$statistic,
+                                     p.value = ksTest$p.value))
       
-      ksDF <- data.frame(Tissue = character(),
-                             Modification = character(),
-                             Region = character(),
-                             W.statistic = numeric(),
-                             p.value = numeric())
       
-      for (set in controlSets) {
-        wilcoxTest <- wilcox.test(Proportion~Tissue, df2[grepl(set,df2$SampleGenes) & grepl("NLRs", df2$SampleGenes),])
-        wilcoxDF <- rbind(wilcoxDF, data.frame(Tissue = t,
-                                                   Modification = mod,
-                                                   Region = r,
-                                                   W.statistic = statTest$statistic,
-                                                   p.value = statTest$p.value))
-        
-        ksTest <- ks.test(df2[grepl(set,df2$SampleGenes) & grepl("NLRs", df2$SampleGenes),])
-        ksDF <- rbind(ksDF, data.frame(Tissue = t,
-                                               Modification = mod,
-                                               Region = r,
-                                               W.statistic = statTest$statistic,
-                                               p.value = statTest$p.value))
-        
-        wilcoxGeneSets[[set]] <- wilcoxDF
-        ksGeneSets[[set]] <- ksDF
-      }
     }
   }
+  wilcoxGeneSets[[set]] <- wilcoxDF
+  ksGeneSets[[set]] <- ksDF
 }
+
+
 
 dataToUse <- allResultsAverageProportions[c(which(allResultsAverageProportions$Tissue == "control1_Seedling")),]
 
@@ -373,24 +350,31 @@ for (mod in epiMods) {
 }
 
 # Proportions plot for R-genes & controls.
-dataToUse <- allResultsAverageProportions
+dataToUse <- allResultsAverageProportions[grepl("Seedling", allResultsAverageProportions$SampleGenes) & 
+                                     !grepl("luster", allResultsAverageProportions$SampleGenes),]
 
 for (mod in epiMods) {
   df <- dataToUse[dataToUse$Modification==mod,]
   
-  plot <- ggplot(df, aes(x = axisGroup, y = Proportion, color = Tissue)) + 
-    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(group = Tissue),linewidth = 1.3) +
-    geom_point(aes(group = Tissue), size = 2) + theme_minimal() +
-    labs(x = "", y = "Average proportion of gene region") +
-    geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
-    theme(axis.text.x = element_text(size = 13, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
-          axis.title.y = element_text(size = 16, vjust = 2)) 
-  
-  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6)
+  for (level in exLevel) {
+    df1 <- df[df$Expression==level,]
+    
+    plot <- ggplot(df1, aes(x = axisGroup, y = Proportion, color = SampleGenes)) + 
+      scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+      scale_colour_manual(limits = c("control1_Seedling", "NLRs_Seedling"), 
+                          values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
+      geom_line(aes(group = SampleGenes),linewidth = 1.3) +
+      geom_point(aes(group = SampleGenes), size = 2) + theme_minimal() +
+      labs(x = "", y = "Average proportion of gene region") +
+      geom_vline(xintercept=0, color="grey", linewidth=1) +
+      coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
+      annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
+      annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
+      theme(axis.text.x = element_text(size = 13, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
+            axis.title.y = element_text(size = 16, vjust = 2)) 
+    
+    ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6) 
+  }
 }
 
 
@@ -601,13 +585,13 @@ for (mod in unique(allResultsProportions$Modification)) {
       for (i in 1:nrow(df2)) {
         for (j in 1:nrow(df2)) {
           if (i != j & j > i) {
-            # calculate the difference in the proportion of each gene region covered by each modification,
+            # calculate the % difference in the proportion of each gene region covered by each modification,
             # using the abs() function to make all values positive.
             modificationDifference_Clusters <- rbind(modificationDifference_Clusters, 
                                                    data.frame(Region = r,
                                                               Modification = mod,
                                                               axisGroup = df2$axisGroup,
-                                                              ExpressionDifference = abs(df2[i, "Proportion"]-df2[j, "Proportion"]),
+                                                              ExpressionDifference = (abs(df2[i, "Proportion"]-df2[j, "Proportion"])/df2[i, "Proportion"])*100,
                                                               Cluster = cluster))
           }
         }
@@ -635,7 +619,7 @@ for (mod in c("H3K4me3","H3K36me3","H3K9ac","H3K27ac","H3K27me1","H2AK121ub","H3
                                           data.frame(Region = r,
                                                      Modification = mod,
                                                      axisGroup = df1$axisGroup[1],
-                                                     ExpressionDifference = abs(df1[i, "Proportion"]-df1[j, "Proportion"])))
+                                                     ExpressionDifference = (abs(df1[i, "Proportion"]-df1[j, "Proportion"])/df1[i, "Proportion"])*100))
         }
       }
     }
