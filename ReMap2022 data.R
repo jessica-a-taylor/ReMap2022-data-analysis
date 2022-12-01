@@ -1,18 +1,131 @@
 if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-BiocManager::install(c("karyoploteR","rtracklayer", "TxDb.Athaliana.BioMart.plantsmart28", "ggplot2"))
+BiocManager::install("ggplot2")
 
 library(readxl)
+library(karyoploteR)
 library(rtracklayer)
 library(dplyr)
 library(stringr)
 library(hash)
 library(sets)
+library(TxDb.Athaliana.BioMart.plantsmart28)
 library(ggplot2)
 library(data.table)
 library(grid)
 library(readr)
+
+library(rstudioapi)
+
+source("Functions\\Get range - merge gene coordinates.R")
+
+
+# Import all Arabidopsis genes.
+Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
+colnames(Atgenes)[2] <- "Gene"
+
+# Remove duplicate genes (different versions).
+Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
+
+
+# Remove genes within the centromeric and pericentromeric geneRegions.
+pericentromericgeneRegions <- data.frame(Chromosome = c(1:5),
+                                         Start = c("11500000", "1100000", "10300000", "1500000", "9000000"),
+                                         End = c("17700000", "7200000", "17300000", "6300000", "16000000"))
+
+euchromaticgeneRegions <- data.frame()
+
+for (row in 1:nrow(pericentromericgeneRegions)) {
+  df <- Atgenes[c(which(Atgenes$seqnames==row & Atgenes$start < as.numeric(pericentromericgeneRegions[row, "Start"]))),]
+  df <- rbind(df, Atgenes[c(which(Atgenes$seqnames==row & Atgenes$end > as.numeric(pericentromericgeneRegions[row, "End"]))),])
+  
+  euchromaticgeneRegions <- rbind(euchromaticgeneRegions, df)
+}
+
+rm(pericentromericgeneRegions, df)
+
+euchromaticgeneRegions <- euchromaticgeneRegions[,-c(1,8,9)]
+euchromaticgeneRegions$ranges <- paste(euchromaticgeneRegions$start,"-",euchromaticgeneRegions$end, sep = "")
+
+# Remove duplicate genes.
+newEuchromaticgeneRegions <- euchromaticgeneRegions
+euchromaticgeneRegions <- data.frame()
+
+for (gene in unique(newEuchromaticgeneRegions$Gene)) {
+  euchromaticgeneRegions <- rbind(euchromaticgeneRegions, newEuchromaticgeneRegions[newEuchromaticgeneRegions$Gene==gene,][1,])
+}
+
+rm(newEuchromaticgeneRegions)
+
+# Remove TEs from the euchromaticgeneRegions dataframe.
+transposableElements <- as.data.frame(read_xlsx("Data\\Arabidopsis TE genes.xlsx"))
+
+withoutTEs <- euchromaticgeneRegions[-c(which(euchromaticgeneRegions$Gene %in% transposableElements$Locus)),]
+
+rm(transposableElements)
+
+
+# Get 10 sets of random genes and store in a hash from gene dataset of interest.
+source("Functions\\Sample random genes.R")
+
+dataToUse <- withoutTEs
+
+sampleGenes <- geneSets(dataToUse)
+
+
+# Import list of R-genes.
+ArabidopsisNLRs <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 1))
+clusteredNLRs <- ArabidopsisNLRs[grepl("cluster", ArabidopsisNLRs$Clustering),]
+notClusteredNLRs <- ArabidopsisNLRs[c(which(ArabidopsisNLRs$Clustering =="single")),]
+
+NLRgenes <- dataToUse[which(dataToUse$Gene %in% ArabidopsisNLRs$Gene),]
+NLRgenes <- cbind(NLRgenes, 
+                  data.frame(Clustering = ArabidopsisNLRs[which(ArabidopsisNLRs$Gene %in% NLRgenes$Gene),"Clustering"]))
+
+
+clusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% clusteredNLRs$Gene),]
+clusteredNLRgenes <- cbind(clusteredNLRgenes, 
+                           data.frame(Clustering = clusteredNLRs[which(clusteredNLRs$Gene %in% clusteredNLRgenes$Gene),"Clustering"]))
+
+notClusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% notClusteredNLRs$Gene),]
+notClusteredNLRgenes <- cbind(notClusteredNLRgenes, 
+                              data.frame(Clustering = notClusteredNLRs[which(notClusteredNLRs$Gene %in% notClusteredNLRgenes$Gene),"Clustering"]))
+
+
+# Add R-genes to sampleGenes.
+sampleGenes[["NLRs"]] <- NLRgenes
+sampleGenes[["clusteredNLRs"]] <- clusteredNLRgenes
+sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRgenes
+
+rm(ArabidopsisNLRs, NLRgenes, Atgenes)
+
+
+# Get filtered expression data for each set of sample genes in each tissue. 
+# Add dataframes to sampleGenes for gene sets with particular expression levels.
+source("Functions\\PlantExp.R")
+exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
+             "High Expression", "V.High Expression")
+
+sampleGenes <- PlantExp(sampleGenes, exLevel)
+
+
+# Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
+source("Functions\\Modifications per gene.R")
+source("Functions\\Coordinates per gene region.R")
+source("Functions\\Modification frequencies & proportions.R")
+
+# Import filtered ReMap2022 data.
+ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
+
+# Create list of chromatin modifications.
+epiMods <- unique(ReMap$epiMod)
+
+
+for (tissue in c("Leaf", "Root", "Seedling")) {
+  jobRunScript("ReMap anakysis.R", name = tissue, importEnv = TRUE, exportEnv = paste("ReMapAnalyss_", tissue, sep = ""))
+}
+
 
 # Import analysed ReMap data.
 allResultsFrequencies <- as.data.frame(read_xlsx("Data\\allResultsFrequencies.xlsx"))
@@ -139,18 +252,18 @@ for (test in unique(allResultsProportions$SampleGenes)) {
 
 # Is there a significant difference in the average proportion of coverage of each gene region by a 
 # particular modification between tissues?
-df <- allResultsAverageProportions[grepl("NLRs", allResultsAverageProportions$Tissue) & 
-                                     !grepl("clustered", allResultsAverageProportions$Tissue),]
+df <- allResultsProportions[grepl("NLRs", allResultsProportions$Tissue) & 
+                                     !grepl("clustered", allResultsProportions$Tissue),]
 
 betweenTissues <- data.frame(Modification = character(),
                              Region = character(),
                              W.statistic = numeric(),
                              p.value = numeric())
 
-for (mod in unique(allResultsAverageProportions$Modification)) {
+for (mod in unique(allResultsProportions$Modification)) {
   df1 <- df[df$Modification==mod,]
   
-  for (r in unique(allResultsAverageProportions$Region)) {
+  for (r in unique(allResultsProportions$Region)) {
     df2 <- df1[df1$Region==r,]
     
     statTest <- kruskal.test(Proportion~Tissue, df2)
@@ -163,34 +276,49 @@ for (mod in unique(allResultsAverageProportions$Modification)) {
 
 # Is there a significant difference in the average proportion of coverage of each gene region by a 
 # particular modification between R-genes and controls?
-statTestHash <- hash()
+wilcoxGeneSets <- hash()
+ksGeneSets <- hash()
 
 for (t in tissue) {
-  df <- allResultsAverageProportions[grepl(t, allResultsAverageProportions$Tissue),]
+  df <- allResultsProportions[grepl(t, allResultsProportions$SampleGenes),]
   
-  for (mod in unique(allResultsAverageProportions$Modification)) {
+  for (mod in unique(allResultsProportions$Modification)) {
     df1 <- df[df$Modification==mod,]
     
-    for (r in unique(allResultsAverageProportions$Region)) {
+    for (r in unique(allResultsProportions$Region)) {
       df2 <- df1[df1$Region==r,]
       
-      df2 <- df2[!grepl("clustered", df2$Tissue),]
+      df2 <- df2[!grepl("clustered", df2$SampleGenes),]
       
-      statTestDF <- data.frame(Tissue = character(),
+      wilcoxDF <- data.frame(Tissue = character(),
                                Modification = character(),
                                Region = character(),
                                W.statistic = numeric(),
                                p.value = numeric())
       
+      ksDF <- data.frame(Tissue = character(),
+                             Modification = character(),
+                             Region = character(),
+                             W.statistic = numeric(),
+                             p.value = numeric())
+      
       for (set in controlSets) {
-        statTest <- wilcox.test(Proportion~Tissue, df2[grepl(set,df2$Tissue) & grepl("NLRs", df2$Tissue),])
-        statTestDF <- rbind(statTestDF, data.frame(Tissue = t,
+        wilcoxTest <- wilcox.test(Proportion~Tissue, df2[grepl(set,df2$SampleGenes) & grepl("NLRs", df2$SampleGenes),])
+        wilcoxDF <- rbind(wilcoxDF, data.frame(Tissue = t,
                                                    Modification = mod,
                                                    Region = r,
                                                    W.statistic = statTest$statistic,
                                                    p.value = statTest$p.value))
         
-        statTestHash[[set]] <- statTestDF
+        ksTest <- ks.test(df2[grepl(set,df2$SampleGenes) & grepl("NLRs", df2$SampleGenes),])
+        ksDF <- rbind(ksDF, data.frame(Tissue = t,
+                                               Modification = mod,
+                                               Region = r,
+                                               W.statistic = statTest$statistic,
+                                               p.value = statTest$p.value))
+        
+        wilcoxGeneSets[[set]] <- wilcoxDF
+        ksGeneSets[[set]] <- ksDF
       }
     }
   }
