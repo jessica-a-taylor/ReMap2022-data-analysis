@@ -154,7 +154,7 @@ for (mod in unique(allResultsFrequencies$Modification)) {
     
     for (level in unique(allResultsFrequencies$Expression)) {
       df3 <- df2[df2$Expression==level,]
-      df3 <- df3[c(2:12),]
+      df3 <- df3[!grepl("luster", df3$SampleGenes),]
       
       # Create a list of genes from each each sample set.
       geneList <- c()
