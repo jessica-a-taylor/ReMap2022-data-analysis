@@ -120,24 +120,31 @@ ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
 # Create list of chromatin modifications.
 epiMods <- unique(ReMap$epiMod)
 
+# For each gene set (R-genes and controls), tissue, and expression level, 
+# find the percentage of genes with each chromatin modification (frequency)
+# and the enrichment of the modification (proportion) in each gene region.
 
+# Run parallel analyses as background jobs.
 for (tissue in c("Leaf", "Root", "Seedling")) {
-  jobRunScript("ReMap analysis.R", name = tissue, importEnv = TRUE, exportEnv = paste("ReMapAnalysis_", tissue, sep = ""))
+  jobRunScript("ReMap analysis.R", name = tissue, importEnv = TRUE)
 }
 
+# Import the results.
+allResultsFrequencies <- data.frame()
+allResultsProportions <- data.frame()
 
-# Import analysed ReMap data.
-allResultsFrequencies <- as.data.frame(read_xlsx("Data\\allResultsFrequencies.xlsx"))
-allResultsProportions <- as.data.frame(read_xlsx("Data\\allResultsProportions.xlsx"))
+for (tissue in c("Leaf", "Root", "Seedling")) {
+  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsFrequencies.xlsx", sep = ""))))
+  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsProportions.xlsx", sep = ""))))
+}
 
 controlSets <- c("control1","control2","control3","control4","control5",
                  "control6","control7","control8","control9","control10")
 
-tissue <- c("Leaf", "Root", "Seedling")
+# Fisher's Exact Test - are R-genes enriched amongst those that possess a particular chromatin modification?
+df <- allResultsFrequencies[grepl("_Leaf", allResultsFrequencies$SampleGenes),]
 
-# Hypergeometric test - are R-genes enriched amongst those that possess a particular chromatin modification?
-
-df <- allResultsFrequencies[grepl("_Seedling", allResultsFrequencies$SampleGenes),]
+hypergeometricTest <- data.frame()
 
 for (mod in unique(allResultsFrequencies$Modification)) {
   df1 <- df[df$Modification==mod,]
@@ -156,10 +163,29 @@ for (mod in unique(allResultsFrequencies$Modification)) {
         geneList <- append(geneList, rep(df3[row,"SampleGenes"], times = df3[row, "n"]))
       }
       
-      # NEED TO RECORD RESULTS FROM PHYPER IN A TABLE!  
-      geneSample <- sample(geneList, 200)
-      phyper(200-(length(geneSample[grepl("NLRs", geneSample)])), length(geneList[grepl("NLRs", geneList)]),
-             length(geneList[grepl("control", geneList)]), 200)
+      meanNLRs <- c()
+      for (n in 1:10) {
+        geneSample <- sample(geneList, length(geneList)*0.1)
+        meanNLRs <- append(meanNLRs, length(geneSample[grepl("NLRs", geneSample)]))
+      }
+      
+      meanNLRs <- mean(meanNLRs)
+      
+      if (length(geneSample) > 1) {
+        
+        statTest <- fisher.test(matrix(c(meanNLRs, length(geneList[grepl("NLRs", geneList)])-meanNLRs,
+                           length(geneSample) - meanNLRs, length(geneList[grepl("control", geneList)])-length(geneSample) - meanNLRs), 2,2), 
+                           alternative = "less")
+        
+        hypergeometricTest <- rbind(hypergeometricTest, data.frame(Expression = level,
+                                                                   Modification = mod,
+                                                                   Region = r,
+                                                                   Sample.R.genes = meanNLRs,
+                                                                   Sample.all.genes = length(geneSample),
+                                                                   All.R.genes = length(geneList[grepl("NLRs", geneList)]),
+                                                                   All.genes = length(geneList),
+                                                                   p.value = statTest$p.value))
+      }
     }
   }
 }

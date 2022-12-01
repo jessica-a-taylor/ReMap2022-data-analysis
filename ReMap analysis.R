@@ -98,5 +98,5 @@ for (test in names(sampleGenesFrequencies)) {
 rm(test, df1, df2, tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse)
 
 
-write.csv(allResultsFrequencies, file = paste(tissue,"_allResultsFrequencies.csv", sep = ""))
-write.csv(allResultsProportions, file = paste(tissue,"_allResultsProportions.csv", sep = ""))
+write.csv(allResultsFrequencies, file = paste("Data\\", tissue,"_allResultsFrequencies.csv", sep = ""))
+write.csv(allResultsProportions, file = paste("Data\\", tissue,"_allResultsProportions.csv", sep = ""))
