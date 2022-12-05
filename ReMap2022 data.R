@@ -138,107 +138,11 @@ for (tissue in c("Leaf", "Root", "Seedling")) {
   allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsProportions.xlsx", sep = ""))))
 }
 
+
 # Fisher's Exact Test - are R-genes enriched amongst those that possess a particular chromatin modification?
+# Plots comparing the occurrence of chromatin modifications in the seedlings of R-genes and controls.
 for (tissue in c("Leaf", "Root", "Seedling")) {
-  df <- allResultsFrequencies[grepl(tissue, allResultsFrequencies$SampleGenes),]
-  
-  hypergeometricTest <- data.frame()
-  
-  for (mod in unique(allResultsFrequencies$Modification)) {
-    df1 <- df[df$Modification==mod,]
-    
-    for (r in unique(allResultsFrequencies$Region)) {
-      df2 <- df1[df1$Region==r,]
-      
-      for (level in unique(allResultsFrequencies$Expression)) {
-        df3 <- df2[df2$Expression==level,]
-        df3 <- df3[!grepl("luster", df3$SampleGenes),]
-        
-        # Create a list of genes from each each sample set.
-        geneList <- c()
-        
-        for (row in 1:nrow(df3)) {
-          geneList <- append(geneList, rep(df3[row,"SampleGenes"], times = df3[row, "n"]))
-        }
-        
-        meanNLRs <- c()
-        for (n in 1:10) {
-          geneSample <- sample(geneList, length(geneList)*0.1)
-          meanNLRs <- append(meanNLRs, length(geneSample[grepl("NLRs", geneSample)]))
-        }
-        
-        meanNLRs <- mean(meanNLRs)
-        
-        if (length(geneSample) > 1) {
-          
-          statTest <- fisher.test(matrix(c(meanNLRs, length(geneList[grepl("NLRs", geneList)])-meanNLRs,
-                                           length(geneSample) - meanNLRs, length(geneList[grepl("control", geneList)])-length(geneSample) - meanNLRs), 2,2), 
-                                  alternative = "less")
-          
-          hypergeometricTest <- rbind(hypergeometricTest, data.frame(Expression = level,
-                                                                     Modification = mod,
-                                                                     Region = r,
-                                                                     Sample.R.genes = meanNLRs,
-                                                                     Sample.all.genes = length(geneSample),
-                                                                     All.R.genes = length(geneList[grepl("NLRs", geneList)]),
-                                                                     All.genes = length(geneList),
-                                                                     p.value = statTest$p.value))
-        }
-      }
-    }
-  }
-write.csv(hypergeometricTest, file = paste("Tests\\", tissue, "_Fisher.Test_frequencies.csv", sep = ""))
-}
-
-# Plot the the results.
-axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
-              "20%", "40%", "60%", "80%", "100%", 
-              "Downstream \n(200bp)", "Intergenic")
-
-# Frequencies plot for R-genes & controls.
-dataToUse <- allResultsFrequencies[c(which(allResultsFrequencies$Test %in% c(names(sampleGenes)[c(1:10,33)]))),]
-
-for (mod in epiMods) {
-  df <- dataToUse[dataToUse$Modification==mod,]
-  
-  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = Test)) + 
-    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(group = Test),linewidth = 1.3) +
-    geom_point(aes(group = Test), size = 2) + theme_minimal() + 
-    scale_colour_manual(limits = c("control1", "NLRs"), 
-                        values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
-    labs(x = "", y = "Frequency of occurrence (%)") +
-    geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
-    theme(axis.text.x = element_text(size = 13, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
-          axis.title.y = element_text(size = 16, vjust = 2)) 
-  
-  ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6)
-}
-
-  
-# Frequencies plot for R-genes only.
-dataToUse <- allResultsFrequencies[allResultsFrequencies$Tissue=="leafExpression",]
-
-for (mod in epiMods) {
-  df <- dataToUse[dataToUse$Modification==mod,]
-  
-  plot <- ggplot(df, aes(x = axisGroup, y = Frequency, color = factor(Expression, levels = expressionLevel))) + 
-    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(group = Expression),linewidth = 1.3) +
-    geom_point(aes(group = Expression), size = 2) + theme_minimal() + 
-    scale_colour_brewer(name = "Expression Level", palette = "Reds", direction=-1) +
-    labs(x = "", y = "Frequency of occurrence (%)") +
-    geom_vline(xintercept=0, color="grey", linewidth=1) +
-    coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-14,ymax=-14) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-20,ymax=-20) +
-    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2)) 
-
-  ggsave(paste(mod, "_", ".LeavesFrequenciesPerExprression.pdf", sep = ""), plot = plot, width = 12, height = 6)
+  jobRunScript("Fisher's test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
 }
 
 
@@ -248,14 +152,14 @@ allResultsAverageProportions <- data.frame()
 for (test in unique(allResultsProportions$SampleGenes)) {
   df <- allResultsProportions[allResultsProportions$SampleGenes==test,]
   
-    for (level in unique(allResultsProportions$Expression)) { 
+    for (level in unique(df$Expression)) { 
       df1 <- df[df$Expression==level,]
       
       if (nrow(df1) >= 1) {
-        for (mod in unique(allResultsProportions$Modification)) {
+        for (mod in unique(df1$Modification)) {
           df2 <- df1[df1$Modification==mod,]
           
-          for (r in unique(allResultsProportions$Region)) {
+          for (r in unique(df2$Region)) {
             df3 <- df2[df2$Region==r,]
             
             if (nrow(df3) >= 10) {
@@ -265,8 +169,7 @@ for (test in unique(allResultsProportions$SampleGenes)) {
                                                                                              Tissue = df3$SampleGenes[1],
                                                                                              axisGroup = df3$axisGroup[1],
                                                                                              Expression = level,
-                                                                                             SampleSize = paste(level, 
-                                                                                                                paste("(n = ", nrow(df3), ")", sep = ""), sep = " ")))
+                                                                                             SampleSize = nrow(df3)))
             }
             else allResultsAverageProportions <- allResultsAverageProportions
           }
@@ -276,106 +179,16 @@ for (test in unique(allResultsProportions$SampleGenes)) {
 }
 
 
-# Is there a significant difference in the average proportion of coverage of each gene region by a 
-# particular modification between R-genes and controls?
-controlSets <- c("control1","control2","control3","control4","control5",
-                 "control6","control7","control8","control9","control10")
+# Wilcox & Kolmogorov-Smirnov Tests - is there a significant difference in the average proportion of coverage of  
+# each gene region by a particular modification between R-genes and controls?
 
-wilcoxGeneSets <- hash()
-ksGeneSets <- hash()
+# Plots comparing the average proportion of coverage of each gene region by a particular modification in the 
+# seedlings of R-genes and controls.
 
-df <- allResultsProportions[grepl("Seedling", allResultsProportions$SampleGenes) & 
-                              !grepl("luster", allResultsProportions$SampleGenes),]
-
-for (set in controlSets) {
-  wilcoxDF <- data.frame(Modification = character(),
-                         Region = character(),
-                         W.statistic = numeric(),
-                         p.value = numeric())
-  
-  ksDF <- data.frame(Modification = character(),
-                     Region = character(),
-                     W.statistic = numeric(),
-                     p.value = numeric())
-  
-  for (mod in unique(allResultsProportions$Modification)) {
-    df1 <- df[df$Modification==mod,]
-    
-    for (r in unique(allResultsProportions$Region)) {
-      df2 <- df1[df1$Region==r,]
-      
-   
-      wilcoxTest <- wilcox.test(Proportion~SampleGenes, df2[c(which(df2$SampleGenes == paste(set, "_Seedling", sep = "")), which(df2$SampleGenes == "NLRs_Seedling")),])
-      wilcoxDF <- rbind(wilcoxDF, data.frame(Modification = mod,
-                                             Region = r,
-                                             W.statistic = wilcoxTest$statistic,
-                                             p.value = wilcoxTest$p.value))
-      
-      ksTest <- ks.test(df2[c(which(df2$SampleGenes == paste(set, "_Seedling", sep = ""))),"Proportion"], df2[c(which(df2$SampleGenes == "NLRs_Seedling")),"Proportion"])
-      ksDF <- rbind(ksDF, data.frame(Modification = mod,
-                                     Region = r,
-                                     W.statistic = ksTest$statistic,
-                                     p.value = ksTest$p.value))
-      
-      
-    }
-  }
-  wilcoxGeneSets[[set]] <- wilcoxDF
-  ksGeneSets[[set]] <- ksDF
+for (tissue in c("Leaf", "Root", "Seedling")) {
+  jobRunScript("Wilcox test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
 }
 
-
-
-dataToUse <- allResultsAverageProportions[c(which(allResultsAverageProportions$Tissue == "control1_Seedling")),]
-
-# Proportions plot for R-genes only.
-for (mod in epiMods) {
-  df <- dataToUse[dataToUse$Modification==mod,]
-  
-    plot <- ggplot(df, aes(x = axisGroup, y = Proportion, color = factor(Expression, levels = exLevel))) + 
-    scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-    geom_line(aes(x = axisGroup, y = Proportion, group = Expression),size = 1.3) + 
-    geom_point(aes(x = axisGroup, y = Proportion),size = 2) +
-    scale_colour_brewer(name = "Expression Level", palette = "Reds", direction=1, labels = c(unique(df$SampleSize))) +
-    theme_minimal() + 
-    labs(x = "", y = "Average proportion of gene region") +
-    geom_vline(xintercept=0, color="grey", size=1) +
-    coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=0,xmax=100,ymin=-0.15,ymax=-0.15) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=0,xmax=100,ymin=-0.2,ymax=-0.2) +
-    theme(axis.text.x = element_text(size = 11, colour = "black"), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2))
-  
-  ggsave(paste("NLRs_Seedling", "_",mod , ".pdf", sep = ""), plot = plot, width = 12, height = 6)
-}
-
-# Proportions plot for R-genes & controls.
-dataToUse <- allResultsAverageProportions[grepl("Seedling", allResultsAverageProportions$SampleGenes) & 
-                                     !grepl("luster", allResultsAverageProportions$SampleGenes),]
-
-for (mod in epiMods) {
-  df <- dataToUse[dataToUse$Modification==mod,]
-  
-  for (level in exLevel) {
-    df1 <- df[df$Expression==level,]
-    
-    plot <- ggplot(df1, aes(x = axisGroup, y = Proportion, color = SampleGenes)) + 
-      scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
-      scale_colour_manual(limits = c("control1_Seedling", "NLRs_Seedling"), 
-                          values=c("grey43", "black"), labels = c("Controls", "R-genes")) +
-      geom_line(aes(group = SampleGenes),linewidth = 1.3) +
-      geom_point(aes(group = SampleGenes), size = 2) + theme_minimal() +
-      labs(x = "", y = "Average proportion of gene region") +
-      geom_vline(xintercept=0, color="grey", linewidth=1) +
-      coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,2,1), "lines")) +
-      annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
-      annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
-      theme(axis.text.x = element_text(size = 13, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
-            axis.title.y = element_text(size = 16, vjust = 2)) 
-    
-    ggsave(paste(mod, "_", ".LeavesFrequencies.pdf", sep = ""), plot = plot, width = 12, height = 6) 
-  }
-}
 
 
 # Plot the expression of all R-genes and controls.
