@@ -1,0 +1,8 @@
+[1,"[1] \"H3K36me3\"\r\n"]
+[1,"[1] \"H3K27ac\"\r\n"]
+[1,"[1] \"H4K5ac\"\r\n"]
+[1,"[1] \"H4K8ac\"\r\n"]
+[1,"[1] \"H3-1\"\r\n"]
+[1,"[1] \"H3K9ac\"\r\n"]
+[1,"[1] \"H4K12ac\"\r\n"]
+[2,"Error in data.frame(Region = r, Modification = mod, axisGroup = df1$axisGroup[1],  : \r\n  arguments imply differing number of rows: 1, 0\r\nCalls: sourceWithProgress -> eval -> eval -> rbind -> rbind -> data.frame\r\nExecution halted\r\n"]

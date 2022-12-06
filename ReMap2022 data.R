@@ -268,7 +268,7 @@ ggsave("Expression boxplot.pdf", plot = plot, width = 12, height = 6)
 
 statTest <- wilcox.test(Expression~GeneSet, geneExpressionMean)
 
-# Determine whether the expression is more similar between genes within a cluster than between all genes.
+# Determine whether the expression is more similar between R-genes within a cluster than between all R-genes in seedlings.
 clusteredExpression <- data.frame()
 
 for (test in names(sampleGenes[["clusteredNLRs_Seedling"]])) {
@@ -323,12 +323,12 @@ plot <- ggplot(expressionDifference, aes(x = Comparison, y = ExpressionDifferenc
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
 # than between all genes.
 
-# Create a hash for storing the proportion of each R-gene region modified with each mark.
-sampleGenesProportions <- hash()
-
 # Choose ecotype and tissue for analysis.
 # Options: ColLeaf, ColRoot
 tissueForAnalysis <- "ColLeaf"
+
+# Create a hash for storing the proportion of each R-gene region modified with each mark.
+sampleGenesProportions_ClusterAnalysis <- hash()
 
 for (test in names(sampleGenes)[c(1,49)]) {
   
@@ -353,9 +353,6 @@ for (test in names(sampleGenes)[c(1,49)]) {
     
     modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
     
-    # Collect all hashes for modProportionPerRegion into single dataframes.
-    modProportionPerRegion <- mergeResults(modProportionPerRegion)
-    
     # Add a column to modProportionPerRegion with the numbers for 
     # each gene region that will correspond with their position on the x axis.
     modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
@@ -364,129 +361,33 @@ for (test in names(sampleGenes)[c(1,49)]) {
     modProportionPerRegion <- expressionColumn(modProportionPerRegion, cluster)
     
     # Store final results on the appropriate hash.
-    sampleGenesProportions[[test]][[cluster]] <- modProportionPerRegion
+    sampleGenesProportions_ClusterAnalysis[[test]][[cluster]] <- modProportionPerRegion
   }
 }
 
 
 # Merge all data from all sample gene sets into one big dataframe.
-allResultsProportions <- data.frame()
+allResultsProportions_ClusterAnalysis <- data.frame()
 
-for (test in names(sampleGenesProportions)) {
-  for (cluster in names(sampleGenesProportions[[test]])) {
+for (test in names(sampleGenesProportions_ClusterAnalysis)) {
+  for (cluster in names(sampleGenesProportions_ClusterAnalysis[[test]])) {
     
-    df2 <- sampleGenesProportions[[test]][[cluster]]
+    df2 <- sampleGenesProportions_ClusterAnalysis[[test]][[cluster]]
     df2 <- cbind(df2, data.frame(SampleGenes = rep(test, times = nrow(df2))))
     
-    allResultsProportions <- rbind(allResultsProportions, df2)
+    allResultsProportions_ClusterAnalysis <- rbind(allResultsProportions_ClusterAnalysis, df2)
   }
 }
 
-# Calculate the difference in the proportion of each gene region covered by each modification between R-genes of the same cluster.
-modificationDifference_Clusters <- data.frame()
 
-for (mod in unique(allResultsProportions$Modification)) {
-  df <- allResultsProportions[allResultsProportions$Modification == mod,]
-  
-  for (r in unique(df$Region)) {
-    df1 <- df[df$Region == r,]
-    
-    for (cluster in unique(df1[grepl("cluster", df1$Expression),"Expression"])) {
-      df2 <- df1[df1$Expression == cluster,]
-      
-      # For all pairwise comparisons,
-      for (i in 1:nrow(df2)) {
-        for (j in 1:nrow(df2)) {
-          if (i != j & j > i) {
-            # calculate the % difference in the proportion of each gene region covered by each modification,
-            # using the abs() function to make all values positive.
-            modificationDifference_Clusters <- rbind(modificationDifference_Clusters, 
-                                                   data.frame(Region = r,
-                                                              Modification = mod,
-                                                              axisGroup = df2$axisGroup,
-                                                              ExpressionDifference = (abs(df2[i, "Proportion"]-df2[j, "Proportion"])/df2[i, "Proportion"])*100,
-                                                              Cluster = cluster))
-          }
-        }
-      }
-    }
-  }
-}
+# Divide the list of chromatin modifications into 3 lists.
+modList <- list(miniList1 = unique(allResultsProportions$Modification)[1:7],
+                miniList2 = unique(allResultsProportions$Modification)[8:14],
+                miniList3 = unique(allResultsProportions$Modification)[15:21])
 
-write.csv(modificationDifference_Clusters, file = "Cluster modification comparisons.csv")
-
-# Calculate the difference in the proportion of each gene region covered by each modification between all R-genes.
-modificationDifference_all <- data.frame()
-
-
-for (mod in c("H3K4me3","H3K36me3","H3K9ac","H3K27ac","H3K27me1","H2AK121ub","H3K27me3","H3K9me2")) {
-  df <- allResultsProportions[allResultsProportions$Modification == mod,]
-  
-  for (r in unique(df$Region)) {
-    df1 <- df[df$Region == r,]
-    
-    for (i in 1:nrow(df1)) {
-      for (j in 1:nrow(df1)) {
-        if (i != j & j > i) {
-      modificationDifference_all <- rbind(modificationDifference_all, 
-                                          data.frame(Region = r,
-                                                     Modification = mod,
-                                                     axisGroup = df1$axisGroup[1],
-                                                     ExpressionDifference = (abs(df1[i, "Proportion"]-df1[j, "Proportion"])/df1[i, "Proportion"])*100))
-        }
-      }
-    }
-    print(r)
-    
-  }
-  print(mod)
-}
-
-write.csv(modificationDifference_all, file = "All R-gene modification comparisons.csv")
-
-
-expressionDifference <- data.frame(Comparison = rep("Between clustered R-genes", times = length(modificationDifference_Clusters)),
-																	 ExpressionDifference = modificationDifference_Clusters[,c(1:4)])
-
-expressionDifference <- rbind(expressionDifference, data.frame(Comparison = rep("Between all R-genes", times = length(modificationDifference_all)),
-																															 ExpressionDifference = modificationDifference_all))
-
-colnames(expressionDifference) <- c("Comparison", "Region", "Modification", "axisGroup", "Difference")
-
-statTestDF <- data.frame(Modification = character(),
-                         Region = character(),
-                         W.statistic = numeric(),
-                         p.value = numeric())
-
-for (mod in c("H3K4me3","H3K36me3","H3K9ac","H3K27ac","H3K27me1","H2AK121ub","H3K27me3","H3K9me2")) {
-	df <- expressionDifference[expressionDifference$Modification==mod,]
-	
-	for (r in unique(df$Region)) {
-	  df1 <- df[df$Region==r,]
-	  statTest <- wilcox.test(Difference~Comparison, df1)
-	  
-	  statTestDF <- rbind(statTestDF, data.frame(Modification= mod,
-	                                             Region= r,
-	                                             W.statistic = statTest$statistic,
-	                                             p.value = statTest$p.value))
-	}
-
-	plot <- ggplot(df, aes(x = axisGroup, y = Difference)) + 
-		scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
-		geom_boxplot(aes(group = Region)) + theme_minimal() + coord_cartesian(ylim= c(0,1), clip = "off") +
-		labs(x = "", y = "Difference in proportion of gene region modified") +
-		geom_vline(xintercept=0, color="grey", linewidth=1) + theme(plot.margin = unit(c(1,1,1,1), "lines")) +
-		annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=12, col = "grey33")),xmin=-10,xmax=100,ymin=-.23,ymax=-.23) + 
-		annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=-10,xmax=100,ymin=-.3,ymax=-.3) +
-		theme(axis.text.x = element_text(size = 11, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 12,colour = "black"), 
-					axis.title.y = element_text(size = 14, vjust = 2), strip.text = element_text(size = 16)) + 
-	  facet_wrap(~Comparison) + 
-	  stat_summary(fun="mean", geom="point", color="black", size=2) +
-	  stat_summary(fun="mean", geom="line", color="black", size=1)
-	
-	
-	ggsave(paste(mod, "_", "Clustered vs Unclustered.pdf", sep = ""), plot = plot, width = 16, height = 6)
+# Calculate the difference in the proportion of each R-gene region covered by each modification between R-genes of the same cluster.
+for (modMiniList in names(modList)) {
+  jobRunScript("Pairwise comparisons of enrichment.R", name = modMiniList, importEnv = TRUE)
 }
 
 
-write.csv(statTestDF, file = "Difference in proportion of gene region modified.csv")
