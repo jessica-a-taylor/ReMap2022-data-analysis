@@ -474,7 +474,7 @@ for (mod in unique(allResultsProportions$Modification)) {
           legend.text = element_text(size = 12), legend.title = element_text(size = 14), axis.line = element_line(linewidth = .6)) + 
     facet_wrap(~Comparison, labeller = labeller(Comparison = facetLabels)) + 
     stat_summary(fun="mean", geom="point", color="black", size=2) +
-    stat_summary(fun="mean", geom="line", color="black", size=1)
+    stat_summary(fun="mean", geom="line", color="black", linewidth=1)
   
   ggsave(paste("Graphs\\Clusters vs. Background\\", mod, "_boxplot.pdf", sep = ""), plot = boxplot, width = 16, height = 6)
   
@@ -489,7 +489,7 @@ for (mod in unique(allResultsProportions$Modification)) {
     theme(axis.text.x = element_text(size = 12, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 12,colour = "black"), 
           axis.title.y = element_text(size = 14, vjust = 2), strip.text = element_text(size = 16, vjust = 4),
           legend.text = element_text(size = 12), legend.title = element_text(color = "white"), axis.line = element_line(linewidth = .6)) +
-    scale_color_manual(values = c("coral2", "darkslategrey"), labels = c("Between all R-genes \n", "Between R-genes in \nthe same cluster")) +
+    scale_color_manual(values = c("coral2", "darkslategrey"), labels = c("Between all R-genes", "Between R-genes in \nthe same cluster")) +
     labs(x = "", y = "Average difference in enrichment")
 
   ggsave(paste("Graphs\\Clusters vs. Background\\", mod, "_lineplot.pdf", sep = ""), plot = plot, width = 10, height = 6)
