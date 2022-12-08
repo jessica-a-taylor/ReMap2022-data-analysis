@@ -1,2 +1,0 @@
-[2,"hash-2.2.6.2 provided by Decision Patterns\r\n\r\n\r\nAttaching package: 'hash'\r\n\r\nThe following object is masked from 'package:data.table':\r\n\r\n    copy\r\n\r\n"]
-[2,"Error in wilcox.test.formula(Proportion ~ SampleGenes, df2[c(which(df2$SampleGenes ==  : \r\n  grouping factor must have exactly 2 levels\r\nCalls: sourceWithProgress -> eval -> eval -> wilcox.test -> wilcox.test.formula\r\nExecution halted\r\n"]
