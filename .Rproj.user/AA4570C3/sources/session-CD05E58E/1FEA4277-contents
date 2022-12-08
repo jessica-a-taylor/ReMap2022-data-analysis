@@ -186,7 +186,7 @@ for (test in unique(allResultsProportions$SampleGenes)) {
 # seedlings of R-genes and controls.
 
 for (tissue in c("Leaf", "Root", "Seedling")) {
-  jobRunScript("Wilcox test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+  jobRunScript("T.test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
 }
 
 

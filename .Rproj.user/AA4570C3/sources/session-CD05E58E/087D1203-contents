@@ -1,149 +1,50 @@
 library(ggplot2)
 library(data.table)
 library(grid)
-library(hash)
 
 # Wilcox & Kolmogorov-Smirnov Tests - is there a significant difference in the average proportion of coverage of  
 # each gene region by a particular modification between R-genes and controls?
 
-# Compare R-genes to each control gene set individually.
-controlSets <- c("control1","control2","control3","control4","control5",
-                 "control6","control7","control8","control9","control10")
-
-wilcoxHash <- hash()
-ksHash <- hash()
-
+# Compare R-genes to each control gene set.
 dataToUse <- allResultsProportions[grepl(tissue, allResultsProportions$SampleGenes) & 
                               !grepl("luster", allResultsProportions$SampleGenes),]
 
-for (set in controlSets) {
-  wilcoxDF <- data.frame()
-  ksDF <- data.frame()
+t.testDF <- data.frame()
+
+
+for (mod in unique(allResultsProportions$Modification)) {
+  df <- dataToUse[dataToUse$Modification==mod,]
   
-  
-  for (mod in unique(allResultsProportions$Modification)) {
-    df <- dataToUse[dataToUse$Modification==mod,]
+  for (r in unique(allResultsProportions$Region)) {
+    df1 <- df[df$Region==r,]
     
-    for (r in unique(allResultsProportions$Region)) {
-      df1 <- df[df$Region==r,]
+    for (level in c("No Expression", "Low Expression")) {
+      df2 <- df1[df1$Expression == level,]
       
-      for (level in df$Expression) {
-        df2 <- df1[df1$Expression == level,]
-        
-        wilcoxTest <- wilcox.test(Proportion~SampleGenes, df2[c(which(df2$SampleGenes == paste(set, "_", tissue, sep = "")), which(df2$SampleGenes == paste("NLRs_", tissue))),])
-        
-        if (is.na(wilcoxTest$p.value)==TRUE) {
-          wilcoxDF <- wilcoxDF
-        } else if (wilcoxTest$p.value <= 0.05) {
-          wilcoxDF <- rbind(wilcoxDF, data.frame(Modification = mod,
-                                                 Region = r,
-                                                 W.statistic = wilcoxTest$statistic,
-                                                 p.value = wilcoxTest$p.value,
-                                                 Significance = "*"))
-        } else  wilcoxDF <- rbind(wilcoxDF, data.frame(Modification = mod,
-                                                       Region = r,
-                                                       W.statistic = wilcoxTest$statistic,
-                                                       p.value = wilcoxTest$p.value,
-                                                       Significance = " "))
-        
-        ksTest <- ks.test(df2[c(which(df2$SampleGenes == paste(set, "_", tissue, sep = ""))),"Proportion"], df2[c(which(df2$SampleGenes == paste("NLRs_", tissue))),"Proportion"])
-        
-        if (is.na(ksTest$p.value)==TRUE) {
-          ksDF <- ksDF
-        } else if (ksTest$p.value <= 0.05) {
-          ksDF <- rbind(ksDF, data.frame(Modification = mod,
-                                         Region = r,
-                                         W.statistic = ksTest$statistic,
-                                         p.value = ksTest$p.value,
-                                         Significance = "*"))
-        } else ksDF <- rbind(ksDF, data.frame(Modification = mod,
-                                              Region = r,
-                                              W.statistic = ksTest$statistic,
-                                              p.value = ksTest$p.value,
-                                              Significance = " "))
-      }
-    }
-  }
-  wilcoxHash[[set]] <- wilcoxDF
-  ksHash[[set]] <- ksDF
-}
-
-wilcoxDF <- wilcoxHash[[set]][,c(1:2)]
-ksDF <- ksHash[[set]][,c(1:2)]
-
-
-for (set in names(wilcoxHash)) {
-  wilcoxDF <- cbind(wilcoxDF, wilcoxHash[[set]][,c(3:5)])
-  ksDF <- cbind(ksDF, ksHash[[set]][,c(3:5)])
-}
-
-write.csv(wilcoxDF, file = paste("Tests\\", tissue,"\\Wilcox.test_proportions_", level, ".csv", sep = ""))
-write.csv(ksDF, file = paste("Tests\\", tissue,"\\Kolmogorov-Smirnov.test_proportions_", level, ".csv", sep = ""))
-
-
-
-# Compare R-genes to all control genes.
-
-dataToUse <- allResultsProportions[grepl(tissue, allResultsProportions$SampleGenes) & 
-                                     !grepl("luster", allResultsProportions$SampleGenes),]
-
-for (level in df$Expression) {
-  df <- dataToUse[dataToUse$Expression==level,]
-  
-  wilcoxDF <- data.frame()
-  ksDF <- data.frame()
-  
-  for (mod in unique(allResultsProportions$Modification)) {
-    df1 <- df[df$Modification==mod,]
-    
-    for (r in unique(allResultsProportions$Region)) {
-      df2 <- df1[df1$Region == r,]
+      statTest <- t.test(df2[c(which(df2$SampleGenes == paste("NLRs_", tissue, sep = ""))), "Proportion"], mu = mean(df2[grepl("control", df2$SampleGenes) & 
+                                                                                                                           grepl(tissue, df2$SampleGenes), "Proportion"]))
       
-      sampleGenesList <- c()
-      for (row in 1:nrow(df2)) {
-        if (grepl("control", df2[row, "SampleGenes"])) {
-          sampleGenesList <- append(sampleGenesList, "control")
-        } else sampleGenesList <- append(sampleGenesList, "NLR")
-      }
-      
-      df2 <- cbind(df2, sampleGenesList)
-      
-      wilcoxTest <- wilcox.test(Proportion~sampleGenesList, df2)
-      
-      if (is.na(wilcoxTest$p.value)==TRUE) {
-        wilcoxDF <- wilcoxDF
-      } else if (wilcoxTest$p.value <= 0.05) {
-        wilcoxDF <- rbind(wilcoxDF, data.frame(Modification = mod,
+      if (is.na(statTest$p.value)==TRUE) {
+        t.testDF <- t.testDF
+      } else if (statTest$p.value <= 0.05) {
+        t.testDF <- rbind(t.testDF, data.frame(Modification = mod,
                                                Region = r,
-                                               W.statistic = wilcoxTest$statistic,
-                                               p.value = wilcoxTest$p.value,
+                                               Expression = level,
+                                               W.statistic = statTest$statistic,
+                                               p.value = statTest$p.value,
                                                Significance = "*"))
-      } else  wilcoxDF <- rbind(wilcoxDF, data.frame(Modification = mod,
+      } else  t.testDF <- rbind(t.testDF, data.frame(Modification = mod,
                                                      Region = r,
-                                                     W.statistic = wilcoxTest$statistic,
-                                                     p.value = wilcoxTest$p.value,
+                                                     Expression = level,
+                                                     W.statistic = statTest$statistic,
+                                                     p.value = statTest$p.value,
                                                      Significance = " "))
-      
-      ksTest <- ks.test(df2[grepl("control", df2$sampleGenesList), "Proportion"], df2[grepl("NLR", df2$sampleGenesList), "Proportion"])
-      
-      if (is.na(ksTest$p.value)==TRUE) {
-        ksDF <- ksDF
-      } else if (ksTest$p.value <= 0.05) {
-        ksDF <- rbind(ksDF, data.frame(Modification = mod,
-                                       Region = r,
-                                       W.statistic = ksTest$statistic,
-                                       p.value = ksTest$p.value,
-                                       Significance = "*"))
-      } else ksDF <- rbind(ksDF, data.frame(Modification = mod,
-                                            Region = r,
-                                            W.statistic = ksTest$statistic,
-                                            p.value = ksTest$p.value,
-                                            Significance = " "))
     }
   }
-  write.csv(wilcoxDF, file = paste("Tests\\", tissue,"\\Wilcox.test_proportions_", level, ".csv", sep = ""))
-  write.csv(ksDF, file = paste("Tests\\", tissue,"\\Kolmogorov-Smirnov.test_proportions_", level, ".csv", sep = ""))
 }
+
+print("Test done!")
+write.csv(t.testDF, file = paste("Tests\\", tissue,"\\T.test_proportions.csv", sep = ""))
 
 
 # Plots comparing the average proportion of coverage of each gene region by a particular modification for R-genes and controls.

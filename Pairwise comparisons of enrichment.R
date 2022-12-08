@@ -66,7 +66,7 @@ write.csv(modificationDifference_all, file = paste(modMiniList, " - All R-gene m
 modificationDifference <- data.frame(Comparison = rep("Between clustered R-genes", times = length(modificationDifference_Clusters)),
                                      ModificationDifference = modificationDifference_Clusters[,c(1:4)])
 
-modificationDifference <- rbind(ModificationDifference, data.frame(Comparison = rep("Between all R-genes", times = length(modificationDifference_all)),
+modificationDifference <- rbind(modificationDifference, data.frame(Comparison = rep("Between all R-genes", times = length(modificationDifference_all)),
                                                                    ModificationDifference = modificationDifference_all))
 
 colnames(modificationDifference) <- c("Comparison", "Region", "Modification", "axisGroup", "Difference")
@@ -81,7 +81,7 @@ statTestDF <- data.frame(Modification = character(),
                          p.value = numeric())
 
 for (mod in modList[[modMiniList]]) {
-  df <- expressionDifference[expressionDifference$Modification==mod,]
+  df <- modificationDifference[modificationDifference$Modification==mod,]
   
   for (r in unique(df$Region)) {
     df1 <- df[df$Region==r,]
