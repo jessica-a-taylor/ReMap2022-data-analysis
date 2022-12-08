@@ -1,5 +1,6 @@
-# Function to get filtered expression data for each set of sample genes in each tissue. 
 
+
+# Function to get filtered expression data for each set of sample genes in each tissue. 
 expressionFiltered <- function(bigExpressionData, sampleGenes) {
   
   # Filter each expression data for Col-0, leaf/root tissue, and wild-type conditions.

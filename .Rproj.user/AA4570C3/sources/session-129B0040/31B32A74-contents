@@ -84,7 +84,7 @@ for (test in names(sampleGenes)[grepl(paste("_", tissue, sep = ""),names(sampleG
   print(test)
 }
 
-write.csv(geneCount, file = paste("Data\\", "Data\\Gene count.txt", sep=""))
+write.csv(geneCount, file = paste("Data\\", tissue, "\\Gene count.txt", sep=""))
 
 # Merge all data from all sample gene sets into one big dataframe.
 allResultsFrequencies <- data.frame()
@@ -107,5 +107,5 @@ for (test in names(sampleGenesFrequencies)) {
 rm(test, df1, df2, tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse)
 
 
-write.csv(allResultsFrequencies, file = paste("Data\\", tissue,"_allResultsFrequencies.csv", sep = ""))
-write.csv(allResultsProportions, file = paste("Data\\", tissue,"_allResultsProportions.csv", sep = ""))
+write.csv(allResultsFrequencies, file = paste("Data\\", tissue,"\\allResultsFrequencies.csv", sep = ""))
+write.csv(allResultsProportions, file = paste("Data\\", tissue, "\\allResultsProportions.csv", sep = ""))
