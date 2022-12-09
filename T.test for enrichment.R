@@ -65,6 +65,8 @@ write.csv(t.testDF, file = paste("Tests\\", tissue,"\\T.test_proportions.csv", s
 
 
 # Plots comparing the average proportion of coverage of each gene region by a particular modification for R-genes and controls.
+geneCount <- as.data.frame(read_csv("Data\\Seedling\\Gene count.txt"))
+geneCount <- geneCount[,-1]
 
 dataToUse <- allResultsAverageProportions[grepl(tissue, allResultsAverageProportions$Tissue) & 
                                             !grepl("luster", allResultsAverageProportions$Tissue),]
@@ -76,8 +78,9 @@ for (mod in epiMods) {
     
     df1 <- df[df$Expression==level,]
     
-    controlSampleSize <- sum(unique(df1[grepl("control", df1$Tissue), "SampleSize"]))
-    RgeneSampleSize <- sum(unique(df1[grepl("NLRs", df1$Tissue), "SampleSize"]))
+    RgeneSampleSize <- geneCount[grepl("NLR", geneCount$GeneSet) & grepl(level, geneCount$GeneSet) &
+                                   !grepl("luster", geneCount$GeneSet), "GeneCount"]
+    controlSampleSize <- sum(geneCount[grepl("control", geneCount$GeneSet) & grepl(level, geneCount$GeneSet), "GeneCount"])
     
     if (RgeneSampleSize > 10) {
       plot <- ggplot(df1, aes(x = axisGroup, y = Proportion, color = Tissue)) + 

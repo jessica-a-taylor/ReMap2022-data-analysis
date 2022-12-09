@@ -108,6 +108,8 @@ exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
 
 sampleGenes <- PlantExp(sampleGenes, exLevel)
 
+source("Functions\\Chinese expression data.R")
+sampleGenes <- otherExpressionAnalysis(sampleGenes)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
 source("Functions\\Modifications per gene.R")
@@ -129,13 +131,15 @@ for (tissue in c("Leaf", "Root", "Seedling")) {
   jobRunScript("ReMap analysis.R", name = tissue, importEnv = TRUE)
 }
 
+
+
 # Import the results.
 allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
 for (tissue in c("Leaf", "Root", "Seedling")) {
-  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsFrequencies.xlsx", sep = ""))))
-  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsProportions.xlsx", sep = ""))))
+  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\allResultsFrequencies.xlsx", sep = ""))))
+  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\allResultsProportions.xlsx", sep = ""))))
 }
 
 

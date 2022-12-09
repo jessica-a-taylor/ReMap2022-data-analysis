@@ -134,8 +134,8 @@ allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
 for (tissue in c("Leaf", "Root", "Seedling")) {
-  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsFrequencies.xlsx", sep = ""))))
-  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"_allResultsProportions.xlsx", sep = ""))))
+  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\allResultsFrequencies.xlsx", sep = ""))))
+  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\allResultsProportions.xlsx", sep = ""))))
 }
 
 

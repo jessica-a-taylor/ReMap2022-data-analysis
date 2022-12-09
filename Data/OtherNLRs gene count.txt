@@ -1,0 +1,4 @@
+"","GeneSet","GeneCount"
+"1","control6_Seedling_Intermediate Expression",9
+"2","control6_Seedling_Low Expression",63
+"3","control6_Seedling_No Expression",83

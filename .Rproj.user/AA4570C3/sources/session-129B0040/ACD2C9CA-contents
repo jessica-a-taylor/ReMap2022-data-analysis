@@ -1,0 +1,133 @@
+filenames <- list.files(path = "Data\\PlantExp data\\Seedling", pattern="*.tsv")
+expressionData <- data.frame()
+
+# Merge the data from all files.
+for (file in filenames) {
+  expressionData <- rbind(expressionData, as.data.frame(read_tsv(paste("Data\\PlantExp data\\Seedling\\", file, sep = ""), show_col_types = FALSE)))
+}
+
+
+expressionData <- expressionData[c(which(expressionData$geneId %in% sampleGenes[["NLRs"]]$Gene)),]
+expressionData <- expressionData[,-c(2,3,5)]
+
+NLRexpression <- data.frame()
+
+for (gene in unique(expressionData$geneId)) {
+  df <- expressionData[expressionData$geneId==gene,]
+  
+  
+  NLRexpression <- rbind(NLRexpression, data.frame(geneId = gene,
+                                                 FPKM = mean(df$FPKM)))
+}
+
+NLRlevel <- c()
+
+for (row in 1:nrow(NLRexpression)) {
+  if (0 <= NLRexpression[row, "FPKM"] & NLRexpression[row, "FPKM"] <= 10) {
+    NLRlevel <- append(NLRlevel, "No Expression")
+  }
+  else if (10 < NLRexpression[row, "FPKM"] & NLRexpression[row, "FPKM"] <= 50) {
+    NLRlevel <- append(NLRlevel, "Low Expression")
+  }
+  else if (50 < NLRexpression[row, "FPKM"] & NLRexpression[row, "FPKM"] <= 100) {
+    NLRlevel <- append(NLRlevel, "Intermediate Expression")
+  }
+  else if (100 < NLRexpression[row, "FPKM"] & NLRexpression[row, "FPKM"]<= 200) {
+    NLRlevel <- append(NLRlevel, "High Expression")
+  }
+  else if (NLRexpression[row, "FPKM"] > 200) {
+    NLRlevel <- append(NLRlevel, "V.High Expression")
+  }
+  
+  
+}
+
+NLRexpression <- cbind(NLRexpression, data.frame(Level = NLRlevel))
+
+
+source("Functions\\Overlaps functions.R")
+source("Functions\\Modifications per gene.R")
+source("Functions\\Coordinates per gene region.R")
+source("Functions\\Modification frequencies & proportions.R")
+
+# Create hashes for storing the % R-genes with a chromatin mark in each gene region (frequency)
+# and the proportion of each gene region with that mark.
+sampleGenesFrequencies <- hash()
+sampleGenesProportions <- hash()
+
+# Generate a list of the number of genes in each set.
+geneCount <- data.frame()
+
+# Choose ecotype and tissue for analysis.
+# Options: ColLeaf, ColRoot
+tissueForAnalysis <- "ColLeaf"
+
+
+for (level in names(sampleGenes[["otherNLRs"]])) {
+  dataToUse <- sampleGenes[["otherNLRs"]][[level]]
+  # dataToUse <- sampleGenes[[test]][[level]][c(which(sampleGenes[[test]][[level]]$Gene %in% genesForAnalysis)),]
+  
+  # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
+  allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
+  
+  # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
+  geneModifications <- modificationOccurrences(allModifications)
+  
+  rm(allModifications)
+  
+  # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
+  allOverlaps <- mergeOverlappingModifications(geneModifications)
+  
+  geneCount <- rbind(geneCount, data.frame(GeneSet = paste(test, "_", level, sep = ""),
+                                           GeneCount = length(names(allOverlaps))))
+  print(length(names(allOverlaps)))
+  
+  rm(geneModifications)
+  
+  # Determine the % R-genes with a chromatin mark in each gene region (frequency)
+  # and the proportion of each gene region with that mark.
+  geneRegions <- getGeneCoordinates(dataToUse)
+  
+  modFrequencyPerRegion <- modFrequenciesFunction(geneRegions, allOverlaps, epiMods)
+  modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
+  
+  # Add a column to modFrequencyPerRegion and modProportionPerRegion with the numbers for 
+  # each gene region that will correspond with their position on the x axis.
+  modFrequencyPerRegion <- geneRegionAxisLocations(modFrequencyPerRegion, geneRegions)
+  modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
+  
+  rm(geneRegions)
+  
+  # Add a column to modFrequencyPerRegion and modProportionPerRegion with the current expression level.
+  modFrequencyPerRegion <- expressionColumn(modFrequencyPerRegion, level)
+  modProportionPerRegion <- expressionColumn(modProportionPerRegion, level)
+  
+  # Store final results on the appropriate hash.
+  sampleGenesFrequencies[[level]] <- modFrequencyPerRegion
+  sampleGenesProportions[[level]] <- modProportionPerRegion
+  
+  print(level)
+}
+
+
+write.csv(geneCount, file = paste("Data\\OtherNLRs gene count.txt", sep=""))
+
+# Merge all data from all sample gene sets into one big dataframe.
+allResultsFrequencies <- data.frame()
+allResultsProportions <- data.frame()
+
+for (level in names(sampleGenes[["otherNLRs"]])) {
+  df1 <- sampleGenesFrequencies[[level]]
+  df1 <- cbind(df1, data.frame(SampleGenes = rep(test, times = nrow(df1))))
+  
+  allResultsFrequencies <- rbind(allResultsFrequencies, df1)
+  
+  df2 <- sampleGenesProportions[[level]]
+  df2 <- cbind(df2, data.frame(SampleGenes = rep(test, times = nrow(df2))))
+  
+  allResultsProportions <- rbind(allResultsProportions, df2)
+}
+
+
+write.csv(allResultsFrequencies, file = paste("Data\\OtherNLRsallResultsFrequencies.csv", sep = ""))
+write.csv(allResultsProportions, file = paste("Data\\OtherNLRsallResultsProportions.csv", sep = ""))

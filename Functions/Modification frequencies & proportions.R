@@ -14,6 +14,7 @@ modFrequenciesFunction <- function (geneRegions, allOverlaps, epiMods) {
     modFrequenciesDF <- data.frame(Region= character(), 
                                    Modification = character(),
                                    Frequency = numeric())
+    
     if (length(names(allOverlaps)) >= 1) {
       for (mod in epiMods) {
         geneList <- c()
