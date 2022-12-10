@@ -43,10 +43,10 @@ PlantExp <- function(dataToUse, exLevel) {
       expressionLevel <- c()
       
       for (row in 1:nrow(PlantExpData)) {
-        if (0 <= PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 10) {
+        if (0 <= PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 2.5) {
           expressionLevel <- append(expressionLevel, "No Expression")
         }
-        else if (10 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 50) {
+        else if (2.5 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 50) {
           expressionLevel <- append(expressionLevel, "Low Expression")
         }
         else if (50 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 100) {

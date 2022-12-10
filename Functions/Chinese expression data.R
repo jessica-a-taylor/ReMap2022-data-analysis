@@ -27,6 +27,7 @@ otherExpressionAnalysis <- function(sampleGenes) {
   }
   
   NLRlevel <- c()
+  FPKM <- c()
   
   for (gene in sampleGenes[["NLRs"]]$Gene) {
     if (0 <= otherNLRexpression[otherNLRexpression$Gene==gene, "Expression"] & otherNLRexpression[otherNLRexpression$Gene==gene, "Expression"] <= 10) {
@@ -44,9 +45,11 @@ otherExpressionAnalysis <- function(sampleGenes) {
     else if (otherNLRexpression[otherNLRexpression$Gene==gene, "Expression"] > 200) {
       NLRlevel <- append(NLRlevel, "V.High Expression")
     }
+    FPKM <- append(FPKM, otherNLRexpression[otherNLRexpression$Gene==gene, "Expression"])
   }
   
-  sampleGenes[["NLRs"]] <- cbind(sampleGenes[["NLRs"]], data.frame(Level = NLRlevel))
+  sampleGenes[["NLRs"]] <- cbind(sampleGenes[["NLRs"]], data.frame(RNA_seqLevel = NLRlevel))
+  sampleGenes[["NLRs"]] <- cbind(sampleGenes[["NLRs"]], data.frame(RNA_seqExpression = FPKM))
   
   # Sort genes to hashes based on expression level.
   for (level in unique(sampleGenes[["NLRs"]]$Level)) {

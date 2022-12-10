@@ -87,7 +87,7 @@ for (mod in unique(allResultsFrequencies$Modification)) {
   print("Test done")
 }
 
-write.csv(hypergeometricTest, file = paste("Tests\\", tissue, "_Fisher.Test_frequencies.csv", sep = ""))
+write.csv(hypergeometricTest, file = paste("Tests\\", tissue, "_New Fisher.Test_frequencies.csv", sep = ""))
 
 # Plots comparing the occurrence of chromatin modifications in the seedlings of R-genes and controls.
 axisText <- c("Intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS",
@@ -119,7 +119,7 @@ for (mod in epiMods) {
                             values=c("grey43", "black"), labels = c(paste("Controls (n = ", controlSampleSize, ")", sep = ""), 
                                                                     paste("R-genes (n = ", RgeneSampleSize, ")", sep = ""))) +
         labs(x = "", y = "% Genes modified", title = paste(mod, "-", level, sep = " ")) +
-        geom_vline(xintercept=0, color="grey", size=1) +
+        geom_vline(xintercept=0, color="grey", linewidth=1) +
         coord_cartesian(ylim= c(0,100), clip = "off") + theme(plot.margin = unit(c(1,1,.5,1), "lines")) +
         annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=16, col = "grey33")),xmin=0,xmax=100,ymin=-22,ymax=-22) + 
         annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-30,ymax=-30) +
@@ -127,7 +127,7 @@ for (mod in epiMods) {
               axis.title.y = element_text(size = 16, vjust = 2), plot.title = element_text(hjust = .5, size = 16),
               legend.text = element_text(size = 12), legend.title = element_text(size = 14), axis.line = element_line(linewidth = .6)) 
       
-      ggsave(paste("Graphs\\Enrichment\\", tissue, "\\Percentage genes associated with ", mod, "_", level, ".pdf", sep = ""), plot = plot, width = 12, height = 6)
+      ggsave(paste("Graphs\\Enrichment\\", tissue, "\\New percentage genes associated with ", mod, "_", level, ".pdf", sep = ""), plot = plot, width = 12, height = 6)
     }
   }
 }

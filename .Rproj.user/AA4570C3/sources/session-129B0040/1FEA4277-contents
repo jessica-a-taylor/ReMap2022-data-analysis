@@ -99,6 +99,8 @@ sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRgenes
 
 rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 
+# Export the list of control genes.
+write.
 
 # Get filtered expression data for each set of sample genes in each tissue. 
 # Add dataframes to sampleGenes for gene sets with particular expression levels.
@@ -138,8 +140,8 @@ allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
 for (tissue in c("Leaf", "Root", "Seedling")) {
-  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\allResultsFrequencies.xlsx", sep = ""))))
-  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\allResultsProportions.xlsx", sep = ""))))
+  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\NewallResultsFrequencies.xlsx", sep = ""))))
+  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\NewallResultsProportions.xlsx", sep = ""))))
 }
 
 
