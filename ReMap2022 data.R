@@ -344,8 +344,8 @@ plot <- ggplot(expressionDifference, aes(x = Comparison, y = ExpressionDifferenc
 # than between all genes.
 
 # Choose ecotype and tissue for analysis.
-# Options: ColLeaf, ColRoot
-tissueForAnalysis <- "ColLeaf"
+# Options: leafGenes, rootGenes, seedlingGenes
+tissueForAnalysis <- "seedlingGenes"
 
 # Create a hash for storing the proportion of each R-gene region modified with each mark.
 sampleGenesProportions_ClusterAnalysis <- hash()

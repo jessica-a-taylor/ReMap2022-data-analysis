@@ -1,0 +1,26 @@
+{
+    "id": "2B86D773",
+    "path": "~/PhD/PhD.git/ReMap analysis.R",
+    "project_path": "ReMap analysis.R",
+    "type": "r_source",
+    "hash": "2338762703",
+    "contents": "",
+    "dirty": false,
+    "created": 1670863991143.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "37,35",
+        "scrollLine": "22"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1670864921,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1670864921651,
+    "read_only": false,
+    "read_only_alternatives": []
+}
