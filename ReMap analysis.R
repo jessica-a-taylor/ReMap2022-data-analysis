@@ -19,29 +19,31 @@ source("Functions\\Modifications per gene.R")
 source("Functions\\Coordinates per gene region.R")
 source("Functions\\Modification frequencies & proportions.R")
 
+if (analysis == "PlantExp data") {
+  dataToAnalyse <- sampleGenesPlantExp
+} else if (analysis == "RNA-seq data") {
+  dataToAnalyse <- sampleGenesRNAseq
+}
+
 # Create hashes for storing the % R-genes with a chromatin mark in each gene region (frequency)
 # and the proportion of each gene region with that mark.
-sampleGenesFrequencies <- hash()
-sampleGenesProportions <- hash()
+dataToAnalyseFrequencies <- hash()
+dataToAnalyseProportions <- hash()
 
 # Generate a list of the number of genes in each set.
 geneCount <- data.frame()
 
-# Choose ecotype and tissue for analysis.
+# Choose ecotype and tissue for dataToAnalyse.
 # Options: ColLeaf, ColRoot
-tissueForAnalysis <- "ColLeaf"
+tissueFordataToAnalyse <- "ColLeaf"
 
-genesForAnalysis <- c("AT1G72840","AT1G72850","AT1G72852","AT1G72860","AT1G72870","AT1G72890",
-                      "AT1G72900","AT1G72910","AT1G72920","AT1G72930", "AT1G72940","AT1G72950")
-
-for (test in names(sampleGenes)[grepl(paste("_", tissue, sep = ""),names(sampleGenes))]) {
+for (test in names(dataToAnalyse)[grepl(paste("_", tissue, sep = ""),names(dataToAnalyse))]) {
   
   for (level in exLevel) {
-    dataToUse <- sampleGenes[[test]][[level]]
-    # dataToUse <- sampleGenes[[test]][[level]][c(which(sampleGenes[[test]][[level]]$Gene %in% genesForAnalysis)),]
-    
+    dataToUse <- dataToAnalyse[[test]][[level]]
+
     # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
-    allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
+    allModifications <- ReMapPerGene(dataToUse, tissueFordataToAnalyse)
     
     # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
     geneModifications <- modificationOccurrences(allModifications)
@@ -76,8 +78,8 @@ for (test in names(sampleGenes)[grepl(paste("_", tissue, sep = ""),names(sampleG
     modProportionPerRegion <- expressionColumn(modProportionPerRegion, level)
     
     # Store final results on the appropriate hash.
-    sampleGenesFrequencies[[test]][[level]] <- modFrequencyPerRegion
-    sampleGenesProportions[[test]][[level]] <- modProportionPerRegion
+    dataToAnalyseFrequencies[[test]][[level]] <- modFrequencyPerRegion
+    dataToAnalyseProportions[[test]][[level]] <- modProportionPerRegion
     
     print(level)
   }
@@ -90,22 +92,22 @@ write.csv(geneCount, file = paste("Data\\", tissue, "\\Gene count.txt", sep=""))
 allResultsFrequencies <- data.frame()
 allResultsProportions <- data.frame()
 
-for (test in names(sampleGenesFrequencies)) {
+for (test in names(dataToAnalyseFrequencies)) {
   for (level in exLevel) {
-    df1 <- sampleGenesFrequencies[[test]][[level]]
-    df1 <- cbind(df1, data.frame(SampleGenes = rep(test, times = nrow(df1))))
+    df1 <- dataToAnalyseFrequencies[[test]][[level]]
+    df1 <- cbind(df1, data.frame(dataToAnalyse = rep(test, times = nrow(df1))))
     
     allResultsFrequencies <- rbind(allResultsFrequencies, df1)
     
-    df2 <- sampleGenesProportions[[test]][[level]]
-    df2 <- cbind(df2, data.frame(SampleGenes = rep(test, times = nrow(df2))))
+    df2 <- dataToAnalyseProportions[[test]][[level]]
+    df2 <- cbind(df2, data.frame(dataToAnalyse = rep(test, times = nrow(df2))))
     
     allResultsProportions <- rbind(allResultsProportions, df2)
   }
 }
 
-rm(test, df1, df2, tissueForAnalysis, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse)
+rm(test, df1, df2, tissueFordataToAnalyse, allOverlaps, modFrequencyPerRegion, modProportionPerRegion, dataToUse)
 
 
-write.csv(allResultsFrequencies, file = paste("Data\\", tissue,"\\allResultsFrequencies.csv", sep = ""))
-write.csv(allResultsProportions, file = paste("Data\\", tissue, "\\allResultsProportions.csv", sep = ""))
+write.csv(allResultsFrequencies, file = paste("Data\\", analysis, "\\", tissue,"\\allResultsFrequencies.csv", sep = ""))
+write.csv(allResultsProportions, file = paste("Data\\", analysis, "\\", tissue, "\\allResultsProportions.csv", sep = ""))

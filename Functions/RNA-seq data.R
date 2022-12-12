@@ -1,4 +1,4 @@
-RNA_seqAnalysis <- function(dataToUse) {
+RNA_seqAnalysis <- function(dataToUse, exLevel) {
   
   treatments <- c("Mock", "untreated", "control", "Not treated", "mock", "unstressed control", "none",
                   "normal condition","healthy", "NA")
@@ -7,7 +7,7 @@ RNA_seqAnalysis <- function(dataToUse) {
   
   expressionData <- hash()
   
-  for (test in names(dataToUse)[2:12]) {
+  for (test in names(dataToUse)) {
     expressionData[[test]] <- as.data.frame(read_xlsx(paste("Data\\RNA-seq data\\", test, "_genes.xlsx", sep = "")))
     
     expressionData[[test]] <- expressionData[[test]][,-c(1:2, 162:165)]

@@ -106,17 +106,18 @@ for (test in names(sampleGenes)[grepl("control", names(sampleGenes))]) {
 
 
 # Get filtered expression data for each set of sample genes in each tissue. 
-# Add dataframes to sampleGenes for gene sets with particular expression levels.
+# Add dataframes to new sampleGenes hashes for gene sets with particular expression levels.
 source("Functions\\PlantExp.R")
+source("Functions\\RNA-seq data.R")
+
 exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
              "High Expression", "V.High Expression")
 
-sampleGenesPlantExp <- PlantExp(sampleGenes, exLevel)
+sampleGenesPlantExp <- PlantExp(sampleGenes[c("control1","control10","control2","control3","control4",
+                                              "control5","control6","control7","control8","control9","NLRs")], exLevel)
 
-sampleGenesRNAseq <- RNA_seqAnalysis(sampleGenes, exLevel)
-
-source("Functions\\Chinese expression data.R")
-sampleGenes <- otherExpressionAnalysis(sampleGenes)
+sampleGenesRNAseq <- RNA_seqAnalysis(sampleGenes[c("control1","control10","control2","control3","control4",
+                                                   "control5","control6","control7","control8","control9","NLRs")], exLevel)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
 source("Functions\\Modifications per gene.R")
@@ -134,25 +135,33 @@ epiMods <- unique(ReMap$epiMod)
 # and the enrichment of the modification (proportion) in each gene region.
 
 # Run parallel analyses as background jobs.
-for (tissue in c("Leaf", "Root", "Seedling")) {
+for (analysis in c("PlantExp data", "RNA-seq data")) {
+  for (tissue in c("leaves", "root", "seedlings")) {
   jobRunScript("ReMap analysis.R", name = tissue, importEnv = TRUE)
+  }
 }
 
 
-
 # Import the results.
-allResultsFrequencies <- data.frame()
-allResultsProportions <- data.frame()
+resultsFrequencies <- hash()
+resultsProportions <- hash()
 
-for (tissue in c("Leaf", "Root", "Seedling")) {
-  allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\NewallResultsFrequencies.xlsx", sep = ""))))
-  allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", tissue,"\\NewallResultsProportions.xlsx", sep = ""))))
+for (analysis in c("PlantExp data", "RNA-seq data")) {
+  allResultsFrequencies <- data.frame()
+  allResultsProportions <- data.frame()
+  
+  for (tissue in c("leaves", "root", "seedlings")) {
+    allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", analysis, "\\", tissue,"\\allResultsFrequencies.xlsx", sep = ""))))
+    allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", analysis, "\\", tissue,"\\allResultsProportions.xlsx", sep = ""))))
+  }
+  resultsFrequencies[[analysis]] <- allResultsFrequencies
+  resultsProportions[[analysis]] <- allResultsProportions
 }
 
 
 # Fisher's Exact Test - are R-genes enriched amongst those that possess a particular chromatin modification?
 # Plots comparing the occurrence of chromatin modifications in the seedlings of R-genes and controls.
-for (tissue in c("Leaf", "Root", "Seedling")) {
+for (tissue in c("leaves", "root", "seedlings")) {
   jobRunScript("Fisher's test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
 }
 
@@ -196,7 +205,7 @@ for (test in unique(allResultsProportions$SampleGenes)) {
 # Plots comparing the average proportion of coverage of each gene region by a particular modification in the 
 # seedlings of R-genes and controls.
 
-for (tissue in c("Leaf", "Root", "Seedling")) {
+for (tissue in c("leaves", "root", "seedlings")) {
     jobRunScript("T.test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
 }
 

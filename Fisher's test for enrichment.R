@@ -5,7 +5,7 @@ library(readr)
 
 
 # Fisher's Exact Test - are R-genes enriched amongst those that possess a particular chromatin modification?
-geneCount <- as.data.frame(read_csv("Data\\Seedling\\Gene count.txt"))
+geneCount <- as.data.frame(read_csv("Data\\seedlings\\Gene count.txt"))
 geneCount <- geneCount[,-1]
 
 df <- allResultsFrequencies[grepl(tissue, allResultsFrequencies$SampleGenes),]
