@@ -99,6 +99,11 @@ sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRgenes
 
 rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 
+# Export the list of control genes.
+for (test in names(sampleGenes)[grepl("control", names(sampleGenes))]) {
+  write(paste(sampleGenes[[test]]$Gene, collapse= ",", sep = ""), file = paste(test, "_genes.txt", sep = ""))
+}
+
 
 # Get filtered expression data for each set of sample genes in each tissue. 
 # Add dataframes to sampleGenes for gene sets with particular expression levels.
@@ -106,7 +111,9 @@ source("Functions\\PlantExp.R")
 exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
              "High Expression", "V.High Expression")
 
-sampleGenes <- PlantExp(sampleGenes, exLevel)
+sampleGenesPlantExp <- PlantExp(sampleGenes, exLevel)
+
+sampleGenesRNAseq <- RNA_seqAnalysis(sampleGenes, exLevel)
 
 source("Functions\\Chinese expression data.R")
 sampleGenes <- otherExpressionAnalysis(sampleGenes)
