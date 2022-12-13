@@ -111,7 +111,7 @@ source("Functions\\PlantExp.R")
 source("Functions\\RNA-seq data.R")
 
 exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
-             "High Expression", "V.High Expression")
+             "High Expression")
 
 sampleGenesPlantExp <- PlantExp(sampleGenes[c("control1","control10","control2","control3","control4",
                                               "control5","control6","control7","control8","control9","NLRs")], exLevel)
@@ -210,83 +210,14 @@ for (tissue in c("leaves", "root", "seedlings")) {
 }
 
 
-
-# Plot the expression of all R-genes and controls.
-geneExpression <- data.frame()
-
-for (test in names(sampleGenes[["NLRs_Seedling"]])) {
-  if (nrow(sampleGenes[["NLRs_Seedling"]][[test]]) >= 1) {
-    
-  geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[["NLRs_Seedling"]][[test]]$Gene,
-                                                   Expression = sampleGenes[["NLRs_Seedling"]][[test]]$FPKM,
-                                                   Level = sampleGenes[["NLRs_Seedling"]][[test]]$ExpressionLevel,
-                                                   SampleSize = paste(sampleGenes[["NLRs_Seedling"]][[test]]$ExpressionLevel, 
-                                                                      paste("(n = ", length(sampleGenes[["NLRs_Seedling"]][[test]]$Gene), ")", sep = ""), sep = " ")))
-  }
-  else geneExpression <- geneExpression
-}
-
-geneExpression <- geneExpression[order(geneExpression$Gene),] 
-
-plot <- ggplot(geneExpression[c(125:155),], aes(x = Gene, y = Expression, fill = SampleSize)) +
-  geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
-  theme(axis.text.x = element_text(angle = 90, size = 10), axis.text.y = element_text(size = 10), 
-        axis.title = element_text(size = 12), panel.background = element_rect(fill = "white", color = "white")) +
-  scale_fill_brewer(palette = "Reds", direction=-1, name = "Expression Level", labels = c(unique(geneExpression$SampleSize))) + 
-  coord_cartesian(ylim = c(0,65))
-
-ggsave("R-gene Seedling Expression 5.png", plot = plot, width = 15, height = 6)
-
-
-for (test in names(sampleGenes)[grepl("Seedling", names(sampleGenes)) & grepl("control", names(sampleGenes))]) {
-  geneExpression <- data.frame()
-  
-  for (n in exLevel) {
-    if (nrow(sampleGenes[[test]][[n]]) >= 1) {
-      geneExpression <- rbind(geneExpression, data.frame(Gene = sampleGenes[[test]][[n]]$Gene,
-                                                         Expression = sampleGenes[[test]][[n]]$FPKM,
-                                                         Level = sampleGenes[[test]][[n]]$ExpressionLevel,
-                                                         SampleSize = paste(sampleGenes[[test]][[n]]$ExpressionLevel, 
-                                                                            paste("(n = ", length(sampleGenes[[test]][[n]]$Gene), ")", sep = ""), sep = " ")))
-    }
-    else geneExpression <- geneExpression
-  }
-  
-  plot <- ggplot(geneExpression, aes(x = Gene, y = Expression, fill = factor(Level, levels = exLevel))) +
-    geom_bar(stat = "identity") + theme_minimal() + labs(x = "R-gene", y = "Expression (FPKM)") +
-    theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1)) +
-    scale_fill_brewer(palette = "Reds", direction=1, name = "Expression Level", labels = c(unique(geneExpression$SampleSize)))
-  
-  ggsave(paste(test,"Expression.pdf", sep = " "), plot = plot, width = 36, height = 6)
-}
-  
-# Expression boxplot.
-geneExpression <- data.frame()
-
-for (test in names(sampleGenes)[c(4,52)]) {
-  
-  for (n in names(sampleGenes[[test]])) {
-    geneExpression <- rbind(geneExpression, data.frame(GeneSet = rep(test, times = nrow(sampleGenes[[test]][[n]])),
-                                                       Expression = sampleGenes[[test]][[n]]$FPKM))
+# Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
+# than between all genes.
+for (analysis in c("PlantExp data", "RNA-seq data")) {
+  for (tissue in c("leaves", "root", "seedlings")) {
+    jobRunScript("Enrichment variability within clusters.R", name = tissue, importEnv = TRUE)
   }
 }
 
-geneExpressionMean <- data.frame(GeneSet = "Controls",
-                                 Expression = geneExpression[c(grep("control", geneExpression$GeneSet)), "Expression"])
-
-geneExpressionMean <- rbind(geneExpressionMean, data.frame(GeneSet = "R-genes",
-                                                            Expression = geneExpression[c(grep("NLR", geneExpression$GeneSet)), "Expression"]))
-
-geneExpressionCut <- geneExpression[c(which(geneExpression$Expression <= 50)),]
-
-plot <- ggplot(geneExpression, aes(x = GeneSet, y = Expression)) +
-                 geom_boxplot(aes(group = GeneSet)) + theme_minimal() + labs(x = "Gene set", y = "Expression (FPKM)") +
-                 theme(axis.text.x = element_text(angle = 45, size = 8, hjust = 1))
-
-
-ggsave("Expression boxplot.pdf", plot = plot, width = 12, height = 6)
-
-statTest <- wilcox.test(Expression~GeneSet, geneExpressionMean)
 
 # Determine whether the expression is more similar between R-genes within a cluster than between all R-genes in seedlings.
 clusteredExpression <- data.frame()
@@ -340,179 +271,4 @@ plot <- ggplot(expressionDifference, aes(x = Comparison, y = ExpressionDifferenc
 
 
 
-# Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
-# than between all genes.
 
-# Choose ecotype and tissue for analysis.
-# Options: leafGenes, rootGenes, seedlingGenes
-tissueForAnalysis <- "seedlingGenes"
-
-# Create a hash for storing the proportion of each R-gene region modified with each mark.
-sampleGenesProportions_ClusterAnalysis <- hash()
-
-for (test in names(sampleGenes)[c(1,49)]) {
-  
-  for (cluster in unique(sampleGenes[[test]]$Clustering)) {
-    dataToUse <- sampleGenes[[test]][sampleGenes[[test]]$Clustering == cluster,]
-
-    # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
-    allModifications <- ReMapPerGene(dataToUse, tissueForAnalysis)
-    
-    # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
-    geneModifications <- modificationOccurrences(allModifications)
-    
-    rm(allModifications)
-    
-    # For each gene in the current set of genes, merge the overlapping occurrences of each modification.
-    allOverlaps <- mergeOverlappingModifications(geneModifications)
-    
-    
-    # Determine the % R-genes with a chromatin mark in each gene region (frequency)
-    # and the proportion of each gene region with that mark.
-    geneRegions <- getGeneCoordinates(dataToUse)
-    
-    modProportionPerRegion <- modProportionsFunction(geneRegions, allOverlaps, epiMods)
-    
-    # Add a column to modProportionPerRegion with the numbers for 
-    # each gene region that will correspond with their position on the x axis.
-    modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRegions)
-    
-    # Add a column to modProportionPerRegion with the current expression level.
-    modProportionPerRegion <- expressionColumn(modProportionPerRegion, cluster)
-    
-    # Store final results on the appropriate hash.
-    sampleGenesProportions_ClusterAnalysis[[test]][[cluster]] <- modProportionPerRegion
-  }
-}
-
-
-# Merge all data from all sample gene sets into one big dataframe.
-allResultsProportions_ClusterAnalysis <- data.frame()
-
-for (test in names(sampleGenesProportions_ClusterAnalysis)) {
-  for (cluster in names(sampleGenesProportions_ClusterAnalysis[[test]])) {
-    
-    df2 <- sampleGenesProportions_ClusterAnalysis[[test]][[cluster]]
-    df2 <- cbind(df2, data.frame(SampleGenes = rep(test, times = nrow(df2))))
-    
-    allResultsProportions_ClusterAnalysis <- rbind(allResultsProportions_ClusterAnalysis, df2)
-  }
-}
-
-
-# Divide the list of chromatin modifications into 3 lists.
-modList <- list(miniList1 = unique(allResultsProportions$Modification)[1:7],
-                miniList2 = unique(allResultsProportions$Modification)[8:14],
-                miniList3 = unique(allResultsProportions$Modification)[15:21])
-
-# Calculate the difference in the proportion of each R-gene region covered by each modification between R-genes of the same cluster.
-for (modMiniList in names(modList)) {
-  jobRunScript("Pairwise comparisons of enrichment.R", name = modMiniList, importEnv = TRUE)
-}
-
-modificationDifference <- data.frame()
-
-for (comparison in c("Cluster modification comparisons", "All R-gene modification comparisons")) {
-  for (file in list.files(path = "Data\\",pattern = comparison)) {
-    df <- as.data.frame(read_xlsx(paste("Data\\", file, sep = "")))
-    df <- df[,c(1:4)]
-    df <- cbind(df, data.frame(Comparison = comparison))
-    
-    modificationDifference <- rbind(modificationDifference, df)
-  }
-}
-
-# T-Test - is there a significant difference in the degree of variation among R-genes within a cluster
-# compared to all R-genes?
-
-statTestDF <- data.frame()
-
-for (mod in unique(allResultsProportions$Modification)) {
-  df <- modificationDifference[modificationDifference$Modification==mod,]
-  
-  compareAverages <- data.frame()
-  
-  for (r in unique(df$Region)) {
-    df1 <- df[df$Region==r,]
-    statTest <- t.test(df1[df1$Comparison=="Cluster modification comparisons","ModificationDifference"],
-                       mu = mean(df1[df1$Comparison=="All R-gene modification comparisons","ModificationDifference"]))
-    
-    compareAverages <- rbind(compareAverages, data.frame(Region = r,
-                                                         axisGroup = df1$axisGroup[1],
-                                                         ModificationDifference = mean(df1[df1$Comparison=="Cluster modification comparisons","ModificationDifference"]),
-                                                         Comparison = "Cluster modification comparisons"))
-    
-    compareAverages <- rbind(compareAverages, data.frame(Region = r,
-                                                         axisGroup = df1$axisGroup[1],
-                                                         ModificationDifference = mean(df1[df1$Comparison=="All R-gene modification comparisons","ModificationDifference"]),
-                                                         Comparison = "All R-gene modification comparisons"))
-                       
-    if (is.na(statTest$p.value)==TRUE) {
-      statTestDF <- statTestDF
-    } else if (0.05 >= statTest$p.value & statTest$p.value > 0.01) {
-      statTestDF <- rbind(statTestDF, data.frame(Modification = mod,
-                                             Region = r,
-                                             Statistic = statTest$statistic,
-                                             p.value = statTest$p.value,
-                                             Significance = "*"))
-      
-    } else if (0.01 >= statTest$p.value & statTest$p.value > 0.001) {
-      statTestDF <- rbind(statTestDF, data.frame(Modification = mod,
-                                             Region = r,
-                                             Statistic = statTest$statistic,
-                                             p.value = statTest$p.value,
-                                             Significance = "**"))
-      
-    } else if (statTest$p.value <= 0.001) {
-      statTestDF <- rbind(statTestDF, data.frame(Modification = mod,
-                                             Region = r,
-                                             Statistic = statTest$statistic,
-                                             p.value = statTest$p.value,
-                                             Significance = "***"))
-      
-    } else  statTestDF <- rbind(statTestDF, data.frame(Modification = mod,
-                                                   Region = r,
-                                                   Statistic = statTest$statistic,
-                                                   p.value = statTest$p.value,
-                                                   Significance = " "))
-  }
-  
-  # Plots comparing the degree of variation among R-genes within a cluster compared to all R-genes.
-  facetLabels <- c(paste(mod, " - Between R-genes in the same cluster", sep = ""), paste(mod, " - Between all R-genes", sep = ""))
-  names(facetLabels) <- unique(df$Comparison)
-  
-  boxplot <- ggplot(df, aes(x = axisGroup, y = ModificationDifference)) + 
-    scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
-    scale_y_continuous(limits = c(0,1), expand = c(0,0)) + 
-    geom_boxplot(aes(group = Region)) + theme_minimal() + coord_cartesian(ylim= c(0,1), clip = "off") +
-    labs(x = "", y = "Difference in proportion of gene region modified") +
-    geom_vline(xintercept=0, color="grey", linewidth=1) + theme(plot.margin = unit(c(1,1,.3,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=-10,xmax=100,ymin=-.15,ymax=-.15) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=-10,xmax=100,ymin=-.22,ymax=-.22) +
-    theme(axis.text.x = element_text(size = 12, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2), strip.text = element_text(size = 16, vjust = 4),
-          legend.text = element_text(size = 12), legend.title = element_text(size = 14), axis.line = element_line(linewidth = .6)) + 
-    facet_wrap(~Comparison, labeller = labeller(Comparison = facetLabels)) + 
-    stat_summary(fun="mean", geom="point", color="black", size=2) +
-    stat_summary(fun="mean", geom="line", color="black", linewidth=1)
-  
-  ggsave(paste("Graphs\\Clusters vs. Background\\", mod, "_boxplot.pdf", sep = ""), plot = boxplot, width = 16, height = 6)
-  
-  
-  plot <- ggplot(compareAverages, aes(axisGroup, y = ModificationDifference, color = Comparison)) +
-    scale_x_continuous(limits = c(-70, 150), breaks = seq(-60, 140, 20), labels = axisText) +
-    scale_y_continuous(limits = c(0,1), expand = c(0,0)) + 
-    geom_point(size=2) + geom_line(linewidth = 1) + theme_minimal() + coord_cartesian(ylim= c(0,1), clip = "off") +
-    geom_vline(xintercept=0, color="grey", linewidth=1) + theme(plot.margin = unit(c(1,1,.3,1), "lines")) +
-    annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=14, col = "grey33")),xmin=-10,xmax=100,ymin=-.15,ymax=-.15) + 
-    annotation_custom(textGrob("Gene region", gp=gpar(fontsize=14)),xmin=-10,xmax=100,ymin=-.22,ymax=-.22) +
-    theme(axis.text.x = element_text(size = 12, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 12,colour = "black"), 
-          axis.title.y = element_text(size = 14, vjust = 2), strip.text = element_text(size = 16, vjust = 4),
-          legend.text = element_text(size = 12), legend.title = element_text(color = "white"), axis.line = element_line(linewidth = .6)) +
-    scale_color_manual(values = c("coral2", "darkslategrey"), labels = c("Between all R-genes", "Between R-genes in \nthe same cluster")) +
-    labs(x = "", y = "Average difference in enrichment")
-
-  ggsave(paste("Graphs\\Clusters vs. Background\\", mod, "_lineplot.pdf", sep = ""), plot = plot, width = 10, height = 6)
-}
-
-write.csv(statTestDF, file = paste("Tests\\T.test_clustered.vs.background.csv", sep = ""))

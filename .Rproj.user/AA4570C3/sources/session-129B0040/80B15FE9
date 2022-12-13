@@ -1,0 +1,26 @@
+{
+    "id": "80B15FE9",
+    "path": "~/PhD/PhD.git/Functions/RNA-seq data.R",
+    "project_path": "Functions/RNA-seq data.R",
+    "type": "r_source",
+    "hash": "298682266",
+    "contents": "",
+    "dirty": false,
+    "created": 1670921055458.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "47,54",
+        "scrollLine": "19"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1670921186,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1670921186618,
+    "read_only": false,
+    "read_only_alternatives": []
+}

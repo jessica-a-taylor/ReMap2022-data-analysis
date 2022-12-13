@@ -35,17 +35,17 @@ RNA_seqAnalysis <- function(dataToUse, exLevel) {
         if (0 <= expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] & expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] <= 1) {
           expressionLevel <- append(expressionLevel, "No Expression")
         }
-        else if (1 < expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] & expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] <= 10) {
+        else if (1 < expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] & expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] <= 50) {
           expressionLevel <- append(expressionLevel, "Low Expression")
         }
-        else if (10 < expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] & expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] <= 50) {
+        else if (50 < expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] & expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] <= 100) {
           expressionLevel <- append(expressionLevel, "Intermediate Expression")
         }
-        else if (50 < expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] & expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"]<= 100) {
-          expressionLevel <- append(expressionLevel, "High Expression")
-        }
+        #else if (50 < expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] & expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"]<= 100) {
+         # expressionLevel <- append(expressionLevel, "High Expression")
+        #}
         else if (expressionData_tissue[expressionData_tissue$Gene==gene, "Expression"] > 100) {
-          expressionLevel <- append(expressionLevel, "V.High Expression")
+          expressionLevel <- append(expressionLevel, "High Expression")
         }
       }
       

@@ -35,7 +35,14 @@ geneCount <- data.frame()
 
 # Choose ecotype and tissue for dataToAnalyse.
 # Options: leafGenes, rootGenes, seedlingGenes
-tissueForAnalysis <- "seedlingGenes"
+if (tissue == "leaves") {
+  tissueForAnalysis <- "leafGenes"
+} else if (tissue == "root") {
+  tissueForAnalysis <- "rootGenes"
+} else if (tissue == "seedlings") {
+  tissueForAnalysis <- "seedlingGenes"
+}
+
 
 for (test in names(dataToAnalyse)[grepl(paste("_", tissue, sep = ""),names(dataToAnalyse))]) {
   
