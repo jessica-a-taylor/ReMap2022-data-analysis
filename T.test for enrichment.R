@@ -22,8 +22,8 @@ for (mod in unique(resultsProportions[[analysis]]$Modification)) {
     for (level in c("No Expression", "Low Expression")) {
       df2 <- df1[df1$Expression == level,]
       
-      statTest <- t.test(df2[c(which(df2$dataToAnalyse == paste("NLRs_", tissue, sep = ""))), "Proportion"], mu = mean(df2[grepl("control", df2$dataToAnalyse) & 
-                                                                                                                           grepl(tissue, df2$dataToAnalyse), "Proportion"]))
+        statTest <- t.test(df2[c(which(df2$dataToAnalyse == paste("NLRs_", tissue, sep = ""))), "Proportion"], mu = mean(df2[grepl("control", df2$dataToAnalyse) & 
+                                                                                                                               grepl(tissue, df2$dataToAnalyse), "Proportion"]))
       
       if (is.na(statTest$p.value)==TRUE) {
         t.testDF <- t.testDF
@@ -66,7 +66,7 @@ write.csv(t.testDF, file = paste("Tests\\", analysis, "\\", tissue,"\\T.test_pro
 
 
 # Plots comparing the average proportion of coverage of each gene region by a particular modification for R-genes and controls.
-geneCount <- as.data.frame(read_csv(paste("Data\\",tissue, "\\Gene count.txt", sep = "")))
+geneCount <- as.data.frame(read_csv(paste("Data\\", analysis, "\\", tissue, "\\Gene count.txt", sep = "")))
 geneCount <- geneCount[,-1]
 
 dataToUse <- resultsAverageProportions[[analysis]][grepl(tissue, resultsAverageProportions[[analysis]]$Tissue) & 
@@ -75,7 +75,7 @@ dataToUse <- resultsAverageProportions[[analysis]][grepl(tissue, resultsAverageP
 for (mod in epiMods) {
   df <- dataToUse[dataToUse$Modification==mod,]
   
-  for (level in df$Expression) {
+  for (level in unique(df$Expression)) {
     
     df1 <- df[df$Expression==level,]
     

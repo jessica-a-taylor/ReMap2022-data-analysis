@@ -8,7 +8,9 @@ RNA_seqAnalysis <- function(dataToUse, exLevel) {
   expressionData <- hash()
   
   for (test in names(dataToUse)) {
-    expressionData[[test]] <- as.data.frame(read_xlsx(paste("Data\\RNA-seq data\\", test, "_genes.xlsx", sep = "")))
+    print(test)
+    
+    expressionData[[test]] <- as.data.frame(read_csv(paste("Data\\RNA-seq data\\", test, "_genes.csv", sep = ""), skip = 1))
     
     expressionData[[test]] <- expressionData[[test]][,-c(1:2, 162:165)]
     

@@ -1,1 +1,7 @@
-""
+"","Expression","Modification","Region","Modified.Rgenes","Unmodified.Rgenes","Modified.controls","Unmodified.controls","p.value","Significance"
+"1","Low Expression","H3ac","Gene20",71,27,980,239,0.0431178025019661,"*"
+"2","Low Expression","H3ac","Gene40",35,63,791,428,1.61866118947018e-08,"***"
+"3","Low Expression","H3ac","Gene60",14,84,451,768,1.30804684854202e-06,"***"
+"4","Low Expression","H3ac","Gene80",11,87,302,917,0.00097235674200188,"***"
+"5","Low Expression","H3K4me3","Gene40",24,74,455,764,0.00644434033294099,"**"
+"6","Low Expression","H3K4me3","Gene60",11,87,315,904,0.00045521152200251,"***"

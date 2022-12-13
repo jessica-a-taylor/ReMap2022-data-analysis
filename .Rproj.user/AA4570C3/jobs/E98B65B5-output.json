@@ -1,8 +1,0 @@
-[2,"Loading required package: regioneR\r\n"]
-[2,"Loading required package: GenomicRanges\r\n"]
-[2,"Loading required package: stats4\r\n"]
-[2,"Loading required package: BiocGenerics\r\n"]
-[2,"\r\nAttaching package: 'BiocGenerics'\r\n\r\nThe following objects are masked from 'package:stats':\r\n\r\n    IQR, mad, sd, var, xtabs\r\n\r\nThe following objects are masked from 'package:base':\r\n\r\n    anyDuplicated, append, as.data.frame, basename, cbind, colnames,\r\n    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,\r\n    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,\r\n    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,\r\n    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,\r\n    union, unique, unsplit, which.max, which.min\r\n\r\nLoading required package: S4Vectors\r\n"]
-[2,"\r\nAttaching package: 'S4Vectors'\r\n\r\nThe following objects are masked from 'package:base':\r\n\r\n    expand.grid, I, unname\r\n\r\n"]
-[2,"Loading required package: IRanges\r\n"]
-[2,"\r\nAttaching package: 'IRanges'\r\n\r\nThe following object is masked from 'package:grDevices':\r\n\r\n    windows\r\n\r\nLoading required package: GenomeInfoDb\r\n"]

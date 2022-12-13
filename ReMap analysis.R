@@ -12,8 +12,6 @@ library(grid)
 library(readr)
 library(rstudioapi)
 
-setwd("~/PhD/PhD.git")
-
 source("Functions\\Overlaps functions.R")
 source("Functions\\Modifications per gene.R")
 source("Functions\\Coordinates per gene region.R")
@@ -132,7 +130,6 @@ for (test in unique(allResultsProportions$dataToAnalyse)) {
         for (r in unique(df2$Region)) {
           df3 <- df2[df2$Region==r,]
           
-          if (nrow(df3) >= 10) {
             allResultsAverageProportions <- rbind(allResultsAverageProportions, data.frame(Region = r,
                                                                                            Modification = mod,
                                                                                            Proportion = mean(df3$Proportion),
@@ -140,8 +137,7 @@ for (test in unique(allResultsProportions$dataToAnalyse)) {
                                                                                            axisGroup = df3$axisGroup[1],
                                                                                            Expression = level,
                                                                                            SampleSize = nrow(df3)))
-          }
-          else allResultsAverageProportions <- allResultsAverageProportions
+
         }
       }
     } else allResultsAverageProportions <- allResultsAverageProportions

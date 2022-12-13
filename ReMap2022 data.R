@@ -62,8 +62,6 @@ transposableElements <- as.data.frame(read_xlsx("Data\\Arabidopsis TE genes.xlsx
 
 withoutTEs <- euchromaticgeneRegions[-c(which(euchromaticgeneRegions$Gene %in% transposableElements$Locus)),]
 
-rm(transposableElements)
-
 
 # Get 10 sets of random genes and store in a hash from gene dataset of interest.
 source("Functions\\Sample random genes.R")
@@ -91,6 +89,7 @@ notClusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% notClusteredNLRs$Gen
 notClusteredNLRgenes <- cbind(notClusteredNLRgenes, 
                               data.frame(Clustering = notClusteredNLRs[which(notClusteredNLRs$Gene %in% notClusteredNLRgenes$Gene),"Clustering"]))
 
+rm(transposableElements, euchromaticgeneRegions, ArabidopsisNLRs, Atgenes)
 
 # Add R-genes to sampleGenes.
 sampleGenes[["NLRs"]] <- NLRgenes
@@ -108,7 +107,6 @@ for (test in names(sampleGenes)[grepl("control", names(sampleGenes))]) {
 # Get filtered expression data for each set of sample genes in each tissue. 
 # Add dataframes to new sampleGenes hashes for gene sets with particular expression levels.
 source("Functions\\PlantExp.R")
-source("Functions\\RNA-seq data.R")
 
 exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
              "High Expression")
@@ -116,8 +114,11 @@ exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
 sampleGenesPlantExp <- PlantExp(sampleGenes[c("control1","control10","control2","control3","control4",
                                               "control5","control6","control7","control8","control9","NLRs")], exLevel)
 
+source("Functions\\RNA-seq data.R")
 sampleGenesRNAseq <- RNA_seqAnalysis(sampleGenes[c("control1","control10","control2","control3","control4",
                                                    "control5","control6","control7","control8","control9","NLRs")], exLevel)
+
+rm(gene, row, test)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
 source("Functions\\Modifications per gene.R")
@@ -125,7 +126,7 @@ source("Functions\\Coordinates per gene region.R")
 source("Functions\\Modification frequencies & proportions.R")
 
 # Import filtered ReMap2022 data.
-ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.csv"))
+ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
 
 # Create list of chromatin modifications.
 epiMods <- unique(ReMap$epiMod)
@@ -137,10 +138,13 @@ epiMods <- unique(ReMap$epiMod)
 # Run parallel analyses as background jobs.
 for (analysis in c("PlantExp data", "RNA-seq data")) {
   for (tissue in c("leaves", "root", "seedlings")) {
-  jobRunScript("ReMap analysis.R", name = tissue, importEnv = TRUE)
+  jobRunScript("ReMap analysis.R", name = paste(analysis, tissue, sep = "_"), importEnv = TRUE)
   }
 }
 
+rm(betweenFunction, expressionColumn, findItem, geneRegionAxisLocations, geneSets, getGeneCoordinates,
+   mergeCoordinates, mergeOverlappingModifications, modFrequenciesFunction, modificationOccurrences,
+   modProportionsFunction, overlapsFunction, ReMapPerGene, PlantExp, RNA_seqAnalysis, newOverlapsFunction)
 
 # Import the results.
 resultsFrequencies <- hash()
@@ -162,6 +166,8 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
   resultsAverageProportions[[analysis]] <- allResultsAverageProportions
 }
 
+axisText <- c("intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS", "20%",
+              "40%", "60%", "80%", "100%", "Downstream \n(200bp)", "Intergenic")
 
 # Fisher's Exact Test - are R-genes enriched amongst those that possess a particular chromatin modification?
 # Plots comparing the occurrence of chromatin modifications in the seedlings of R-genes and controls.
@@ -179,16 +185,13 @@ for (tissue in c("leaves", "root", "seedlings")) {
 }
 
 
-# For each chromatin modification, plot a bar graph of the enrichment in each R-gene.
-
-
 # For each chromatin modification, plot the enrichment in each R-gene for each expression level.
 for (analysis in c("PlantExp data", "RNA-seq data")) {
   for (tissue in c("leaves", "root", "seedlings")) {
-  df <- resultsAverageProportions[[analysis]][grepl("NLRs", resultsAverageProportions[[analysis]]$Tissue) &
-                                                grepl(tissue, resultsAverageProportions[[analysis]]$Tissue) &
-                                                !grepl("luster", resultsAverageProportions[[analysis]]$Tissue),]
-  
+    df <- resultsAverageProportions[[analysis]][grepl("NLRs", resultsAverageProportions[[analysis]]$Tissue) &
+                                                  grepl(tissue, resultsAverageProportions[[analysis]]$Tissue) &
+                                                  !grepl("luster", resultsAverageProportions[[analysis]]$Tissue),]
+    
     for (mod in unique(df$Modification)) {
       df1 <- df[df$Modification==mod,]
       
@@ -196,8 +199,9 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
         geom_line(aes(group = Expression),linewidth = 1) +
         scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
         scale_y_continuous(limits = c(0,1), expand = c(0,0)) + 
-        labs(x = "", y = "Average proportion of gene region", title = paste(mod, "-", level, sep = " ")) +
+        labs(x = "", y = "Average proportion of gene region", color = "Expression level", title = mod) +
         geom_vline(xintercept=0, color="grey", linewidth=1) +
+        scale_color_manual(values = c("coral2", "darkslategrey")) +        
         coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,.3,1), "lines")) +
         annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=16, col = "grey33")),xmin=0,xmax=100,ymin=-.17,ymax=-.17) + 
         annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-.25,ymax=-.25) +
@@ -205,9 +209,15 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
               axis.title.y = element_text(size = 16, vjust = 2), plot.title = element_text(hjust = .5, size = 16),
               legend.text = element_text(size = 12), legend.title = element_text(size = 14), axis.line = element_line(linewidth = .6))
       
+      ggsave(paste("Graphs\\Enrichment\\", analysis, "\\", tissue, "\\R-gene enrichment for ", mod, ".pdf", sep = ""), plot = plot, width = 12, height = 6)
+      
     }
   }
 }
+
+# For each chromatin modification, plot a bar graph of the enrichment in each R-gene.
+
+
 
 
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
@@ -217,14 +227,6 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
     jobRunScript("Enrichment variability within clusters.R", name = tissue, importEnv = TRUE)
   }
 }
-
-
-
-
-
-
-
-
 
 
 

@@ -5,7 +5,7 @@ library(readr)
 
 
 # Fisher's Exact Test - are R-genes enriched amongst those that possess a particular chromatin modification?
-geneCount <- as.data.frame(read_csv("Data\\seedlings\\Gene count.txt"))
+geneCount <- as.data.frame(read_csv(paste("Data\\", analysis, "\\", tissue, "\\Gene count.txt", sep = "")))
 geneCount <- geneCount[,-1]
 
 for (analysis in c("PlantExp data", "RNA-seq data")) {
@@ -85,8 +85,8 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
         }
       }
     }
-    print("Test done")
   }
+  print("Test done")
   write.csv(hypergeometricTest, file = paste("Tests\\", analysis, "\\", tissue, "\\Fisher.Test_frequencies.csv", sep = ""))
   
   # Plots comparing the occurrence of chromatin modifications in the seedlings of R-genes and controls.
