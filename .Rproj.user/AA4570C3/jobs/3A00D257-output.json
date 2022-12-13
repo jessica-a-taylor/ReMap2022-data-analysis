@@ -1,0 +1,3 @@
+[2,"Loading required package: hash\r\nhash-2.2.6.2 provided by Decision Patterns\r\n\r\n"]
+[2,"\r\nAttaching package: 'hash'\r\n\r\n"]
+[2,"The following object is masked from 'package:data.table':\r\n\r\n    copy\r\n\r\nError in t.test.default(df2[c(which(df2$dataForAnalysis == paste(\"NLRs_\",  : \r\n  'mu' must be a single number\r\nCalls: sourceWithProgress -> eval -> eval -> t.test -> t.test.default\r\nExecution halted\r\n"]

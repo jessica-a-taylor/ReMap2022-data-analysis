@@ -1,0 +1,54 @@
+for (analysis in c("PlantExp data", "RNA-seq data")) {
+  for (tissue in c("leaves", "root", "seedlings")) {
+    if (analysis == "PlantExp data") {
+      dataToAnalyse <- sampleGenesPlantExp
+    } else if (analysis == "RNA-seq data") {
+      dataToAnalyse <- sampleGenesRNAseq
+    }
+    if (tissue == "leaves") {
+      tissueForAnalysis <- "leafGenes"
+    } else if (tissue == "root") {
+      tissueForAnalysis <- "rootGenes"
+    } else if (tissue == "seedlings") {
+      tissueForAnalysis <- "seedlingGenes"
+    }
+    # Calculate the mean proportion of overlap and add as a new column to the dataframe.
+    allResultsProportions <- read_xlsx(paste("Data\\", analysis, "\\", tissue,"\\allResultsProportions.xlsx", sep = ""))
+    
+    
+    allResultsAverageProportions <- data.frame()
+    
+    for (test in unique(allResultsProportions$dataToAnalyse)) {
+      df <- allResultsProportions[allResultsProportions$dataToAnalyse==test,]
+      
+      for (level in unique(df$Expression)) { 
+        df1 <- df[df$Expression==level,]
+        
+        if (nrow(df1) >= 1) {
+          for (mod in unique(df1$Modification)) {
+            df2 <- df1[df1$Modification==mod,]
+            
+            for (r in unique(df2$Region)) {
+              df3 <- df2[df2$Region==r,]
+              
+              if (nrow(df3) >= 10) {
+                allResultsAverageProportions <- rbind(allResultsAverageProportions, data.frame(Region = r,
+                                                                                               Modification = mod,
+                                                                                               Proportion = mean(df3$Proportion),
+                                                                                               Tissue = df3$dataToAnalyse[1],
+                                                                                               axisGroup = df3$axisGroup[1],
+                                                                                               Expression = level,
+                                                                                               SampleSize = nrow(df3)))
+              }
+              else allResultsAverageProportions <- allResultsAverageProportions
+            }
+          }
+        } else allResultsAverageProportions <- allResultsAverageProportions
+      }
+    }
+    
+    write.csv(allResultsAverageProportions, file = paste("Data\\", analysis, "\\", tissue, "\\allResultsAverageProportions.csv", sep = ""))
+  }
+}
+
+

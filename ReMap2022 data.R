@@ -125,7 +125,7 @@ source("Functions\\Coordinates per gene region.R")
 source("Functions\\Modification frequencies & proportions.R")
 
 # Import filtered ReMap2022 data.
-ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
+ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.csv"))
 
 # Create list of chromatin modifications.
 epiMods <- unique(ReMap$epiMod)
@@ -145,17 +145,21 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
 # Import the results.
 resultsFrequencies <- hash()
 resultsProportions <- hash()
+resultsAverageProportions <- hash()
 
 for (analysis in c("PlantExp data", "RNA-seq data")) {
   allResultsFrequencies <- data.frame()
   allResultsProportions <- data.frame()
+  allResultsAverageProportions <- data.frame()
   
   for (tissue in c("leaves", "root", "seedlings")) {
-    allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_xlsx(paste("Data\\", analysis, "\\", tissue,"\\allResultsFrequencies.xlsx", sep = ""))))
-    allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_xlsx(paste("Data\\", analysis, "\\", tissue,"\\allResultsProportions.xlsx", sep = ""))))
+    allResultsFrequencies <- rbind(allResultsFrequencies, as.data.frame(read_csv(paste("Data\\", analysis, "\\", tissue,"\\allResultsFrequencies.csv", sep = ""))))
+    allResultsProportions <- rbind(allResultsProportions, as.data.frame(read_csv(paste("Data\\", analysis, "\\", tissue,"\\allResultsProportions.csv", sep = ""))))
+    allResultsAverageProportions <- rbind(allResultsAverageProportions, as.data.frame(read_csv(paste("Data\\", analysis, "\\", tissue,"\\allResultsAverageProportions.csv", sep = ""))))
   }
   resultsFrequencies[[analysis]] <- allResultsFrequencies
   resultsProportions[[analysis]] <- allResultsProportions
+  resultsAverageProportions[[analysis]] <- allResultsAverageProportions
 }
 
 
@@ -166,47 +170,43 @@ for (tissue in c("leaves", "root", "seedlings")) {
 }
 
 
-# Calculate the mean proportion of overlap and add as a new column to the dataframe.
-allResultsAverageProportions <- data.frame()
-
-for (test in unique(allResultsProportions$SampleGenes)) {
-  df <- allResultsProportions[allResultsProportions$SampleGenes==test,]
-  
-    for (level in unique(df$Expression)) { 
-      df1 <- df[df$Expression==level,]
-      
-      if (nrow(df1) >= 1) {
-        for (mod in unique(df1$Modification)) {
-          df2 <- df1[df1$Modification==mod,]
-          
-          for (r in unique(df2$Region)) {
-            df3 <- df2[df2$Region==r,]
-            
-            if (nrow(df3) >= 10) {
-              allResultsAverageProportions <- rbind(allResultsAverageProportions, data.frame(Region = r,
-                                                                                             Modification = mod,
-                                                                                             Proportion = mean(df3$Proportion),
-                                                                                             Tissue = df3$SampleGenes[1],
-                                                                                             axisGroup = df3$axisGroup[1],
-                                                                                             Expression = level,
-                                                                                             SampleSize = nrow(df3)))
-            }
-            else allResultsAverageProportions <- allResultsAverageProportions
-          }
-        }
-      } else allResultsAverageProportions <- allResultsAverageProportions
-    }
+# T-Test - is there a significant difference in the average proportion of coverage of  
+# each gene region by a particular modification between R-genes and controls?
+# Plots comparing the average proportion of coverage of each gene region by a particular modification in the 
+# seedlings of R-genes and controls.
+for (tissue in c("leaves", "root", "seedlings")) {
+    jobRunScript("T.test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
 }
 
 
-# T-Test - is there a significant difference in the average proportion of coverage of  
-# each gene region by a particular modification between R-genes and controls?
+# For each chromatin modification, plot a bar graph of the enrichment in each R-gene.
 
-# Plots comparing the average proportion of coverage of each gene region by a particular modification in the 
-# seedlings of R-genes and controls.
 
-for (tissue in c("leaves", "root", "seedlings")) {
-    jobRunScript("T.test for enrichment.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+# For each chromatin modification, plot the enrichment in each R-gene for each expression level.
+for (analysis in c("PlantExp data", "RNA-seq data")) {
+  for (tissue in c("leaves", "root", "seedlings")) {
+  df <- resultsAverageProportions[[analysis]][grepl("NLRs", resultsAverageProportions[[analysis]]$Tissue) &
+                                                grepl(tissue, resultsAverageProportions[[analysis]]$Tissue) &
+                                                !grepl("luster", resultsAverageProportions[[analysis]]$Tissue),]
+  
+    for (mod in unique(df$Modification)) {
+      df1 <- df[df$Modification==mod,]
+      
+      plot <- ggplot(df1, aes(x = axisGroup, y = Proportion, color = Expression)) +
+        geom_line(aes(group = Expression),linewidth = 1) +
+        scale_x_continuous(limits = c(-60, 140), breaks = seq(-60, 140, 20), labels = axisText) +
+        scale_y_continuous(limits = c(0,1), expand = c(0,0)) + 
+        labs(x = "", y = "Average proportion of gene region", title = paste(mod, "-", level, sep = " ")) +
+        geom_vline(xintercept=0, color="grey", linewidth=1) +
+        coord_cartesian(ylim= c(0,1), clip = "off") + theme(plot.margin = unit(c(1,1,.3,1), "lines")) +
+        annotation_custom(textGrob("% of gene length from TSS", gp=gpar(fontsize=16, col = "grey33")),xmin=0,xmax=100,ymin=-.17,ymax=-.17) + 
+        annotation_custom(textGrob("Gene region", gp=gpar(fontsize=16)),xmin=0,xmax=100,ymin=-.25,ymax=-.25) +
+        theme(axis.text.x = element_text(size = 14, colour = "black", angle = 45, vjust = 1, hjust = 1), axis.text.y = element_text(size = 14,colour = "black"), 
+              axis.title.y = element_text(size = 16, vjust = 2), plot.title = element_text(hjust = .5, size = 16),
+              legend.text = element_text(size = 12), legend.title = element_text(size = 14), axis.line = element_line(linewidth = .6))
+      
+    }
+  }
 }
 
 
@@ -217,6 +217,19 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
     jobRunScript("Enrichment variability within clusters.R", name = tissue, importEnv = TRUE)
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Determine whether the expression is more similar between R-genes within a cluster than between all R-genes in seedlings.

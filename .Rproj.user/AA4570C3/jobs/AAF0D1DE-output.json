@@ -1,0 +1,5 @@
+[2,"Loading required package: hash\r\nhash-2.2.6.2 provided by Decision Patterns\r\n\r\n"]
+[2,"\r\nAttaching package: 'hash'\r\n\r\n"]
+[2,"The following object is masked from 'package:data.table':\r\n\r\n    copy\r\n\r\n"]
+[1,"[1] \"Test done!\"\r\n"]
+[2,"Error in file(file, ifelse(append, \"a\", \"w\")) : \r\n  cannot open the connection\r\nCalls: sourceWithProgress ... write.csv -> eval.parent -> eval -> eval -> <Anonymous> -> file\r\nIn addition: Warning message:\r\nIn file(file, ifelse(append, \"a\", \"w\")) :\r\n  cannot open file 'Tests\\RNA-seq data\\root\\T.test_proportions.csv': No such file or directory\r\nExecution halted\r\n"]
