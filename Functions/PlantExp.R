@@ -43,20 +43,20 @@ PlantExp <- function(dataToUse, exLevel) {
       expressionLevel <- c()
       
       for (row in 1:nrow(PlantExpData)) {
-        if (0 <= PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 2.5) {
+        if (0 <= PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 1) {
           expressionLevel <- append(expressionLevel, "No Expression")
         }
-        else if (2.5 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 50) {
+        else if (1 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 50) {
           expressionLevel <- append(expressionLevel, "Low Expression")
         }
         else if (50 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"] <= 100) {
           expressionLevel <- append(expressionLevel, "Intermediate Expression")
         }
-        else if (100 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"]<= 200) {
+        #else if (100 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"]<= 200) {
+        #  expressionLevel <- append(expressionLevel, "High Expression")
+        #}
+        else if (PlantExpData[row, "FPKM"] > 100) {
           expressionLevel <- append(expressionLevel, "High Expression")
-        }
-        else if (PlantExpData[row, "FPKM"] > 200) {
-          expressionLevel <- append(expressionLevel, "V.High Expression")
         }
       }
       
