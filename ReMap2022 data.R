@@ -26,7 +26,9 @@ dataToUse <- as.data.frame(read_csv("Data\\euchromaticWithoutTEs.csv"))
 # Get 10 sets of random genes and store in a hash from gene dataset of interest.
 source("Functions\\Sample random genes.R")
 
-sampleGenes <- geneSets(dataToUse)
+if (TRUE %in% grepl("control", list.files(path = paste("Data\\RNA-seq data\\"),pattern="*.txt"))) {
+  sampleGenes <- existingSets(dataToUse)
+} else sampleGenes <- geneSets(dataToUse)
 
 
 # Import list of R-genes.
@@ -47,8 +49,6 @@ notClusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% notClusteredNLRs$Gen
 notClusteredNLRgenes <- cbind(notClusteredNLRgenes, 
                               data.frame(Clustering = notClusteredNLRs[which(notClusteredNLRs$Gene %in% notClusteredNLRgenes$Gene),"Clustering"]))
 
-rm(transposableElements, euchromaticgeneRegions, ArabidopsisNLRs, Atgenes)
-
 # Add R-genes to sampleGenes.
 sampleGenes[["NLRs"]] <- NLRgenes
 sampleGenes[["clusteredNLRs"]] <- clusteredNLRgenes
@@ -56,10 +56,6 @@ sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRgenes
 
 rm(ArabidopsisNLRs, NLRgenes, Atgenes)
 
-# Export the list of control genes.
-for (test in names(sampleGenes)[grepl("control", names(sampleGenes))]) {
-  write(paste(sampleGenes[[test]]$Gene, collapse= ",", sep = ""), file = paste(test, "_genes.txt", sep = ""))
-}
 
 
 # Get filtered expression data for each set of sample genes in each tissue. 
