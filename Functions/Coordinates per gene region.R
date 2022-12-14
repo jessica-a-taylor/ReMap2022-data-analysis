@@ -133,30 +133,30 @@ getGeneCoordinates <- function(dataToUse) {
   
   if (nrow(dataToUse) >= 1) {
     for (gene in dataToUse$Gene) {
-      currentGene <- which(withoutTEs$Gene==gene)
+      currentGene <- which(dataToUse$Gene==gene)
       
-      if (withoutTEs[currentGene, "strand"]=="+") {
+      if (dataToUse[currentGene, "strand"]=="+") {
         previousGene <- currentGene - 1
         
-        if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
-          if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-              withoutTEs[previousGene, "strand"]=="+") {
+        if (previousGene > 0 & previousGene < nrow(dataToUse)) {
+          if (as.numeric(dataToUse[currentGene, "seqnames"])==as.numeric(dataToUse[previousGene, "seqnames"]) & 
+              dataToUse[previousGene, "strand"]=="+") {
             
-            distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 201)
+            distance <- (dataToUse[currentGene, "start"] - 1001) - (dataToUse[previousGene, "end"] + 201)
             
             if (distance > 0) {
-              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 201, "-", withoutTEs[previousGene, "end"] + 201 + distance, sep = "")) 
+              usCoordinates <- append(usCoordinates, paste(dataToUse[previousGene, "end"] + 201, "-", dataToUse[previousGene, "end"] + 201 + distance, sep = "")) 
             } 
             else usCoordinates <- append(usCoordinates, NA)
           }
           
-          else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-                   withoutTEs[previousGene, "strand"]=="-") {
+          else if (as.numeric(dataToUse[currentGene, "seqnames"])==as.numeric(dataToUse[previousGene, "seqnames"]) & 
+                   dataToUse[previousGene, "strand"]=="-") {
             
-            distance <- (withoutTEs[currentGene, "start"] - 1001) - (withoutTEs[previousGene, "end"] + 1001)
+            distance <- (dataToUse[currentGene, "start"] - 1001) - (dataToUse[previousGene, "end"] + 1001)
             
             if (distance > 0) {
-              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "end"] + 1001, "-", withoutTEs[previousGene, "end"] + 1001 + distance, sep = "")) 
+              usCoordinates <- append(usCoordinates, paste(dataToUse[previousGene, "end"] + 1001, "-", dataToUse[previousGene, "end"] + 1001 + distance, sep = "")) 
             } 
             else usCoordinates <- append(usCoordinates, NA)
             
@@ -165,28 +165,28 @@ getGeneCoordinates <- function(dataToUse) {
         else usCoordinates <- append(usCoordinates, NA)
       }
       
-      else if (withoutTEs[currentGene, "strand"]=="-") {
+      else if (dataToUse[currentGene, "strand"]=="-") {
         previousGene <- currentGene + 1
         
-        if (previousGene > 0 & previousGene < nrow(withoutTEs)) {
-          if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) &
-              withoutTEs[previousGene, "strand"]=="+") {
+        if (previousGene > 0 & previousGene < nrow(dataToUse)) {
+          if (as.numeric(dataToUse[currentGene, "seqnames"])==as.numeric(dataToUse[previousGene, "seqnames"]) &
+              dataToUse[previousGene, "strand"]=="+") {
             
-            distance <- (withoutTEs[previousGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 1001)
+            distance <- (dataToUse[previousGene, "start"] - 1001) - (dataToUse[currentGene, "end"] + 1001)
             
             if (distance > 0) {
-              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 1001 - distance, "-", withoutTEs[previousGene, "start"] - 1001, sep = "")) 
+              usCoordinates <- append(usCoordinates, paste(dataToUse[previousGene, "start"] - 1001 - distance, "-", dataToUse[previousGene, "start"] - 1001, sep = "")) 
             } 
             else usCoordinates <- append(usCoordinates, NA)
             
           }
           
-          else if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[previousGene, "seqnames"]) & 
-                   withoutTEs[previousGene, "strand"]=="-") {
+          else if (as.numeric(dataToUse[currentGene, "seqnames"])==as.numeric(dataToUse[previousGene, "seqnames"]) & 
+                   dataToUse[previousGene, "strand"]=="-") {
             
-            distance <- (withoutTEs[previousGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 1001)
+            distance <- (dataToUse[previousGene, "start"] - 201) - (dataToUse[currentGene, "end"] + 1001)
             if (distance > 0) {
-              usCoordinates <- append(usCoordinates, paste(withoutTEs[previousGene, "start"] - 201 - distance, "-", withoutTEs[previousGene, "start"] - 201, sep = "")) 
+              usCoordinates <- append(usCoordinates, paste(dataToUse[previousGene, "start"] - 201 - distance, "-", dataToUse[previousGene, "start"] - 201, sep = "")) 
             } 
             else usCoordinates <- append(usCoordinates, NA)
             
@@ -198,7 +198,7 @@ getGeneCoordinates <- function(dataToUse) {
   }
   
   
-  upstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
+  upstreamIntergenic <- dataToUse[which(dataToUse$Gene %in% dataToUse$Gene),]
   upstreamIntergenic$ranges <- usCoordinates 
   
   if (nrow(upstreamIntergenic) >= 1) {
@@ -221,26 +221,26 @@ getGeneCoordinates <- function(dataToUse) {
   
   if (nrow(dataToUse) >= 1) {
     for (gene in dataToUse$Gene) {
-      currentGene <- which(withoutTEs$Gene==gene)
+      currentGene <- which(dataToUse$Gene==gene)
       
-      if (withoutTEs[currentGene, "strand"]=="-") {
+      if (dataToUse[currentGene, "strand"]=="-") {
         nextGene <- currentGene - 1
         
-        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
-          if (withoutTEs[nextGene, "strand"]=="-") {
-            distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 1001)
+        if (as.numeric(dataToUse[currentGene, "seqnames"])==as.numeric(dataToUse[nextGene, "seqnames"])) {
+          if (dataToUse[nextGene, "strand"]=="-") {
+            distance <- (dataToUse[currentGene, "start"] - 201) - (dataToUse[nextGene, "end"] + 1001)
             
             if (distance > 0) {
-              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 1001, "-", withoutTEs[nextGene, "end"] + 1001 + distance, sep = "")) 
+              dsCoordinates <- append(dsCoordinates, paste(dataToUse[nextGene, "end"] + 1001, "-", dataToUse[nextGene, "end"] + 1001 + distance, sep = "")) 
             } 
             else dsCoordinates <- append(dsCoordinates, NA) 
           }
           
-          else if (withoutTEs[nextGene, "strand"]=="+") {
-            distance <- (withoutTEs[currentGene, "start"] - 201) - (withoutTEs[nextGene, "end"] + 201)
+          else if (dataToUse[nextGene, "strand"]=="+") {
+            distance <- (dataToUse[currentGene, "start"] - 201) - (dataToUse[nextGene, "end"] + 201)
             
             if (distance > 0) {
-              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "end"] + 201, "-", withoutTEs[nextGene, "end"] + 201 + distance, sep = "")) 
+              dsCoordinates <- append(dsCoordinates, paste(dataToUse[nextGene, "end"] + 201, "-", dataToUse[nextGene, "end"] + 201 + distance, sep = "")) 
             } 
             else dsCoordinates <- append(dsCoordinates, NA)
             
@@ -249,24 +249,24 @@ getGeneCoordinates <- function(dataToUse) {
         else dsCoordinates <- append(dsCoordinates, NA)
       }
       
-      else if (withoutTEs[currentGene, "strand"]=="+") {
+      else if (dataToUse[currentGene, "strand"]=="+") {
         nextGene <- currentGene + 1
         
-        if (as.numeric(withoutTEs[currentGene, "seqnames"])==as.numeric(withoutTEs[nextGene, "seqnames"])) {
-          if (withoutTEs[nextGene, "strand"]=="+") {
-            distance <- (withoutTEs[nextGene, "start"] - 1001) - (withoutTEs[currentGene, "end"] + 201)
+        if (as.numeric(dataToUse[currentGene, "seqnames"])==as.numeric(dataToUse[nextGene, "seqnames"])) {
+          if (dataToUse[nextGene, "strand"]=="+") {
+            distance <- (dataToUse[nextGene, "start"] - 1001) - (dataToUse[currentGene, "end"] + 201)
             
             if (distance > 0) {
-              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 1001 - distance, "-", withoutTEs[nextGene, "start"] - 1001, sep = "")) 
+              dsCoordinates <- append(dsCoordinates, paste(dataToUse[nextGene, "start"] - 1001 - distance, "-", dataToUse[nextGene, "start"] - 1001, sep = "")) 
             } 
             else dsCoordinates <- append(dsCoordinates, NA) 
             
           }
           
-          else if (withoutTEs[nextGene, "strand"]=="-") {
-            distance <- (withoutTEs[nextGene, "start"] - 201) - (withoutTEs[currentGene, "end"] + 201)
+          else if (dataToUse[nextGene, "strand"]=="-") {
+            distance <- (dataToUse[nextGene, "start"] - 201) - (dataToUse[currentGene, "end"] + 201)
             if (distance > 0) {
-              dsCoordinates <- append(dsCoordinates, paste(withoutTEs[nextGene, "start"] - 201 - distance, "-", withoutTEs[nextGene, "start"] - 201, sep = "")) 
+              dsCoordinates <- append(dsCoordinates, paste(dataToUse[nextGene, "start"] - 201 - distance, "-", dataToUse[nextGene, "start"] - 201, sep = "")) 
             } 
             else dsCoordinates <- append(dsCoordinates, NA) 
             
@@ -277,7 +277,7 @@ getGeneCoordinates <- function(dataToUse) {
     }
   }
   
-  downstreamIntergenic <- withoutTEs[which(withoutTEs$Gene %in% dataToUse$Gene),]
+  downstreamIntergenic <- dataToUse[which(dataToUse$Gene %in% dataToUse$Gene),]
   downstreamIntergenic$ranges <- dsCoordinates 
   
   if (nrow(downstreamIntergenic) >= 1) {

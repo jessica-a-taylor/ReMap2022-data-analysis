@@ -17,56 +17,14 @@ library(grid)
 library(readr)
 library(rstudioapi)
 
-source("Functions\\Get range - merge gene coordinates.R")
 
+# Import coordinates of the genomic regions of interest.
+# Options: euchromaticRegions, heterochromaticRegions, euchromaticWithoutTEs
 
-# Import all Arabidopsis genes.
-Atgenes <- as.data.frame(transcriptsBy(TxDb.Athaliana.BioMart.plantsmart28, by="gene"))
-colnames(Atgenes)[2] <- "Gene"
-
-# Remove duplicate genes (different versions).
-Atgenes <- Atgenes[-c(which(Atgenes$tx_name == str_match(Atgenes$tx_name, "^([0-9a-zA-Z]+)([.])([2-9])$")[,1])),]
-
-
-# Remove genes within the centromeric and pericentromeric geneRegions.
-pericentromericgeneRegions <- data.frame(Chromosome = c(1:5),
-                                         Start = c("11500000", "1100000", "10300000", "1500000", "9000000"),
-                                         End = c("17700000", "7200000", "17300000", "6300000", "16000000"))
-
-euchromaticgeneRegions <- data.frame()
-
-for (row in 1:nrow(pericentromericgeneRegions)) {
-  df <- Atgenes[c(which(Atgenes$seqnames==row & Atgenes$start < as.numeric(pericentromericgeneRegions[row, "Start"]))),]
-  df <- rbind(df, Atgenes[c(which(Atgenes$seqnames==row & Atgenes$end > as.numeric(pericentromericgeneRegions[row, "End"]))),])
-  
-  euchromaticgeneRegions <- rbind(euchromaticgeneRegions, df)
-}
-
-rm(pericentromericgeneRegions, df)
-
-euchromaticgeneRegions <- euchromaticgeneRegions[,-c(1,8,9)]
-euchromaticgeneRegions$ranges <- paste(euchromaticgeneRegions$start,"-",euchromaticgeneRegions$end, sep = "")
-
-# Remove duplicate genes.
-newEuchromaticgeneRegions <- euchromaticgeneRegions
-euchromaticgeneRegions <- data.frame()
-
-for (gene in unique(newEuchromaticgeneRegions$Gene)) {
-  euchromaticgeneRegions <- rbind(euchromaticgeneRegions, newEuchromaticgeneRegions[newEuchromaticgeneRegions$Gene==gene,][1,])
-}
-
-rm(newEuchromaticgeneRegions)
-
-# Remove TEs from the euchromaticgeneRegions dataframe.
-transposableElements <- as.data.frame(read_xlsx("Data\\Arabidopsis TE genes.xlsx"))
-
-withoutTEs <- euchromaticgeneRegions[-c(which(euchromaticgeneRegions$Gene %in% transposableElements$Locus)),]
-
+dataToUse <- as.data.frame(read_csv("Data\\euchromaticWithoutTEs.csv"))
 
 # Get 10 sets of random genes and store in a hash from gene dataset of interest.
 source("Functions\\Sample random genes.R")
-
-dataToUse <- withoutTEs
 
 sampleGenes <- geneSets(dataToUse)
 
@@ -124,6 +82,7 @@ rm(gene, row, test)
 source("Functions\\Modifications per gene.R")
 source("Functions\\Coordinates per gene region.R")
 source("Functions\\Modification frequencies & proportions.R")
+source("Functions\\Get range - merge gene coordinates.R")
 
 # Import filtered ReMap2022 data.
 ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
