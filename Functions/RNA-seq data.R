@@ -12,7 +12,7 @@ RNA_seqAnalysis <- function(dataToUse, exLevel) {
     
     expressionData[[test]] <- as.data.frame(read_csv(paste("Data\\RNA-seq data\\", test, "_genes.csv", sep = ""), skip = 1))
     
-    expressionData[[test]] <- expressionData[[test]][,-c(1:2, 162:165)]
+    expressionData[[test]] <- expressionData[[test]][,-c(1:2, ncol(expressionData[[test]]):(ncol(expressionData[[test]])-3))]
     
     expressionData[[test]] <- expressionData[[test]][expressionData[[test]]$Ecotype=="Col-0",]
     expressionData[[test]] <- expressionData[[test]][expressionData[[test]]$Genotype=="wild type",]
@@ -56,6 +56,7 @@ RNA_seqAnalysis <- function(dataToUse, exLevel) {
       # Sort genes to hashes based on tissue and expression level.
      for (level in exLevel) {
         df1 <- expressionData_tissue[expressionData_tissue$ExpressionLevel==level,]
+        df1 <- df1[c(which(df1$Gene %in% dataToUse[[test]]$Gene)),]
         
         dataToUse[[paste(test, "_", t, sep = "")]][[level]] <- dataToUse[[test]][c(which(dataToUse[[test]]$Gene %in% df1$Gene)),]
         

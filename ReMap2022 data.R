@@ -23,12 +23,14 @@ library(rstudioapi)
 
 dataToUse <- as.data.frame(read_csv("Data\\euchromaticWithoutTEs.csv"))
 
-# Get 10 sets of random genes and store in a hash from gene dataset of interest.
+# Get coordinates for 10 sets of random genes and store in a hash.
 source("Functions\\Sample random genes.R")
 
 if (TRUE %in% grepl("control", list.files(path = paste("Data\\RNA-seq data\\"),pattern="*.txt"))) {
   sampleGenes <- existingSets(dataToUse)
 } else sampleGenes <- geneSets(dataToUse)
+
+rm(geneSets, existingSets)
 
 
 # Import list of R-genes.
@@ -54,16 +56,14 @@ sampleGenes[["NLRs"]] <- NLRgenes
 sampleGenes[["clusteredNLRs"]] <- clusteredNLRgenes
 sampleGenes[["notClusteredNLRs"]] <- notClusteredNLRgenes
 
-rm(ArabidopsisNLRs, NLRgenes, Atgenes)
-
-
+rm(ArabidopsisNLRs, NLRgenes)
 
 # Get filtered expression data for each set of sample genes in each tissue. 
 # Add dataframes to new sampleGenes hashes for gene sets with particular expression levels.
-source("Functions\\PlantExp.R")
-
 exLevel <- c("No Expression", "Low Expression", "Intermediate Expression",
              "High Expression")
+
+source("Functions\\PlantExp.R")
 
 sampleGenesPlantExp <- PlantExp(sampleGenes[c("control1","control10","control2","control3","control4",
                                               "control5","control6","control7","control8","control9","NLRs")], exLevel)
