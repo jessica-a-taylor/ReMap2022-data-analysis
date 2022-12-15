@@ -16,6 +16,7 @@ source("Functions\\Overlaps functions.R")
 source("Functions\\Modifications per gene.R")
 source("Functions\\Coordinates per gene region.R")
 source("Functions\\Modification frequencies & proportions.R")
+source("Functions\\Get range - merge gene coordinates.R")
 
 if (analysis == "PlantExp data") {
   dataToAnalyse <- sampleGenesPlantExp

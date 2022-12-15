@@ -72,14 +72,9 @@ source("Functions\\RNA-seq data.R")
 sampleGenesRNAseq <- RNA_seqAnalysis(sampleGenes[c("control1","control10","control2","control3","control4",
                                                    "control5","control6","control7","control8","control9","NLRs")], exLevel)
 
-rm(gene, row, test)
+rm(PlantExp, RNA_seqAnalysis)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
-source("Functions\\Modifications per gene.R")
-source("Functions\\Coordinates per gene region.R")
-source("Functions\\Modification frequencies & proportions.R")
-source("Functions\\Get range - merge gene coordinates.R")
-
 # Import filtered ReMap2022 data.
 ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
 
