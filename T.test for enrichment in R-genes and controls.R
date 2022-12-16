@@ -3,8 +3,9 @@ library(data.table)
 library(grid)
 library(readr)
 
-# Wilcox & Kolmogorov-Smirnov Tests - is there a significant difference in the average proportion of coverage of  
+# T-Test - is there a significant difference in the average proportion of coverage of  
 # each gene region by a particular modification between R-genes and controls?
+# Plots comparing the average proportion of coverage of each gene region by a particular modification in R-genes and controls.
 
 # Compare R-genes to each control gene set.
 dataToUse <- resultsProportions[[analysis]][grepl(tissue, resultsProportions[[analysis]]$dataToAnalyse) & 
