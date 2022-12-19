@@ -21,14 +21,15 @@ library(rstudioapi)
 # Import coordinates of the genomic regions of interest.
 # Options: euchromaticRegions, heterochromaticRegions, euchromaticWithoutTEs
 
-dataToUse <- as.data.frame(read_csv("Data\\euchromaticWithoutTEs.csv"))
+genomicData <- as.data.frame(read_csv("Data\\euchromaticWithoutTEs.csv"))
+genomicData <- genomicData[,-1]
 
 # Get coordinates for 10 sets of random genes and store in a hash.
 source("Functions\\Sample random genes.R")
 
 if (TRUE %in% grepl("control", list.files(path = paste("Data\\RNA-seq data\\"),pattern="*.txt"))) {
-  sampleGenes <- existingSets(dataToUse)
-} else sampleGenes <- geneSets(dataToUse)
+  sampleGenes <- existingSets(genomicData)
+} else sampleGenes <- geneSets(genomicData)
 
 rm(geneSets, existingSets)
 
@@ -38,16 +39,16 @@ ArabidopsisNLRs <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet 
 clusteredNLRs <- ArabidopsisNLRs[grepl("cluster", ArabidopsisNLRs$Clustering),]
 notClusteredNLRs <- ArabidopsisNLRs[c(which(ArabidopsisNLRs$Clustering =="single")),]
 
-NLRgenes <- dataToUse[which(dataToUse$Gene %in% ArabidopsisNLRs$Gene),]
+NLRgenes <- genomicData[which(genomicData$Gene %in% ArabidopsisNLRs$Gene),]
 NLRgenes <- cbind(NLRgenes, 
                   data.frame(Clustering = ArabidopsisNLRs[which(ArabidopsisNLRs$Gene %in% NLRgenes$Gene),"Clustering"]))
 
 
-clusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% clusteredNLRs$Gene),]
+clusteredNLRgenes <- genomicData[which(genomicData$Gene %in% clusteredNLRs$Gene),]
 clusteredNLRgenes <- cbind(clusteredNLRgenes, 
                            data.frame(Clustering = clusteredNLRs[which(clusteredNLRs$Gene %in% clusteredNLRgenes$Gene),"Clustering"]))
 
-notClusteredNLRgenes <- dataToUse[which(dataToUse$Gene %in% notClusteredNLRs$Gene),]
+notClusteredNLRgenes <- genomicData[which(genomicData$Gene %in% notClusteredNLRs$Gene),]
 notClusteredNLRgenes <- cbind(notClusteredNLRgenes, 
                               data.frame(Clustering = notClusteredNLRs[which(notClusteredNLRs$Gene %in% notClusteredNLRgenes$Gene),"Clustering"]))
 
