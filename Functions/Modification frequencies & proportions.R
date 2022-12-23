@@ -18,8 +18,9 @@ modFrequenciesFunction <- function (geneRegions, allOverlaps, epiMods) {
     if (length(names(allOverlaps)) >= 1) {
       for (mod in epiMods) {
         geneList <- c()
-        
+
         for (n in names(allOverlaps)) {
+          
           modPresent <- FALSE
           
           if (nrow(allOverlaps[[n]][[mod]]) >= 1 & n %in% geneRegions[[r]]$Gene == TRUE) {
@@ -63,7 +64,8 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
   modProportionPerRegion <- hash()
   
   for (r in names(geneRegions)) {
-    modProportionDF <- data.frame(Region= character(), 
+    modProportionDF <- data.frame(Gene = character(),
+                                  Region= character(), 
                                   Modification = character(),
                                   Proportion = numeric())
     
@@ -71,6 +73,7 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
       for (mod in epiMods) {
 
         for (n in names(allOverlaps)) {
+
           modPresent <- FALSE
           modOverlaps <- c()
           
@@ -80,11 +83,13 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
               modOverlaps <- append(modOverlaps, newOverlapsFunction(as.numeric(allOverlaps[[n]][[mod]][row, "start"]), as.numeric(allOverlaps[[n]][[mod]][row, "end"]),
                                                                      as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$start), as.numeric(geneRegions[[r]][geneRegions[[r]]$Gene==n,]$end)))
             }
-            modProportionDF <- rbind(modProportionDF, data.frame(Region = r,
+            modProportionDF <- rbind(modProportionDF, data.frame(Gene = n,
+                                                                 Region = r,
                                                                  Modification = mod,
                                                                  Proportion = sum(modOverlaps)/geneRegions[[r]][geneRegions[[r]]$Gene==n,]$width))
           }
-          else modProportionDF <- rbind(modProportionDF, data.frame(Region = r,
+          else modProportionDF <- rbind(modProportionDF, data.frame(Gene = n,
+                                                                    Region = r,
                                                                     Modification = mod,
                                                                     Proportion = 0))
         }
@@ -94,7 +99,8 @@ modProportionsFunction <- function (geneRegions, allOverlaps, epiMods) {
     modProportionPerRegion[[r]] <- modProportionDF
   }
   # Collect all hashes into a single dataframe.
-  DF <- data.frame(Region = character(),
+  DF <- data.frame(Gene = character(),
+                   Region = character(),
                    Modification = character(),
                    Measure = numeric())
   

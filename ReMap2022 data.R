@@ -93,9 +93,6 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
   }
 }
 
-rm(betweenFunction, expressionColumn, findItem, geneRegionAxisLocations, geneSets, getGeneCoordinates,
-   mergeCoordinates, mergeOverlappingModifications, modFrequenciesFunction, modificationOccurrences,
-   modProportionsFunction, overlapsFunction, ReMapPerGene, PlantExp, RNA_seqAnalysis, newOverlapsFunction)
 
 # Import the results.
 resultsFrequencies <- hash()
@@ -147,8 +144,9 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
 }
 
 # For each chromatin modification, plot a bar graph of the enrichment in each R-gene.
-
-
+for (tissue in c("leaves", "root", "seedlings")) {
+  jobRunScript("T.test for enrichment in R-genes and controls.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+}
 
 
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
