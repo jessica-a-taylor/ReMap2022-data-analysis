@@ -144,8 +144,10 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
 }
 
 # For each chromatin modification, plot a bar graph of the enrichment in each R-gene.
-for (tissue in c("leaves", "root", "seedlings")) {
-  jobRunScript("T.test for enrichment in R-genes and controls.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+for (analysis in c("PlantExp data", "RNA-seq data")) {
+  for (tissue in c("leaves", "root", "seedlings")) {
+  jobRunScript("Enrichment per gene.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+  }
 }
 
 
