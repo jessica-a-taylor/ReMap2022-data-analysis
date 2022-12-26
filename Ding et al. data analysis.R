@@ -6,7 +6,7 @@ source("Functions\\Get range - merge gene coordinates.R")
 
 
 # Import the expression data from the ACRs paper (Ding et al. 2021).
-Ding_ExpressionData <- as.data.frame(read_xlsx("Data\\ACRs Ding et al., 2021.xlsx", sheet = 1))
+Ding_ExpressionData <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = 1))
 
 # Filter for R-genes.
 Ding_ExpressionData <- Ding_ExpressionData[which(Ding_ExpressionData$Gene %in% sampleGenes[["NLRs"]] $Gene),]
@@ -38,7 +38,7 @@ ReMap <- as.data.frame(read_xlsx("Data\\Filtered ReMap data.xlsx"))
 epiMods <- unique(ReMap$epiMod)
 
 # Create a hash with the ReMap data in a particular tissue for the current set of genes. 
-allModifications <- ReMapPerGene(Ding_ExpressionData, "leafGenes")
+allModifications <- ReMapPerGene(Ding_ExpressionData, "seedlingGenes")
 
 # For each gene in the current set of genes, create a new hash with the occurrences of each chromatin modification.
 geneModifications <- modificationOccurrences(allModifications)
@@ -66,9 +66,38 @@ modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRe
 
 rm(geneRegions)
 
+# Add sheets to 'ACRs Ding et al., 2021' spreadsheet giving a summary of the enrichment of chromatin modifications in 
+# each gene region for each tissue.
+wb <- loadWorkbook("Data\\ACRs data Ding et al., 2021.xlsx")
+
+for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
+
+    df <- modProportionPerRegion[grepl(mod, modProportionPerRegion$Modification),]
+    
+    DingDataResults <- data.frame(Gene = Ding_ExpressionData$Gene,
+                                  Control_Expression = Ding_ExpressionData$Control,
+                                  ETI_Expression = Ding_ExpressionData$ETI)
+    
+    for (r in unique(df$Region)) {
+      
+      df1 <- df[df$Region == r,]
+      DingDataResults <- cbind(DingDataResults, df1$Proportion)
+    }
+    
+    colnames(DingDataResults)[4:13] <- unique(df$Region)
+      
+  addWorksheet(wb,mod)
+  writeData(wb,mod,DingDataResults)
+  saveWorkbook(wb,"Data\\ACRs data Ding et al., 2021.xlsx",overwrite = TRUE)
+}
+
+# Create a scatter plot to determine whether there is a correlation between expression level and the enrichment of each
+# chromatin modification in each gene region.
+
+
 # Which R-genes overlap with ACRs?
 
-# Which TFs are the R-genes associated with - is there a correlation between the enrichment of particlar chromatin 
+# Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
 # modifications and particular TFs?
 
 # Are there similarities in chromatin modification and TF enrichment between co-expressed genes?
