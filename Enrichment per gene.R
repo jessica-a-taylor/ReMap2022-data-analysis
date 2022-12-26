@@ -1,7 +1,4 @@
 library(ggplot2)
-library(data.table)
-library(grid)
-library(readr)
 
 # For each chromatin modification, plot a bar graph of the enrichment in each R-gene.
 dataToUse <- resultsProportions[[analysis]][grepl(tissue, resultsProportions[[analysis]]$dataToAnalyse) & 
@@ -12,7 +9,7 @@ dataToUse <- resultsProportions[[analysis]][grepl(tissue, resultsProportions[[an
 for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
   df <- dataToUse[dataToUse$Modification==mod,]
   
-  for (r in df$Region) {
+  for (r in unique(df$Region)) {
     df1 <- df[df$Region == r,]
     
     levelsIncluded <- unique(df1$Expression)
@@ -29,7 +26,7 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
                                                           axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), axis.text.y = element_text(size = 14),
                                                           axis.title.y = element_text(size = 16, vjust = 2)) 
       
-    ggsave(paste("Graphs\\Enrichment\\", analysis, "\\", tissue, "\\", mod, " Enrichment per gene", ".pdf", sep = ""), plot = plot, width = 24, height = 6)  
+    ggsave(paste("Graphs\\Enrichment\\", analysis, "\\", tissue, "\\", mod," ", r, " Enrichment per gene", ".pdf", sep = ""), plot = plot, width = 24, height = 6)  
     
     } else if (length(levelsIncluded) == 3) {
       
@@ -43,8 +40,8 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
                                                             axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), axis.text.y = element_text(size = 14),
                                                             axis.title.y = element_text(size = 16, vjust = 2)) 
       
-      ggsave(paste("Graphs\\Enrichment\\", analysis, "\\", tissue, "\\", mod, " Enrichment per gene", ".pdf", sep = ""), plot = plot, width = 24, height = 6)  
-    
+      ggsave(paste("Graphs\\Enrichment\\", analysis, "\\", tissue, "\\", mod," ", r, " Enrichment per gene", ".pdf", sep = ""), plot = plot, width = 24, height = 6)  
+      
     } else if (length(levelsIncluded) == 4) {
       
       plot <- ggplot(df1, aes(x = Gene, y = Proportion, fill = Expression)) + 
@@ -57,8 +54,10 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
                                                             axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), axis.text.y = element_text(size = 14),
                                                             axis.title.y = element_text(size = 16, vjust = 2)) 
       
-      ggsave(paste("Graphs\\Enrichment\\", analysis, "\\", tissue, "\\", mod, " Enrichment per gene", ".pdf", sep = ""), plot = plot, width = 24, height = 6)  
+      ggsave(paste("Graphs\\Enrichment\\", analysis, "\\", tissue, "\\", mod," ", r, " Enrichment per gene", ".pdf", sep = ""), plot = plot, width = 24, height = 6)  
       
     }
+    print(r)
   }
+  print(mod)
 }

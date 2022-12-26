@@ -16,6 +16,7 @@ library(data.table)
 library(grid)
 library(readr)
 library(rstudioapi)
+library(openxlsx)
 
 
 # Import coordinates of the genomic regions of interest.
@@ -93,6 +94,8 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
   }
 }
 
+rm(sampleGenesPlantExp, sampleGenesRNAseq, sampleGenes)
+
 
 # Import the results.
 resultsFrequencies <- hash()
@@ -113,6 +116,8 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
   resultsProportions[[analysis]] <- allResultsProportions
   resultsAverageProportions[[analysis]] <- allResultsAverageProportions
 }
+
+rm(allResultsFrequencies, allResultsProportions, allResultsAverageProportions)
 
 axisText <- c("intergenic", "Promotor \n(1kb)", "Promotor \n(500bp)", "TSS", "20%",
               "40%", "60%", "80%", "100%", "Downstream \n(200bp)", "Intergenic")
@@ -146,9 +151,36 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
 # For each chromatin modification, plot a bar graph of the enrichment in each R-gene.
 for (analysis in c("PlantExp data", "RNA-seq data")) {
   for (tissue in c("leaves", "root", "seedlings")) {
-  jobRunScript("Enrichment per gene.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+  jobRunScript("Enrichment per gene.R", name = paste("Enrichment_", analysis, "_", tissue, sep = ""), importEnv = TRUE)
   }
 }
+
+
+# Add sheets to 'Arabidopsis NLRs' spreadsheet giving a summary of the enrichment of chromatin modifications in 
+# each gene region for each tissue.
+wb <- loadWorkbook("Data\\Arabidopsis NLRs.xlsx")
+
+for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
+  for (analysis in c("PlantExp data", "RNA-seq data")) {
+    template <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 4))
+    
+    for (tissue in c("leaves", "root", "seedlings")) {
+      df <- resultsProportions[[analysis]][grepl("NLRs", resultsProportions[[analysis]]$dataToAnalyse) &
+                                             grepl(tissue, resultsProportions[[analysis]]$dataToAnalyse) &
+                                             grepl(mod, resultsProportions[[analysis]]$Modification),]
+      
+      for (r in df$Region) {
+        
+        df1 <- df[df$Region == r,]
+        template[,which(grepl(r, names(template)) & grepl(tissue, names(template)))] <- df1$Proportion
+      }
+    }
+    addWorksheet(wb,paste(analysis, "_", mod, sep = ""))
+    writeData(wb,paste(analysis, "_", mod, sep = ""),template)
+    saveWorkbook(wb,"Data\\Arabidopsis NLRs.xlsx",overwrite = TRUE)
+  }
+}
+
 
 
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
