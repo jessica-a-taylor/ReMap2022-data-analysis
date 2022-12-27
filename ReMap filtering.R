@@ -1,5 +1,5 @@
 # Import ReMap2022 data.
-ReMap <- rtracklayer::import.bed("C:\\Users\\jexy2\\OneDrive\\Documents\\PhD\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
+ReMap <- rtracklayer::import.bed("Data\\remap2022_histone_all_macs2_TAIR10_v1_0.bed.gz")
 
 # Convert to a dataframe and define column names.
 ReMap <- as.data.frame(ReMap, colnames = c("seqnames", "start", "end", "width",

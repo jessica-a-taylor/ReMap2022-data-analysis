@@ -172,6 +172,7 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
       for (r in df$Region) {
         
         df1 <- df[df$Region == r,]
+        df1 <- df1[order(df1$Gene),]
         template[,which(grepl(r, names(template)) & grepl(tissue, names(template)))] <- df1$Proportion
       }
     }

@@ -93,9 +93,97 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
 
 # Create a scatter plot to determine whether there is a correlation between expression level and the enrichment of each
 # chromatin modification in each gene region.
+for (n in 5:12) {
+  df <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = n))
+  df <- df[-which(df$Control_Expression > 150),]
+  
+  df1 <- data.frame()
+  
+    for (row in 1:nrow(df)) {
+      for (r in colnames(df)[c(4:13)]) {
+        
+      df1 <- rbind(df1, data.frame(Gene = df[row, "Gene"],
+                                   Expression = df[row, "Control_Expression"],
+                                   Region = r,
+                                   Proportion = df[row, r]))
+    }
+  }
+  plot <- ggplot(df1, aes(x = Expression, y = Proportion)) +
+    geom_point() + geom_smooth() + facet_wrap(~Region)
+}
 
+# Create a scatter plot to determine whether there is a correlation between the change in expression level between control 
+# and ETI conditions and the enrichment of each chromatin modification in each gene region - is there evidence of particular 
+# chromatin modifications being associated with priming?
+for (n in 5:12) {
+  df <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = n))
+  
+  df1 <- data.frame()
+  
+  for (row in 1:nrow(df)) {
+    for (r in colnames(df)[c(4:13)]) {
+      
+      df1 <- rbind(df1, data.frame(Gene = df[row, "Gene"],
+                                   Expression = df[row, "ETI_Expression"] - df[row, "Control_Expression"],
+                                   Region = r,
+                                   Proportion = df[row, r]))
+    }
+  }
+  plot <- ggplot(df1, aes(x = Expression, y = Proportion)) +
+    geom_point() + geom_smooth() + facet_wrap(~Region)
+}
 
 # Which R-genes overlap with ACRs?
+
+# Import the expression data from the ACRs paper (Ding et al. 2021).
+Ding_Control_ACR <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = 2))
+Ding_ETI_ACR <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = 3))
+
+# Filter for R-genes.
+Ding_Control_ACR <- Ding_Control_ACR[which(Ding_Control_ACR$geneId %in% sampleGenes[["NLRs"]]$Gene),-c(1,4,5,8,9,10,13,14)]
+Ding_ETI_ACR <- Ding_ETI_ACR[which(Ding_ETI_ACR$geneId %in% sampleGenes[["NLRs"]]$Gene),-c(1,4,5,8,9,10,13,14)]
+
+# Merge start and end coordinates columns to create a ranges column.
+source("Functions\\Get range - merge gene coordinates.R")
+
+Ding_Control_ACR$ranges <- mergeCoordinates(Ding_Control_ACR)
+colnames(Ding_Control_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges")
+
+for (row in 1:nrow(Ding_Control_ACR)) {
+  if (Ding_Control_ACR[row, "strand"] == 1) {
+    Ding_Control_ACR[row, "strand"] <- "+"
+  } else if (Ding_Control_ACR[row, "strand"] == 2) {
+    Ding_Control_ACR[row, "strand"] <- "-"
+  }
+}
+
+Ding_ETI_ACR$ranges <- mergeCoordinates(Ding_ETI_ACR)
+colnames(Ding_ETI_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges")
+
+for (row in 1:nrow(Ding_ETI_ACR)) {
+  if (Ding_ETI_ACR[row, "strand"] == 1) {
+    Ding_ETI_ACR[row, "strand"] <- "+"
+  } else if (Ding_ETI_ACR[row, "strand"] == 2) {
+    Ding_ETI_ACR[row, "strand"] <- "-"
+  }
+}
+
+# Determine which ACRs overlap with the R-genes.
+# Create bed files to visualise in IGV.
+Ding_Control_ACR_Bed <- GRanges(
+  seqnames=Rle(Ding_Control_ACR$seqnames),
+  ranges=IRanges(Ding_Control_ACR$ranges),
+  name=Ding_Control_ACR$Gene)
+
+rtracklayer::export.bed(Ding_Control_ACR_Bed, "Data\\Ding_Control_ACR_Bed.bed")
+
+Ding_ETI_ACR_Bed <- GRanges(
+  seqnames=Rle(Ding_ETI_ACR$seqnames),
+  ranges=IRanges(Ding_ETI_ACR$ranges),
+  name=Ding_ETI_ACR$Gene)
+
+rtracklayer::export.bed(Ding_ETI_ACR_Bed, "Data\\Ding_ETI_ACR_Bed.bed")
+
 
 # Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
 # modifications and particular TFs?

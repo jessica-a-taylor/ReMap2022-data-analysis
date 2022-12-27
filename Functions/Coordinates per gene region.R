@@ -83,49 +83,54 @@ getGeneCoordinates <- function(dataToUse) {
   downstream$width <- downstream$end - downstream$start
   
   
-  # Get the coordinates for the promotor regions.
-  ATpromotors500 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=500, downstream=0, use.names = TRUE)
-  ATpromotors1000 <- promoters(TxDb.Athaliana.BioMart.plantsmart28, upstream=1000, downstream=0, use.names = TRUE)
+  # Create new dataframe for the coordinates of the 500bp promotor region.
   
-  # Remove duplicate genes (different versions).
-  ATpromotors500 <- ATpromotors500[-c(which(ATpromotors500$tx_name == str_match(ATpromotors500$tx_name, "^([0-9a-zA-Z]+)[.][2-9]+|^([0-9a-zA-Z]+)[.][1][0]$")[,1])),]
-  ATpromotors1000 <- ATpromotors1000[-c(which(ATpromotors1000$tx_name == str_match(ATpromotors1000$tx_name, "^([0-9a-zA-Z]+)[.][2-9]+|^([0-9a-zA-Z]+)[.][1][0]$")[,1])),]
-  
-  promotor500 <- data.frame(seqnames = numeric(),
-                            start = numeric(),
-                            end = numeric(),
-                            width = numeric(),
-                            strand = factor(),
-                            tx_id = numeric(),
-                            tx_name = character())
-  
-  promotor1000 <- promotor500
-  
+  PromotorRegion <- c()
   if (nrow(dataToUse) >= 1) {
-    for (gene in dataToUse$Gene) {
-      promotor500 <- rbind(promotor500, as.data.frame(ATpromotors500[grepl(gene,ATpromotors500$tx_name),]))
-      promotor1000 <- rbind(promotor1000, as.data.frame(ATpromotors1000[grepl(gene,ATpromotors1000$tx_name),]))
-    }
-    # Alter coordinates of promotor1000 to be only 500bp upstream of promotor500.
-    for (row in 1:nrow(promotor1000)) {
-      if (promotor1000[row, "strand"]=="+") {
-        promotor1000[row, "end"] <- promotor1000[row, "start"]+500
+    for (row in 1:nrow(dataToUse)) {
+      if (dataToUse[row, "strand"]=="+") {
+        PromotorRegion <- append(PromotorRegion, paste(dataToUse[row,"start"]-500,"-",dataToUse[row,"start"], sep = ""))
       }
-      else if (promotor1000[row, "strand"]=="-") {
-        promotor1000[row, "start"] <- promotor1000[row, "end"]-500
+      else if (dataToUse[row, "strand"]=="-") {
+        PromotorRegion <- append(PromotorRegion, paste(dataToUse[row,"end"],"-", dataToUse[row,"end"]+500, sep = ""))
       }
     }
-    
-    # Create a ranges column by merging the start and end columns.
-    promotor500$ranges <- paste(promotor500$start,"-",promotor500$end, sep = "")
-    promotor1000$ranges <- paste(promotor1000$start,"-",promotor1000$end, sep = "")
-    
-    
-    # Add a new column for the gene name, removing ".1" from the end.
-    promotor500$Gene <- str_match(promotor500$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
-    promotor1000$Gene <- str_match(promotor1000$tx_name, "^([0-9a-zA-Z]+)([.])([1])$")[,2]
   }
   
+  
+  Promotor500 <- dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                     colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))]
+  
+  Promotor500$ranges <- PromotorRegion
+  
+  Promotor500$start <- as.numeric(str_match(Promotor500$ranges, "^([0-9]+)(-)([0-9]+)$")[,2])
+  Promotor500$end <- as.numeric(str_match(Promotor500$ranges, "^([0-9]+)(-)([0-9]+)$")[,4])
+  Promotor500$width <- Promotor500$end - Promotor500$start
+  
+  
+  # Create new dataframe for the coordinates of the 500bp-1000bp promotor region.
+  
+  PromotorRegion <- c()
+  if (nrow(dataToUse) >= 1) {
+    for (row in 1:nrow(dataToUse)) {
+      if (dataToUse[row, "strand"]=="+") {
+        PromotorRegion <- append(PromotorRegion, paste(dataToUse[row,"start"]-1000,"-",dataToUse[row,"start"], sep = ""))
+      }
+      else if (dataToUse[row, "strand"]=="-") {
+        PromotorRegion <- append(PromotorRegion, paste(dataToUse[row,"end"],"-", dataToUse[row,"end"]+1000, sep = ""))
+      }
+    }
+  }
+  
+  
+  Promotor1000 <- dataToUse[,c(which(colnames(dataToUse) != "start" & colnames(dataToUse) != "end" &
+                                      colnames(dataToUse) != "width" & colnames(dataToUse) != "ranges"))]
+  
+  Promotor1000$ranges <- PromotorRegion
+  
+  Promotor1000$start <- as.numeric(str_match(Promotor1000$ranges, "^([0-9]+)(-)([0-9]+)$")[,2])
+  Promotor1000$end <- as.numeric(str_match(Promotor1000$ranges, "^([0-9]+)(-)([0-9]+)$")[,4])
+  Promotor1000$width <- Promotor1000$end - Promotor1000$start
   
  
   # Get the coordinates for the upstream intergenic regions.
