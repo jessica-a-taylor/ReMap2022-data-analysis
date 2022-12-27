@@ -182,8 +182,6 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   }
 }
 
-
-
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
 # than between all genes.
 for (analysis in c("PlantExp data", "RNA-seq data")) {

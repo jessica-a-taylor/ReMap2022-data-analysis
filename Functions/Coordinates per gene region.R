@@ -287,7 +287,7 @@ getGeneCoordinates <- function(dataToUse) {
   
   downstreamIntergenic <- downstreamIntergenic[-c(which(is.na(downstreamIntergenic$ranges))),]
 
-  geneRegions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = promotor1000, Promotor500 = promotor500,
+  geneRegions <- hash(UpstreamIntergenic = upstreamIntergenic, Promotor1000 = Promotor1000, Promotor500 = Promotor500,
                   Gene20 = geneChunks[["width20"]],  Gene40 = geneChunks[["width40"]], Gene60 = geneChunks[["width60"]], 
                   Gene80 = geneChunks[["width80"]], Gene100 = geneChunks[["width100"]], Downstream = downstream,
                   DownstreamIntergenic = downstreamIntergenic)
