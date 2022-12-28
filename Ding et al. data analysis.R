@@ -252,13 +252,12 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   }
   
   DingDataResults <- data.frame(Gene = rep(Ding_ExpressionData$Gene, times = length(unique(df$Region))),
-                                TFs = rep(associatedTFs$TFs, times = length(unique(df$Region))),
                                 Control_Expression =rep(Ding_ExpressionData$Control, times = length(unique(df$Region))),
                                 ETI_Expression = rep(Ding_ExpressionData$ETI, times = length(unique(df$Region))),
                                 Control_ACRs = control_ACR,
                                 ETI_ACRs = ETI_ACR,
                                 Region = df$Region,
-                                Enrichment = df$Proportion)
+                                Enrichment = df$Proportion, TFs = rep(associatedTFs$TFs, times = length(unique(df$Region))))
   
   
   addWorksheet(wb,mod)
@@ -266,6 +265,39 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   saveWorkbook(wb,"Data\\ACRs data Ding et al., 2021.xlsx",overwrite = TRUE)
 }
 
+
+# Are any of the R-gene ACRs associated with super-enhancers?
+SE_ACRs <- as.data.frame(read_xlsx("Data\\Super-enhancer ACRs.xlsx"))
+
+SE_ACR_overlaps <- data.frame()
+
+for (i in 1:nrow(ACR_data)) {
+  for (j in 1:nrow(SE_ACRs)) {
+    if (ACR_data[i,"seqnames"]==SE_ACRs[j,"seqnames"] & overlapsFunction(ACR_data[i, "start"], ACR_data[i, "end"],
+                         SE_ACRs[j,"start"], SE_ACRs[j, "end"])==TRUE) {
+      
+      SE_ACR_overlaps <- rbind(SE_ACR_overlaps, data.frame(seqnames = SE_ACRs[j, "seqnames"],
+                                                           Gene = ACR_data[i, "Gene"],
+                                                           Region = ACR_data[i, "Region"],
+                                                           ACR_start = ACR_data[i, "start"],
+                                                           ACR_end = ACR_data[i, "end"],
+                                                           start = SE_ACRs[j, "start"],
+                                                           end = SE_ACRs[j, "end"],
+                                                           Tissues = SE_ACRs[j, "tissues"]))
+    }
+    else SE_ACR_overlaps <- SE_ACR_overlaps
+  }
+}
+
+SE_ACR_overlaps$SE_ranges <- mergeCoordinates(SE_ACR_overlaps)
+
+# One SE_ACR in the intergenic region between AT4G19520 and AT4G19530.
+SE_ACR_Bed <- GRanges(
+  seqnames=Rle(SE_ACR_overlaps$seqnames),
+  ranges=IRanges(SE_ACR_overlaps$SE_ranges),
+  name=SE_ACR_overlaps$Gene)
+
+rtracklayer::export.bed(SE_ACR_Bed, "Data\\SE_ACR_Bed.bed") 
 
 
 # Are there similarities in chromatin modification and TF enrichment between co-expressed genes?
