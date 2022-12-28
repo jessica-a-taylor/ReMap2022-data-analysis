@@ -209,6 +209,17 @@ ACR_data <- cbind(ACR_data, data.frame(Region = ACR_regions))
 Ding_Control_ACR <- ACR_data[which(ACR_data$Condition=="Control"),]
 Ding_ETI_ACR <- ACR_data[which(ACR_data$Condition=="ETI"),]
 
+
+# Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
+# modifications and particular TFs?
+
+# Import the TF data from the ACRs paper (Ding et al. 2021).
+Ding_TFs <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = 4))
+
+# Filter for R-genes.
+Ding_TFs <- Ding_TFs[which(Ding_TFs$target %in% sampleGenes[["NLRs"]]$Gene),]
+
+
 # Add sheets to 'ACRs Ding et al., 2021' spreadsheet giving a summary of the enrichment of chromatin modifications
 # and the presence of ACRs in each gene region.
 wb <- loadWorkbook("Data\\ACRs data Ding et al., 2021.xlsx")
@@ -233,7 +244,15 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
     } else ETI_ACR <- append(ETI_ACR, "No")
   }
   
+  associatedTFs <- data.frame()
+  for (gene in unique(df$Gene)) {
+    if (gene %in% Ding_TFs$target) {
+      associatedTFs <- rbind(associatedTFs, data.frame(TFs = paste(Ding_TFs[which(Ding_TFs$target==gene), "TF_alias"], collapse = ", ")))
+    } else associatedTFs <- rbind(associatedTFs, data.frame(TFs = " "))
+  }
+  
   DingDataResults <- data.frame(Gene = rep(Ding_ExpressionData$Gene, times = length(unique(df$Region))),
+                                TFs = rep(associatedTFs$TFs, times = length(unique(df$Region))),
                                 Control_Expression =rep(Ding_ExpressionData$Control, times = length(unique(df$Region))),
                                 ETI_Expression = rep(Ding_ExpressionData$ETI, times = length(unique(df$Region))),
                                 Control_ACRs = control_ACR,
@@ -248,8 +267,6 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
 }
 
 
-# Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
-# modifications and particular TFs?
 
 # Are there similarities in chromatin modification and TF enrichment between co-expressed genes?
 
