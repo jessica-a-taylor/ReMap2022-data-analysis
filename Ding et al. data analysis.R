@@ -66,30 +66,6 @@ modProportionPerRegion <- geneRegionAxisLocations(modProportionPerRegion, geneRe
 
 rm(geneRegions)
 
-# Add sheets to 'ACRs Ding et al., 2021' spreadsheet giving a summary of the enrichment of chromatin modifications in 
-# each gene region for each tissue.
-wb <- loadWorkbook("Data\\ACRs data Ding et al., 2021.xlsx")
-
-for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
-
-    df <- modProportionPerRegion[grepl(mod, modProportionPerRegion$Modification),]
-    
-    DingDataResults <- data.frame(Gene = Ding_ExpressionData$Gene,
-                                  Control_Expression = Ding_ExpressionData$Control,
-                                  ETI_Expression = Ding_ExpressionData$ETI)
-    
-    for (r in unique(df$Region)) {
-      
-      df1 <- df[df$Region == r,]
-      DingDataResults <- cbind(DingDataResults, df1$Proportion)
-    }
-    
-    colnames(DingDataResults)[4:13] <- unique(df1$Region)
-      
-  addWorksheet(wb,mod)
-  writeData(wb,mod,DingDataResults)
-  saveWorkbook(wb,"Data\\ACRs data Ding et al., 2021.xlsx",overwrite = TRUE)
-}
 
 # Create a scatter plot to determine whether there is a correlation between expression level and the enrichment of each
 # chromatin modification in each gene region.
@@ -230,6 +206,46 @@ for (row in 1:nrow(ACR_data)) {
 }
 
 ACR_data <- cbind(ACR_data, data.frame(Region = ACR_regions))
+Ding_Control_ACR <- ACR_data[which(ACR_data$Condition=="Control"),]
+Ding_ETI_ACR <- ACR_data[which(ACR_data$Condition=="ETI"),]
+
+# Add sheets to 'ACRs Ding et al., 2021' spreadsheet giving a summary of the enrichment of chromatin modifications
+# and the presence of ACRs in each gene region.
+wb <- loadWorkbook("Data\\ACRs data Ding et al., 2021.xlsx")
+
+for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
+  
+  df <- modProportionPerRegion[grepl(mod, modProportionPerRegion$Modification),]
+  control_ACR <- c()
+  ETI_ACR <- c()
+  
+  for (row in 1:nrow(df)) {
+    overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df[row,"Gene"] & Ding_Control_ACR$Region==df[row,"Region"]),]
+    
+    if (nrow(overlappingACRs) != 0) {
+      control_ACR <- append(control_ACR, "Yes")
+    } else control_ACR <- append(control_ACR, "No")
+    
+    overlappingACRs <- Ding_ETI_ACR[which(Ding_ETI_ACR$Gene==df[row,"Gene"] & Ding_ETI_ACR$Region==df[row,"Region"]),]
+    
+    if (nrow(overlappingACRs) != 0) {
+      ETI_ACR <- append(ETI_ACR, "Yes")
+    } else ETI_ACR <- append(ETI_ACR, "No")
+  }
+  
+  DingDataResults <- data.frame(Gene = rep(Ding_ExpressionData$Gene, times = length(unique(df$Region))),
+                                Control_Expression =rep(Ding_ExpressionData$Control, times = length(unique(df$Region))),
+                                ETI_Expression = rep(Ding_ExpressionData$ETI, times = length(unique(df$Region))),
+                                Control_ACRs = control_ACR,
+                                ETI_ACRs = ETI_ACR,
+                                Region = df$Region,
+                                Enrichment = df$Proportion)
+  
+  
+  addWorksheet(wb,mod)
+  writeData(wb,mod,DingDataResults)
+  saveWorkbook(wb,"Data\\ACRs data Ding et al., 2021.xlsx",overwrite = TRUE)
+}
 
 
 # Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
