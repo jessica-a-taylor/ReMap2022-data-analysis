@@ -49,7 +49,8 @@ for (region in names(genomicRegions)) {
   write.csv(genomicRegions[[region]], file = paste("Data\\", region, ".csv", sep=""))
 }
 
-# Remove TEs from the euchromaticgeneRegions dataframe.
-transposableElements <- as.data.frame(read_xlsx("Data\\Arabidopsis TE genes.xlsx"))
-write.csv(genomicRegions[["euchromatic"]][-c(which(genomicRegions[["euchromatic"]]$Gene %in% transposableElements$Locus)),], 
-          file = "Data\\euchromaticWithoutTEs.csv")
+# Remove all non-coding genes.
+geneTypes <- as.data.frame(read.table("Data\\Arabidopsis gene types.txt"))
+geneTypes <- geneTypes[c(which(geneTypes$V2=="protein_coding")),]
+write.csv(genomicRegions[["euchromatic"]][c(which(genomicRegions[["euchromatic"]]$Gene %in% geneTypes$V1)),], 
+          file = "Data\\Protein coding genes.csv")

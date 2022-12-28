@@ -9,7 +9,7 @@ source("Functions\\Get range - merge gene coordinates.R")
 Ding_ExpressionData <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = 1))
 
 # Filter for R-genes.
-Ding_ExpressionData <- Ding_ExpressionData[which(Ding_ExpressionData$Gene %in% sampleGenes[["NLRs"]] $Gene),]
+Ding_ExpressionData <- Ding_ExpressionData[which(Ding_ExpressionData$Gene %in% sampleGenes[["NLRs"]]$Gene),]
 
 # Calculate the mean expression between the 3 replicates for the control and ETI-inducung treatments.
 controlExpression <- c()
@@ -84,7 +84,7 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
       DingDataResults <- cbind(DingDataResults, df1$Proportion)
     }
     
-    colnames(DingDataResults)[4:13] <- unique(df$Region)
+    colnames(DingDataResults)[4:13] <- unique(df1$Region)
       
   addWorksheet(wb,mod)
   writeData(wb,mod,DingDataResults)
@@ -133,6 +133,7 @@ for (n in 5:12) {
     geom_point() + geom_smooth() + facet_wrap(~Region)
 }
 
+
 # Which R-genes overlap with ACRs?
 
 # Import the expression data from the ACRs paper (Ding et al. 2021).
@@ -147,7 +148,8 @@ Ding_ETI_ACR <- Ding_ETI_ACR[which(Ding_ETI_ACR$geneId %in% sampleGenes[["NLRs"]
 source("Functions\\Get range - merge gene coordinates.R")
 
 Ding_Control_ACR$ranges <- mergeCoordinates(Ding_Control_ACR)
-colnames(Ding_Control_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges")
+Ding_Control_ACR$width <- Ding_Control_ACR$end - Ding_Control_ACR$start
+colnames(Ding_Control_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges", "width")
 
 for (row in 1:nrow(Ding_Control_ACR)) {
   if (Ding_Control_ACR[row, "strand"] == 1) {
@@ -158,7 +160,8 @@ for (row in 1:nrow(Ding_Control_ACR)) {
 }
 
 Ding_ETI_ACR$ranges <- mergeCoordinates(Ding_ETI_ACR)
-colnames(Ding_ETI_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges")
+Ding_ETI_ACR$width <- Ding_ETI_ACR$end - Ding_ETI_ACR$start
+colnames(Ding_ETI_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges", "width")
 
 for (row in 1:nrow(Ding_ETI_ACR)) {
   if (Ding_ETI_ACR[row, "strand"] == 1) {
@@ -168,7 +171,6 @@ for (row in 1:nrow(Ding_ETI_ACR)) {
   }
 }
 
-# Determine which ACRs overlap with the R-genes.
 # Create bed files to visualise in IGV.
 Ding_Control_ACR_Bed <- GRanges(
   seqnames=Rle(Ding_Control_ACR$seqnames),
@@ -184,11 +186,56 @@ Ding_ETI_ACR_Bed <- GRanges(
 
 rtracklayer::export.bed(Ding_ETI_ACR_Bed, "Data\\Ding_ETI_ACR_Bed.bed")
 
+# Determine which ACRs overlap with the R-genes.
+Ding_Control_ACR <- cbind(Ding_Control_ACR, data.frame(Condition = rep("Control", times = nrow(Ding_Control_ACR))))
+Ding_ETI_ACR <- cbind(Ding_ETI_ACR, data.frame(Condition = rep("ETI", times = nrow(Ding_ETI_ACR))))
+
+ACR_data <- Ding_Control_ACR
+ACR_data <- rbind(ACR_data, Ding_ETI_ACR)
+
+rm(Ding_Control_ACR, Ding_Control_ACR_Bed, Ding_ETI_ACR, Ding_ETI_ACR_Bed)
+
+source("Functions\\Coordinates per gene region.R")
+ACR_GeneRegions <- getGeneCoordinates(sampleGenes[["NLRs"]])
+`%!in%` <- Negate(`%in%`)
+
+ACR_regions <- c() 
+for (row in 1:nrow(ACR_data)) {
+  overlappingACRs <- data.frame()
+  
+  for (n in names(ACR_GeneRegions)) {
+    df <- ACR_GeneRegions[[n]][ACR_GeneRegions[[n]]$Gene == ACR_data[row, "Gene"],]
+    
+    if (nrow(df) != 0) {
+      if (overlapsFunction(ACR_data[row, "start"], ACR_data[row, "end"], 
+                           df[, "start"], df[, "end"])==TRUE) {
+        
+        overlappingACRs <- rbind(overlappingACRs, data.frame(Region = n,
+                                                             Overlap = newOverlapsFunction(as.numeric(ACR_data[row, "start"]), as.numeric(ACR_data[row, "end"]),
+                                                                                           as.numeric(df[, "start"]), as.numeric(df[, "end"]))))
+        
+      } else overlappingACRs <- overlappingACRs
+    } else overlappingACRs <- overlappingACRs
+  }
+  if ((nrow(overlappingACRs)==0 & row == 84)==TRUE) {
+    ACR_regions <- append(ACR_regions, "Downstream (within neighbouring gene)")
+  }
+  if ((nrow(overlappingACRs)==0 & row != 84 & row %in% c(17,149,203))==TRUE) {
+    ACR_regions <- append(ACR_regions, "UpstreamIntergenic")
+  }
+  if ((nrow(overlappingACRs)==0 & row %!in% c(17,149,203, 84) & row %in% c(122,262,376,377,410,433:435))==TRUE) {
+    ACR_regions <- append(ACR_regions, "UpstreamIntergenic (within neighbouring gene)")
+  }
+  ACR_regions <- append(ACR_regions, overlappingACRs[c(which(overlappingACRs$Overlap == max(overlappingACRs$Overlap)))[1], "Region"])
+}
+
+ACR_data <- cbind(ACR_data, data.frame(Region = ACR_regions))
+
 
 # Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
 # modifications and particular TFs?
 
 # Are there similarities in chromatin modification and TF enrichment between co-expressed genes?
 
-# Which R-genes are asssociated with the nuclear envelope?
+# Which R-genes are associated with the nuclear envelope?
 

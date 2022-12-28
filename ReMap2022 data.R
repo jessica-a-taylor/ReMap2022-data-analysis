@@ -22,7 +22,7 @@ library(openxlsx)
 # Import coordinates of the genomic regions of interest.
 # Options: euchromaticRegions, heterochromaticRegions, euchromaticWithoutTEs
 
-genomicData <- as.data.frame(read_csv("Data\\euchromaticWithoutTEs.csv"))
+genomicData <- as.data.frame(read_csv("Data\\Protein coding genes.csv"))
 genomicData <- genomicData[,-1]
 
 # Get coordinates for 10 sets of random genes and store in a hash.
@@ -94,7 +94,7 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
   }
 }
 
-rm(sampleGenesPlantExp, sampleGenesRNAseq, sampleGenes)
+rm(sampleGenesPlantExp, sampleGenesRNAseq)
 
 
 # Import the results.
@@ -161,25 +161,23 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
 wb <- loadWorkbook("Data\\Arabidopsis NLRs.xlsx")
 
 for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
-  for (analysis in c("PlantExp data", "RNA-seq data")) {
-    template <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 4))
+  template <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 4))
+  
+  for (tissue in c("leaves", "root", "seedlings")) {
+    df <- resultsProportions[["PlantExp data"]][grepl("NLRs", resultsProportions[["PlantExp data"]]$dataToAnalyse) &
+                                           grepl(tissue, resultsProportions[["PlantExp data"]]$dataToAnalyse) &
+                                           grepl(mod, resultsProportions[["PlantExp data"]]$Modification),]
     
-    for (tissue in c("leaves", "root", "seedlings")) {
-      df <- resultsProportions[[analysis]][grepl("NLRs", resultsProportions[[analysis]]$dataToAnalyse) &
-                                             grepl(tissue, resultsProportions[[analysis]]$dataToAnalyse) &
-                                             grepl(mod, resultsProportions[[analysis]]$Modification),]
+    for (r in unique(df$Region)) {
       
-      for (r in df$Region) {
-        
-        df1 <- df[df$Region == r,]
-        df1 <- df1[order(df1$Gene),]
-        template[,which(grepl(r, names(template)) & grepl(tissue, names(template)))] <- df1$Proportion
-      }
+      df1 <- df[df$Region == r,]
+      df1 <- df1[order(df1$Gene),]
+      template[,which(grepl(r, names(template)) & grepl(tissue, names(template)))] <- df1$Proportion
     }
-    addWorksheet(wb,paste(analysis, "_", mod, sep = ""))
-    writeData(wb,paste(analysis, "_", mod, sep = ""),template)
-    saveWorkbook(wb,"Data\\Arabidopsis NLRs.xlsx",overwrite = TRUE)
   }
+  addWorksheet(wb,mod)
+  writeData(wb,mod,template)
+  saveWorkbook(wb,"Data\\Arabidopsis NLRs.xlsx",overwrite = TRUE)
 }
 
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
