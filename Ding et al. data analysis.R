@@ -209,6 +209,40 @@ ACR_data <- cbind(ACR_data, data.frame(Region = ACR_regions))
 Ding_Control_ACR <- ACR_data[which(ACR_data$Condition=="Control"),]
 Ding_ETI_ACR <- ACR_data[which(ACR_data$Condition=="ETI"),]
 
+# Which R-genes are associated with the nuclear envelope?
+NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 2))
+
+geneRegions <- getGeneCoordinates(sampleGenes[["NLRs"]])
+
+NE_associations <- data.frame()
+
+for (r in names(geneRegions)) {
+  for (i in 1:nrow(NE_data)) {
+    for (j in 1:nrow(geneRegions[[r]]))
+      
+      if (NE_data[i, "chromosome"]==geneRegions[[r]][j, "seqnames"] & 
+          overlapsFunction(NE_data[i, "start"], NE_data[i, "end"],
+                           geneRegions[[r]][j, "start"], geneRegions[[r]][j, "end"])==TRUE){
+        
+        NE_associations <- rbind(NE_associations, data.frame(seqnames = geneRegions[[r]][j, "seqnames"],
+                                                             Gene = geneRegions[[r]][j, "Gene"],
+                                                             start = NE_data[i, "start"],
+                                                             end = NE_data[i, "end"],
+                                                             Region = r))
+      }
+    else NE_associations <- NE_associations
+  }
+}
+
+NE_associations$ranges <- mergeCoordinates(NE_associations)
+
+NE_associations_Bed <- GRanges(
+  seqnames=Rle(NE_associations$seqnames),
+  ranges=IRanges(NE_associations$ranges),
+  name=NE_associations$Gene)
+
+rtracklayer::export.bed(NE_associations_Bed, "Data\\NE_associations_Bed.bed") 
+
 
 # Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
 # modifications and particular TFs?
@@ -229,9 +263,11 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   df <- modProportionPerRegion[grepl(mod, modProportionPerRegion$Modification),]
   control_ACR <- c()
   ETI_ACR <- c()
+  NEAs <- c()
   
   for (row in 1:nrow(df)) {
     overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df[row,"Gene"] & Ding_Control_ACR$Region==df[row,"Region"]),]
+    overlappingNEAs <- NE_associations[which(NE_associations$Gene==df[row,"Gene"] & NE_associations$Region==df[row,"Region"]),]
     
     if (nrow(overlappingACRs) != 0) {
       control_ACR <- append(control_ACR, "Yes")
@@ -242,6 +278,10 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
     if (nrow(overlappingACRs) != 0) {
       ETI_ACR <- append(ETI_ACR, "Yes")
     } else ETI_ACR <- append(ETI_ACR, "No")
+    
+    if (nrow(overlappingNEAs) != 0) {
+      NEAs <- append(NEAs, "Yes")
+    } else NEAs <- append(NEAs, "No")
   }
   
   associatedTFs <- data.frame()
@@ -256,6 +296,7 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
                                 ETI_Expression = rep(Ding_ExpressionData$ETI, times = length(unique(df$Region))),
                                 Control_ACRs = control_ACR,
                                 ETI_ACRs = ETI_ACR,
+                                NE_association <- NEAs,
                                 Region = df$Region,
                                 Enrichment = df$Proportion, TFs = rep(associatedTFs$TFs, times = length(unique(df$Region))))
   
@@ -302,36 +343,3 @@ rtracklayer::export.bed(SE_ACR_Bed, "Data\\SE_ACR_Bed.bed")
 
 # Are there similarities in chromatin modification and TF enrichment between co-expressed genes?
 
-# Which R-genes are associated with the nuclear envelope?
-NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 2))
-
-geneRegions <- getGeneCoordinates(sampleGenes[["NLRs"]])
-
-NE_associations <- data.frame()
-
-for (r in names(geneRegions)) {
-  for (i in 1:nrow(NE_data)) {
-    for (j in 1:nrow(geneRegions[[r]]))
-      
-      if (NE_data[i, "chromosome"]==geneRegions[[r]][j, "seqnames"] & 
-          overlapsFunction(NE_data[i, "start"], NE_data[i, "end"],
-                           geneRegions[[r]][j, "start"], geneRegions[[r]][j, "end"])==TRUE){
-        
-        NE_associations <- rbind(NE_associations, data.frame(seqnames = geneRegions[[r]][j, "seqnames"],
-                                                             Gene = geneRegions[[r]][j, "Gene"],
-                                                             start = NE_data[i, "start"],
-                                                             end = NE_data[i, "end"],
-                                                             Region = r))
-      }
-    else NE_associations <- NE_associations
-  }
-}
-
-NE_associations$ranges <- mergeCoordinates(NE_associations)
-
-NE_associations_Bed <- GRanges(
-  seqnames=Rle(NE_associations$seqnames),
-  ranges=IRanges(NE_associations$ranges),
-  name=NE_associations$Gene)
-
-rtracklayer::export.bed(NE_associations_Bed, "Data\\NE_associations_Bed.bed") 
