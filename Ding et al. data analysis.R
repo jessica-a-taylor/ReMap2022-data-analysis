@@ -303,4 +303,35 @@ rtracklayer::export.bed(SE_ACR_Bed, "Data\\SE_ACR_Bed.bed")
 # Are there similarities in chromatin modification and TF enrichment between co-expressed genes?
 
 # Which R-genes are associated with the nuclear envelope?
+NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 2))
 
+geneRegions <- getGeneCoordinates(sampleGenes[["NLRs"]])
+
+NE_associations <- data.frame()
+
+for (r in names(geneRegions)) {
+  for (i in 1:nrow(NE_data)) {
+    for (j in 1:nrow(geneRegions[[r]]))
+      
+      if (NE_data[i, "chromosome"]==geneRegions[[r]][j, "seqnames"] & 
+          overlapsFunction(NE_data[i, "start"], NE_data[i, "end"],
+                           geneRegions[[r]][j, "start"], geneRegions[[r]][j, "end"])==TRUE){
+        
+        NE_associations <- rbind(NE_associations, data.frame(seqnames = geneRegions[[r]][j, "seqnames"],
+                                                             Gene = geneRegions[[r]][j, "Gene"],
+                                                             start = NE_data[i, "start"],
+                                                             end = NE_data[i, "end"],
+                                                             Region = r))
+      }
+    else NE_associations <- NE_associations
+  }
+}
+
+NE_associations$ranges <- mergeCoordinates(NE_associations)
+
+NE_associations_Bed <- GRanges(
+  seqnames=Rle(NE_associations$seqnames),
+  ranges=IRanges(NE_associations$ranges),
+  name=NE_associations$Gene)
+
+rtracklayer::export.bed(NE_associations_Bed, "Data\\NE_associations_Bed.bed") 
