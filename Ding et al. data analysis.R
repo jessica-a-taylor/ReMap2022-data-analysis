@@ -210,7 +210,14 @@ Ding_Control_ACR <- ACR_data[which(ACR_data$Condition=="Control"),]
 Ding_ETI_ACR <- ACR_data[which(ACR_data$Condition=="ETI"),]
 
 # Which R-genes are associated with the nuclear envelope?
-NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 2))
+Leaf_NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 2))
+Root_NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 1))
+
+Leaf_NE_data <- cbind(Leaf_NE_data, data.frame(Tissue = rep("Leaf", times = nrow(Leaf_NE_data))))
+Root_NE_data <- cbind(Root_NE_data, data.frame(Tissue = rep("Root", times = nrow(Root_NE_data))))
+
+NE_data <- Leaf_NE_data
+NE_data <- rbind(NE_data, Root_NE_data)
 
 geneRegions <- getGeneCoordinates(sampleGenes[["NLRs"]])
 
@@ -228,7 +235,8 @@ for (r in names(geneRegions)) {
                                                              Gene = geneRegions[[r]][j, "Gene"],
                                                              start = NE_data[i, "start"],
                                                              end = NE_data[i, "end"],
-                                                             Region = r))
+                                                             Region = r,
+                                                             Tissue = NE_data[i, "Tissue"]))
       }
     else NE_associations <- NE_associations
   }
@@ -236,12 +244,22 @@ for (r in names(geneRegions)) {
 
 NE_associations$ranges <- mergeCoordinates(NE_associations)
 
-NE_associations_Bed <- GRanges(
-  seqnames=Rle(NE_associations$seqnames),
-  ranges=IRanges(NE_associations$ranges),
-  name=NE_associations$Gene)
+Leaf_NE_data <- NE_associations[which(NE_associations$Tissue == "Leaf"),]
+Root_NE_data <- NE_associations[which(NE_associations$Tissue == "Root"),]
 
-rtracklayer::export.bed(NE_associations_Bed, "Data\\NE_associations_Bed.bed") 
+Leaf_NE_associations_Bed <- GRanges(
+  seqnames=Rle(Leaf_NE_data$seqnames),
+  ranges=IRanges(Leaf_NE_data$ranges),
+  name=Leaf_NE_data$Gene)
+
+rtracklayer::export.bed(Leaf_NE_associations_Bed, "Data\\Leaf_NE_associations_Bed.bed") 
+
+Root_NE_associations_Bed <- GRanges(
+  seqnames=Rle(Root_NE_data$seqnames),
+  ranges=IRanges(Root_NE_data$ranges),
+  name=Root_NE_data$Gene)
+
+rtracklayer::export.bed(Root_NE_associations_Bed, "Data\\Root_NE_associations_Bed.bed") 
 
 
 # Which TFs are the R-genes associated with - is there a correlation between the enrichment of particular chromatin 
@@ -263,11 +281,11 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   df <- modProportionPerRegion[grepl(mod, modProportionPerRegion$Modification),]
   control_ACR <- c()
   ETI_ACR <- c()
-  NEAs <- c()
+  Leaf_NEAs <- c()
+  Root_NEAs <- c()
   
   for (row in 1:nrow(df)) {
     overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df[row,"Gene"] & Ding_Control_ACR$Region==df[row,"Region"]),]
-    overlappingNEAs <- NE_associations[which(NE_associations$Gene==df[row,"Gene"] & NE_associations$Region==df[row,"Region"]),]
     
     if (nrow(overlappingACRs) != 0) {
       control_ACR <- append(control_ACR, "Yes")
@@ -279,9 +297,17 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
       ETI_ACR <- append(ETI_ACR, "Yes")
     } else ETI_ACR <- append(ETI_ACR, "No")
     
-    if (nrow(overlappingNEAs) != 0) {
-      NEAs <- append(NEAs, "Yes")
-    } else NEAs <- append(NEAs, "No")
+    overlappingLeafNEAs <- Leaf_NE_data[which(Leaf_NE_data$Gene==df[row,"Gene"] & Leaf_NE_data$Region==df[row,"Region"]),]
+    
+    if (nrow(overlappingLeafNEAs) != 0) {
+      Leaf_NEAs <- append(Leaf_NEAs, "Yes")
+    } else Leaf_NEAs <- append(Leaf_NEAs, "No")
+    
+    overlappingRootNEAs <- Root_NE_data[which(Root_NE_data$Gene==df[row,"Gene"] & Root_NE_data$Region==df[row,"Region"]),]
+    
+    if (nrow(overlappingRootNEAs) != 0) {
+      Root_NEAs <- append(Root_NEAs, "Yes")
+    } else Root_NEAs <- append(Root_NEAs, "No")
   }
   
   associatedTFs <- data.frame()
@@ -296,7 +322,8 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
                                 ETI_Expression = rep(Ding_ExpressionData$ETI, times = length(unique(df$Region))),
                                 Control_ACRs = control_ACR,
                                 ETI_ACRs = ETI_ACR,
-                                NE_association <- NEAs,
+                                Leaf_NE_association = Leaf_NEAs,
+                                Root_NE_association = Root_NEAs,
                                 Region = df$Region,
                                 Enrichment = df$Proportion, TFs = rep(associatedTFs$TFs, times = length(unique(df$Region))))
   
