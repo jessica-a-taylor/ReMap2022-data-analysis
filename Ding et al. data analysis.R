@@ -284,26 +284,28 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   Leaf_NEAs <- c()
   Root_NEAs <- c()
   
-  for (row in 1:nrow(df)) {
-    overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df[row,"Gene"] & Ding_Control_ACR$Region==df[row,"Region"]),]
+  df1 <- df[df$Region=="Downstream",]
+  
+  for (row in 1:nrow(df1)) {
+    overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df1[row,"Gene"] & Ding_Control_ACR$Region==df1[row,"Region"]),]
     
     if (nrow(overlappingACRs) != 0) {
       control_ACR <- append(control_ACR, "Yes")
     } else control_ACR <- append(control_ACR, "No")
     
-    overlappingACRs <- Ding_ETI_ACR[which(Ding_ETI_ACR$Gene==df[row,"Gene"] & Ding_ETI_ACR$Region==df[row,"Region"]),]
+    overlappingACRs <- Ding_ETI_ACR[which(Ding_ETI_ACR$Gene==df1[row,"Gene"] & Ding_ETI_ACR$Region==df1[row,"Region"]),]
     
     if (nrow(overlappingACRs) != 0) {
       ETI_ACR <- append(ETI_ACR, "Yes")
     } else ETI_ACR <- append(ETI_ACR, "No")
     
-    overlappingLeafNEAs <- Leaf_NE_data[which(Leaf_NE_data$Gene==df[row,"Gene"] & Leaf_NE_data$Region==df[row,"Region"]),]
+    overlappingLeafNEAs <- Leaf_NE_data[which(Leaf_NE_data$Gene==df1[row,"Gene"] & Leaf_NE_data$Region==df1[row,"Region"]),]
     
     if (nrow(overlappingLeafNEAs) != 0) {
       Leaf_NEAs <- append(Leaf_NEAs, "Yes")
     } else Leaf_NEAs <- append(Leaf_NEAs, "No")
     
-    overlappingRootNEAs <- Root_NE_data[which(Root_NE_data$Gene==df[row,"Gene"] & Root_NE_data$Region==df[row,"Region"]),]
+    overlappingRootNEAs <- Root_NE_data[which(Root_NE_data$Gene==df1[row,"Gene"] & Root_NE_data$Region==df1[row,"Region"]),]
     
     if (nrow(overlappingRootNEAs) != 0) {
       Root_NEAs <- append(Root_NEAs, "Yes")
@@ -311,22 +313,32 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   }
   
   associatedTFs <- data.frame()
-  for (gene in unique(df$Gene)) {
+  for (gene in unique(df1$Gene)) {
     if (gene %in% Ding_TFs$target) {
       associatedTFs <- rbind(associatedTFs, data.frame(TFs = paste(Ding_TFs[which(Ding_TFs$target==gene), "TF_alias"], collapse = ", ")))
     } else associatedTFs <- rbind(associatedTFs, data.frame(TFs = " "))
   }
   
-  DingDataResults <- data.frame(Gene = rep(Ding_ExpressionData$Gene, times = length(unique(df$Region))),
-                                Control_Expression =rep(Ding_ExpressionData$Control, times = length(unique(df$Region))),
-                                ETI_Expression = rep(Ding_ExpressionData$ETI, times = length(unique(df$Region))),
+  DingDataResults <- data.frame(Gene = Ding_ExpressionData$Gene,
+                                Control_Expression = Ding_ExpressionData$Control,
+                                ETI_Expression = Ding_ExpressionData$ETI,
                                 Control_ACRs = control_ACR,
                                 ETI_ACRs = ETI_ACR,
                                 Leaf_NE_association = Leaf_NEAs,
-                                Root_NE_association = Root_NEAs,
-                                Region = df$Region,
-                                Enrichment = df$Proportion, TFs = rep(associatedTFs$TFs, times = length(unique(df$Region))))
+                                Root_NE_association = Root_NEAs)
   
+  
+  names <- c()
+  for (r in unique(df$Region)) {
+    df1 <- df[df$Region==r,]
+    
+    DingDataResults <- cbind(DingDataResults, df1$Proportion)
+    names <- append(names, paste("Enrichment_", r, sep = ""))
+  }
+  
+  DingDataResults <- cbind(DingDataResults, data.frame(TFs = associatedTFs$TFs))
+  
+  colnames(DingDataResults)[8:17] <- names
   
   addWorksheet(wb,mod)
   writeData(wb,mod,DingDataResults)
@@ -369,4 +381,21 @@ rtracklayer::export.bed(SE_ACR_Bed, "Data\\SE_ACR_Bed.bed")
 
 
 # Are there similarities in chromatin modification and TF enrichment between co-expressed genes?
+coExpressionData <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx"))
+coExpressionData <- coExpressionData[,-c(5:8,15)]
 
+coExpressionMatrix <- matrix(rep(0, times = nrow(coExpressionData)^2), nrow = nrow(coExpressionData), ncol = nrow(coExpressionData))
+colnames(coExpressionMatrix) <- coExpressionData$Gene
+rownames(coExpressionMatrix) <- coExpressionData$Gene
+
+for (row in 1:nrow(coExpressionData)) {
+  coExpressedGenes <- unlist(str_split(coExpressionData[row, "Co-expression"], ", "))
+  
+  if (length(coExpressedGenes) != 0 & NA %!in% coExpressedGenes) {
+    for (gene in coExpressedGenes) {
+      coExpressionMatrix[coExpressionData[row,"Gene"], gene] <- 1
+      coExpressionMatrix[gene, coExpressionData[row,"Gene"]] <- 1
+    }
+  }
+  else coExpressionMatrix <- coExpressionMatrix
+}
