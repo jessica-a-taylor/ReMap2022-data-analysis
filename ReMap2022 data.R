@@ -74,6 +74,8 @@ source("Functions\\RNA-seq data.R")
 sampleGenesRNAseq <- RNA_seqAnalysis(sampleGenes[c("control1","control10","control2","control3","control4",
                                                    "control5","control6","control7","control8","control9","NLRs")], exLevel)
 
+sampleGenesRNAseq_Hpa <- 
+
 rm(PlantExp, RNA_seqAnalysis)
 
 # Use ReMap2022 data to analyse the enrichment of chromatin marks on the R-genes and controls.
