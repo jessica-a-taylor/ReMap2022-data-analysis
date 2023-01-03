@@ -41,7 +41,18 @@ for (row in 1:nrow(expressionData_Hpa)) {
 }
 
 expressionData_Hpa <- cbind(expressionData_Hpa, data.frame(ExpressionLevel = expressionLevel))
+expressionData_Hpa <- expressionData_Hpa[order(expressionData_Hpa$Gene),]
+
+newExpressionData_Hpa <- data.frame(Gene = unique(expressionData_Hpa$Gene))
+for (t in unique(expressionData_Hpa$Treatment)) {
+  df <- expressionData_Hpa[expressionData_Hpa$Treatment==t,]
   
+  newExpressionData_Hpa <- cbind(newExpressionData_Hpa, df$FPKM)
+}
+
+colnames(newExpressionData_Hpa) <- c("Gene", unique(expressionData_Hpa$Treatment))
+
+write.csv(newExpressionData_Hpa, file = "Data\\RNA-seq data\\Hpa infected\\Expression data.csv")
 
   
 # Get PlantExp expression data for plants exposed to Hpa.
@@ -91,4 +102,15 @@ for (row in 1:nrow(expressionData_Hpa)) {
 }
 
 expressionData_Hpa <- cbind(expressionData_Hpa, data.frame(ExpressionLevel = expressionLevel))
+expressionData_Hpa <- expressionData_Hpa[order(expressionData_Hpa$Gene),]
 
+newExpressionData_Hpa <- data.frame(Gene = unique(expressionData_Hpa$Gene))
+for (t in unique(expressionData_Hpa$Condition)) {
+  df <- expressionData_Hpa[expressionData_Hpa$Condition==t,]
+  
+  newExpressionData_Hpa <- cbind(newExpressionData_Hpa, df$FPKM)
+}
+
+colnames(newExpressionData_Hpa) <- c("Gene", unique(expressionData_Hpa$Condition))
+
+write.csv(newExpressionData_Hpa, file = "Data\\PlantExp data\\Hpa infected\\Expression data.csv")

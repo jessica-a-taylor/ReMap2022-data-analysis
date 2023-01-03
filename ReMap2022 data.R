@@ -74,7 +74,6 @@ source("Functions\\RNA-seq data.R")
 sampleGenesRNAseq <- RNA_seqAnalysis(sampleGenes[c("control1","control10","control2","control3","control4",
                                                    "control5","control6","control7","control8","control9","NLRs")], exLevel)
 
-sampleGenesRNAseq_Hpa <- 
 
 rm(PlantExp, RNA_seqAnalysis)
 
@@ -179,7 +178,7 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   }
   addWorksheet(wb,mod)
   writeData(wb,mod,template)
-  saveWorkbook(wb,"Data\\Arabidopsis NLRs.xlsx",overwrite = TRUE)
+  saveWorkbook(wb,"Data\\Arabidopsis NLRs.xlsx", overwrite = TRUE)
 }
 
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 

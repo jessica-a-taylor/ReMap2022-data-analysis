@@ -227,7 +227,7 @@ for (r in names(geneRegions)) {
   for (i in 1:nrow(NE_data)) {
     for (j in 1:nrow(geneRegions[[r]]))
       
-      if (NE_data[i, "chromosome"]==geneRegions[[r]][j, "seqnames"] & 
+      if (NE_data[i, "seqnames"]==geneRegions[[r]][j, "seqnames"] & 
           overlapsFunction(NE_data[i, "start"], NE_data[i, "end"],
                            geneRegions[[r]][j, "start"], geneRegions[[r]][j, "end"])==TRUE){
         
@@ -279,26 +279,14 @@ wb <- loadWorkbook("Data\\ACRs data Ding et al., 2021.xlsx")
 for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
   
   df <- modProportionPerRegion[grepl(mod, modProportionPerRegion$Modification),]
-  control_ACR <- c()
-  ETI_ACR <- c()
+
   Leaf_NEAs <- c()
   Root_NEAs <- c()
   
   df1 <- df[df$Region=="Downstream",]
   
   for (row in 1:nrow(df1)) {
-    overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df1[row,"Gene"] & Ding_Control_ACR$Region==df1[row,"Region"]),]
-    
-    if (nrow(overlappingACRs) != 0) {
-      control_ACR <- append(control_ACR, "Yes")
-    } else control_ACR <- append(control_ACR, "No")
-    
-    overlappingACRs <- Ding_ETI_ACR[which(Ding_ETI_ACR$Gene==df1[row,"Gene"] & Ding_ETI_ACR$Region==df1[row,"Region"]),]
-    
-    if (nrow(overlappingACRs) != 0) {
-      ETI_ACR <- append(ETI_ACR, "Yes")
-    } else ETI_ACR <- append(ETI_ACR, "No")
-    
+   
     overlappingLeafNEAs <- Leaf_NE_data[which(Leaf_NE_data$Gene==df1[row,"Gene"] & Leaf_NE_data$Region==df1[row,"Region"]),]
     
     if (nrow(overlappingLeafNEAs) != 0) {
@@ -322,23 +310,40 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   DingDataResults <- data.frame(Gene = Ding_ExpressionData$Gene,
                                 Control_Expression = Ding_ExpressionData$Control,
                                 ETI_Expression = Ding_ExpressionData$ETI,
-                                Control_ACRs = control_ACR,
-                                ETI_ACRs = ETI_ACR,
                                 Leaf_NE_association = Leaf_NEAs,
                                 Root_NE_association = Root_NEAs)
-  
   
   names <- c()
   for (r in unique(df$Region)) {
     df1 <- df[df$Region==r,]
     
+    control_ACR <- c()
+    ETI_ACR <- c()
+    
+
+    for (row in 1:nrow(df1)) {
+      overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df1[row,"Gene"] & Ding_Control_ACR$Region==df1[row,"Region"]),]
+      
+      if (nrow(overlappingACRs) != 0) {
+        control_ACR <- append(control_ACR, "Yes")
+      } else control_ACR <- append(control_ACR, "No")
+      
+      overlappingACRs <- Ding_ETI_ACR[which(Ding_ETI_ACR$Gene==df1[row,"Gene"] & Ding_ETI_ACR$Region==df1[row,"Region"]),]
+      
+      if (nrow(overlappingACRs) != 0) {
+        ETI_ACR <- append(ETI_ACR, "Yes")
+      } else ETI_ACR <- append(ETI_ACR, "No")
+    }
+    
     DingDataResults <- cbind(DingDataResults, df1$Proportion)
-    names <- append(names, paste("Enrichment_", r, sep = ""))
+    DingDataResults <- cbind(DingDataResults, control_ACR)
+    DingDataResults <- cbind(DingDataResults, ETI_ACR)
+    names <- append(names, c(paste("Enrichment_", r, sep = ""), paste("Control_ACR_", r, sep = ""), paste("ETI_ACR_", r, sep = "")))
   }
   
   DingDataResults <- cbind(DingDataResults, data.frame(TFs = associatedTFs$TFs))
   
-  colnames(DingDataResults)[8:17] <- names
+  colnames(DingDataResults)[6:35] <- names
   
   addWorksheet(wb,mod)
   writeData(wb,mod,DingDataResults)
