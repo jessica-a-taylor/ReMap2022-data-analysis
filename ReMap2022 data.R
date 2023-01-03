@@ -169,29 +169,33 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
                                            grepl(tissue, resultsProportions[["PlantExp data"]]$dataToAnalyse) &
                                            grepl(mod, resultsProportions[["PlantExp data"]]$Modification),]
     
+    df <- df[order(df$Gene),]
+    
+    Leaf_NEAs <- c()
+    Root_NEAs <- c()
+    
+    for (gene in unique(df$Gene)) {
+      overlappingLeafNEAs <- Leaf_NE_data[Leaf_NE_data$Gene==gene,]
+      
+      if (nrow(overlappingLeafNEAs) != 0) {
+        Leaf_NEAs <- append(Leaf_NEAs, "Yes")
+      } else Leaf_NEAs <- append(Leaf_NEAs, "No")
+      
+      overlappingRootNEAs <- Root_NE_data[Root_NE_data$Gene==gene,]
+      
+      if (nrow(overlappingRootNEAs) != 0) {
+        Root_NEAs <- append(Root_NEAs, "Yes")
+      } else Root_NEAs <- append(Root_NEAs, "No")
+    }
+    
     for (r in unique(df$Region)) {
       
       df1 <- df[df$Region == r,]
-      df1 <- df1[order(df1$Gene),]
       
-      Leaf_NEAs <- c()
-      Root_NEAs <- c()
       control_ACR <- c()
       ETI_ACR <- c()
       
-      
       for (row in 1:nrow(df1)) {
-        overlappingLeafNEAs <- Leaf_NE_data[which(Leaf_NE_data$Gene==df1[row,"Gene"] & Leaf_NE_data$Region==df1[row,"Region"]),]
-        
-        if (nrow(overlappingLeafNEAs) != 0) {
-          Leaf_NEAs <- append(Leaf_NEAs, "Yes")
-        } else Leaf_NEAs <- append(Leaf_NEAs, "No")
-        
-        overlappingRootNEAs <- Root_NE_data[which(Root_NE_data$Gene==df1[row,"Gene"] & Root_NE_data$Region==df1[row,"Region"]),]
-        
-        if (nrow(overlappingRootNEAs) != 0) {
-          Root_NEAs <- append(Root_NEAs, "Yes")
-        } else Root_NEAs <- append(Root_NEAs, "No")
         
         overlappingACRs <- Ding_Control_ACR[which(Ding_Control_ACR$Gene==df1[row,"Gene"] & Ding_Control_ACR$Region==df1[row,"Region"]),]
         
@@ -207,11 +211,11 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
       }
       
       template[,which(grepl(r, names(template)) & grepl(tissue, names(template)))] <- df1$Proportion
-      template[,which(grepl("Leaf_NE_association", names(template)) & grepl(tissue, names(template)))] <- Leaf_NEAs
-      template[,which(grepl("Root_NE_association", names(template)) & grepl(tissue, names(template)))] <- Root_NEAs
       template[,which(grepl("Control_ACR", names(template)) & grepl(r, names(template)) & grepl(tissue, names(template)))] <- control_ACR
       template[,which(grepl("ETI_ACR", names(template)) & grepl(r, names(template)) & grepl(tissue, names(template)))] <- ETI_ACR
     }
+    template[,which(grepl("Leaf_NE_association", names(template)) & grepl(tissue, names(template)))] <- Leaf_NEAs
+    template[,which(grepl("Root_NE_association", names(template)) & grepl(tissue, names(template)))] <- Root_NEAs
   }
   addWorksheet(wb,mod)
   writeData(wb,mod,template)

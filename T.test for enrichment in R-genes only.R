@@ -5,6 +5,57 @@ library(readr)
 
 # T-Test - is there a significant difference in the average proportion of coverage of  
 # each gene region by a particular modification between R-genes at each expression level?
+dataToUse <- resultsProportions[[analysis]][grepl(tissue, resultsProportions[[analysis]]$dataToAnalyse) & 
+                                              grepl("NLR", resultsProportions[[analysis]]$dataToAnalyse) & 
+                                              !grepl("luster", resultsProportions[[analysis]]$dataToAnalyse),]
+
+t.testDF <- data.frame()
+
+
+for (mod in unique(resultsProportions[[analysis]]$Modification)) {
+  df <- dataToUse[dataToUse$Modification==mod,]
+  
+  for (r in unique(resultsProportions[[analysis]]$Region)) {
+    df1 <- df[df$Region==r,]
+    
+    statTest <- t.test(df1[df1$Expression == "No Expression" , "Proportion"], df1[df1$Expression == "Low Expression" , "Proportion"])
+      
+      if (is.na(statTest$p.value)==TRUE) {
+        t.testDF <- t.testDF
+        
+      } else if (0.05 >= statTest$p.value & statTest$p.value > 0.01) {
+        t.testDF <- rbind(t.testDF, data.frame(Modification = mod,
+                                               Region = r,
+                                               W.statistic = statTest$statistic,
+                                               p.value = statTest$p.value,
+                                               Significance = "*"))
+        
+      } else if (0.01 >= statTest$p.value & statTest$p.value > 0.001) {
+        t.testDF <- rbind(t.testDF, data.frame(Modification = mod,
+                                               Region = r,
+                                               W.statistic = statTest$statistic,
+                                               p.value = statTest$p.value,
+                                               Significance = "**"))
+        
+      } else if (statTest$p.value <= 0.001) {
+        t.testDF <- rbind(t.testDF, data.frame(Modification = mod,
+                                               Region = r,
+                                               W.statistic = statTest$statistic,
+                                               p.value = statTest$p.value,
+                                               Significance = "***"))
+        
+      } else  t.testDF <- rbind(t.testDF, data.frame(Modification = mod,
+                                                     Region = r,
+                                                     W.statistic = statTest$statistic,
+                                                     p.value = statTest$p.value,
+                                                     Significance = " "))
+  }
+}
+
+print("Test done!")
+write.csv(t.testDF, file = paste("Tests\\", analysis, "\\", tissue,
+                                 "\\T.test_compare_enrichment_between_R-genes_at_each_expression_level.csv", sep = ""))
+
 # Plots comparing the average proportion of coverage of each gene region by a particular 
 # modification in R-genes at each expression level.
 
