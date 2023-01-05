@@ -133,8 +133,10 @@ for (tissue in c("leaves", "root", "seedlings")) {
 # T-Test - is there a significant difference in the average proportion of coverage of  
 # each gene region by a particular modification between R-genes and controls?
 # Plots comparing the average proportion of coverage of each gene region by a particular modification in R-genes and controls.
-for (tissue in c("leaves", "root", "seedlings")) {
+for (analysis in c("PlantExp data", "RNA-seq data")) {
+  for (tissue in c("leaves", "root", "seedlings")) {
     jobRunScript("T.test for enrichment in R-genes and controls.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+  }
 }
 
 
@@ -145,7 +147,7 @@ for (tissue in c("leaves", "root", "seedlings")) {
 # modification in R-genes at each expression level.
 for (analysis in c("PlantExp data", "RNA-seq data")) {
   for (tissue in c("leaves", "root", "seedlings")) {
-    jobRunScript("T.test for enrichment in R-genes only.R", name = paste("Enrichment_", tissue, sep = ""), importEnv = TRUE)
+    jobRunScript("T.test for enrichment in R-genes only.R", name = paste("Enrichment_", analysis, "_", tissue, sep = ""), importEnv = TRUE)
   }
 }
 
