@@ -25,6 +25,8 @@ Ding_ExpressionData <- data.frame(Gene = Ding_ExpressionData$Gene,
                                   Control = controlExpression,
                                   ETI = ETIexpression)
 
+write.csv(Ding_ExpressionData, file = "Data\\Ding_ExpressionData.csv")
+
 # Add information needed for the ReMap analysis.
 Ding_ExpressionData <- cbind(Ding_ExpressionData, sampleGenes[["NLRs"]][,c(2:8)])
 

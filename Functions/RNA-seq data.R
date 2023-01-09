@@ -31,6 +31,9 @@ RNA_seqAnalysis <- function(dataToUse, exLevel) {
                                                                          Expression = mean(df[,col]),
                                                                          Tissue = t))
       }
+      
+      expressionData_tissue <- expressionData_tissue[order(expressionData_tissue$Gene),]
+      
       expressionLevel <- c()
       
       for (gene in expressionData_tissue$Gene) {
@@ -52,7 +55,7 @@ RNA_seqAnalysis <- function(dataToUse, exLevel) {
       }
       
       expressionData_tissue <- cbind(expressionData_tissue, data.frame(ExpressionLevel = expressionLevel))
-      
+
       # Sort genes to hashes based on tissue and expression level.
      for (level in exLevel) {
         df1 <- expressionData_tissue[expressionData_tissue$ExpressionLevel==level,]
@@ -61,7 +64,8 @@ RNA_seqAnalysis <- function(dataToUse, exLevel) {
         dataToUse[[paste(test, "_", t, sep = "")]][[level]] <- dataToUse[[test]][c(which(dataToUse[[test]]$Gene %in% df1$Gene)),]
         
         dataToUse[[paste(test, "_", t, sep = "")]][[level]] <- cbind(dataToUse[[paste(test, "_", t, sep = "")]][[level]], df1[,c(2:4)])
-      } 
+      }   
+      write.csv(expressionData_tissue, file = paste("Data\\RNA-seq data\\", t,"\\Expression data.csv", sep = ""))
     }
   }
   return(dataToUse)

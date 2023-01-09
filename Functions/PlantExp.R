@@ -3,12 +3,9 @@ PlantExp <- function(dataToUse, exLevel) {
 
   
   sampleGeneSets <- names(dataToUse)
-  # Get a list of tissue types for which there is expression data.
-  tissue <- list.files(path = "Data\\PlantExp data")
-  
-  
+ 
   # For each tissue type...
-  for (t in tissue) {
+  for (t in c("leaves","root","seedlings")) {
     
     # Create a list of files in the folder for a particular tissue type.
     filenames <- list.files(path = paste("Data\\PlantExp data\\", t, sep = ""),pattern="*.tsv")
@@ -29,6 +26,7 @@ PlantExp <- function(dataToUse, exLevel) {
       # Filter for the genes in the sample gene set.
       sampleData <- expressionData[c(which(expressionData$geneId %in% dataToUse[[test]]$Gene)),]
       sampleData <- sampleData[,-c(2,3,5)]
+      sampleData <- sampleData[order(sampleData$geneId),]
       
       # For each gene, calculate the mean expression across experiments.
       for (gene in unique(sampleData$geneId)) {
@@ -71,6 +69,7 @@ PlantExp <- function(dataToUse, exLevel) {
         dataToUse[[paste(test, "_", t, sep = "")]][[level]] <- cbind(dataToUse[[paste(test, "_", t, sep = "")]][[level]], df[,c(2:4)])
       } 
     }
+    write.csv(PlantExpData, file = paste("Data\\PlantExp data\\", t,"\\Expression data.csv", sep = ""))
   }
   return(dataToUse)
 }

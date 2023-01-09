@@ -93,9 +93,6 @@ for (row in 1:nrow(expressionData_Hpa)) {
   else if (50 < expressionData_Hpa[row, "FPKM"] & expressionData_Hpa[row, "FPKM"] <= 100) {
     expressionLevel <- append(expressionLevel, "Intermediate Expression")
   }
-  #else if (100 < PlantExpData[row, "FPKM"] & PlantExpData[row, "FPKM"]<= 200) {
-  #  expressionLevel <- append(expressionLevel, "High Expression")
-  #}
   else if (expressionData_Hpa[row, "FPKM"] > 100) {
     expressionLevel <- append(expressionLevel, "High Expression")
   }

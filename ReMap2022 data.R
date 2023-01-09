@@ -1,8 +1,3 @@
-if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-
-BiocManager::install("ggplot2")
-
 library(readxl)
 library(karyoploteR)
 library(rtracklayer)
@@ -159,17 +154,144 @@ for (analysis in c("PlantExp data", "RNA-seq data")) {
 }
 
 
+source("Functions\\Overlaps functions.R")
+source("Functions\\Modifications per gene.R")
+source("Functions\\Coordinates per gene region.R")
+source("Functions\\Modification frequencies & proportions.R")
+source("Functions\\Get range - merge gene coordinates.R")
+
+# Which R-genes overlap with ACRs?
+
+# Import the expression data from the ACRs paper (Ding et al. 2021).
+Ding_Control_ACR <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = 2))
+Ding_ETI_ACR <- as.data.frame(read_xlsx("Data\\ACRs data Ding et al., 2021.xlsx", sheet = 3))
+
+# Filter for R-genes.
+Ding_Control_ACR <- Ding_Control_ACR[which(Ding_Control_ACR$geneId %in% sampleGenes[["NLRs"]]$Gene),-c(1,4,5,8,9,10,13,14)]
+Ding_ETI_ACR <- Ding_ETI_ACR[which(Ding_ETI_ACR$geneId %in% sampleGenes[["NLRs"]]$Gene),-c(1,4,5,8,9,10,13,14)]
+
+# Merge start and end coordinates columns to create a ranges column.
+source("Functions\\Get range - merge gene coordinates.R")
+
+Ding_Control_ACR$ranges <- mergeCoordinates(Ding_Control_ACR)
+Ding_Control_ACR$width <- Ding_Control_ACR$end - Ding_Control_ACR$start
+colnames(Ding_Control_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges", "width")
+
+for (row in 1:nrow(Ding_Control_ACR)) {
+  if (Ding_Control_ACR[row, "strand"] == 1) {
+    Ding_Control_ACR[row, "strand"] <- "+"
+  } else if (Ding_Control_ACR[row, "strand"] == 2) {
+    Ding_Control_ACR[row, "strand"] <- "-"
+  }
+}
+
+Ding_ETI_ACR$ranges <- mergeCoordinates(Ding_ETI_ACR)
+Ding_ETI_ACR$width <- Ding_ETI_ACR$end - Ding_ETI_ACR$start
+colnames(Ding_ETI_ACR) <- c("start", "end", "annotation", "seqnames", "strand", "Gene", "ranges", "width")
+
+for (row in 1:nrow(Ding_ETI_ACR)) {
+  if (Ding_ETI_ACR[row, "strand"] == 1) {
+    Ding_ETI_ACR[row, "strand"] <- "+"
+  } else if (Ding_ETI_ACR[row, "strand"] == 2) {
+    Ding_ETI_ACR[row, "strand"] <- "-"
+  }
+}
+
+
+# Determine which ACRs overlap with the R-genes.
+Ding_Control_ACR <- cbind(Ding_Control_ACR, data.frame(Condition = rep("Control", times = nrow(Ding_Control_ACR))))
+Ding_ETI_ACR <- cbind(Ding_ETI_ACR, data.frame(Condition = rep("ETI", times = nrow(Ding_ETI_ACR))))
+
+ACR_data <- Ding_Control_ACR
+ACR_data <- rbind(ACR_data, Ding_ETI_ACR)
+
+source("Functions\\Coordinates per gene region.R")
+ACR_GeneRegions <- getGeneCoordinates(sampleGenes[["NLRs"]])
+`%!in%` <- Negate(`%in%`)
+
+ACR_regions <- c() 
+for (row in 1:nrow(ACR_data)) {
+  overlappingACRs <- data.frame()
+  
+  for (n in names(ACR_GeneRegions)) {
+    df <- ACR_GeneRegions[[n]][ACR_GeneRegions[[n]]$Gene == ACR_data[row, "Gene"],]
+    
+    if (nrow(df) != 0) {
+      if (overlapsFunction(ACR_data[row, "start"], ACR_data[row, "end"], 
+                           df[, "start"], df[, "end"])==TRUE) {
+        
+        overlappingACRs <- rbind(overlappingACRs, data.frame(Region = n,
+                                                             Overlap = newOverlapsFunction(as.numeric(ACR_data[row, "start"]), as.numeric(ACR_data[row, "end"]),
+                                                                                           as.numeric(df[, "start"]), as.numeric(df[, "end"]))))
+        
+      } else overlappingACRs <- overlappingACRs
+    } else overlappingACRs <- overlappingACRs
+  }
+  if ((nrow(overlappingACRs)==0 & row == 84)==TRUE) {
+    ACR_regions <- append(ACR_regions, "Downstream (within neighbouring gene)")
+  }
+  if ((nrow(overlappingACRs)==0 & row != 84 & row %in% c(17,149,203))==TRUE) {
+    ACR_regions <- append(ACR_regions, "UpstreamIntergenic")
+  }
+  if ((nrow(overlappingACRs)==0 & row %!in% c(17,149,203, 84) & row %in% c(122,262,376,377,410,433:435))==TRUE) {
+    ACR_regions <- append(ACR_regions, "UpstreamIntergenic (within neighbouring gene)")
+  }
+  ACR_regions <- append(ACR_regions, overlappingACRs[c(which(overlappingACRs$Overlap == max(overlappingACRs$Overlap)))[1], "Region"])
+}
+
+ACR_data <- cbind(ACR_data, data.frame(Region = ACR_regions))
+Ding_Control_ACR <- ACR_data[which(ACR_data$Condition=="Control"),]
+Ding_ETI_ACR <- ACR_data[which(ACR_data$Condition=="ETI"),]
+
+# Which R-genes are associated with the nuclear envelope?
+Leaf_NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 2))
+Root_NE_data <- as.data.frame(read_xlsx("Data\\Bi et al. (2017) NE associations.xlsx", sheet = 1))
+
+Leaf_NE_data <- cbind(Leaf_NE_data, data.frame(Tissue = rep("Leaf", times = nrow(Leaf_NE_data))))
+Root_NE_data <- cbind(Root_NE_data, data.frame(Tissue = rep("Root", times = nrow(Root_NE_data))))
+
+NE_data <- Leaf_NE_data
+NE_data <- rbind(NE_data, Root_NE_data)
+
+geneRegions <- getGeneCoordinates(sampleGenes[["NLRs"]])
+
+NE_associations <- data.frame()
+
+for (r in names(geneRegions)) {
+  for (i in 1:nrow(NE_data)) {
+    for (j in 1:nrow(geneRegions[[r]]))
+      
+      if (NE_data[i, "seqnames"]==geneRegions[[r]][j, "seqnames"] & 
+          overlapsFunction(NE_data[i, "start"], NE_data[i, "end"],
+                           geneRegions[[r]][j, "start"], geneRegions[[r]][j, "end"])==TRUE){
+        
+        NE_associations <- rbind(NE_associations, data.frame(seqnames = geneRegions[[r]][j, "seqnames"],
+                                                             Gene = geneRegions[[r]][j, "Gene"],
+                                                             start = NE_data[i, "start"],
+                                                             end = NE_data[i, "end"],
+                                                             Region = r,
+                                                             Tissue = NE_data[i, "Tissue"]))
+      }
+    else NE_associations <- NE_associations
+  }
+}
+
+NE_associations$ranges <- mergeCoordinates(NE_associations)
+
+Leaf_NE_data <- NE_associations[which(NE_associations$Tissue == "Leaf"),]
+Root_NE_data <- NE_associations[which(NE_associations$Tissue == "Root"),]
+
 # Add sheets to 'Arabidopsis NLRs' spreadsheet giving a summary of the enrichment of chromatin modifications in 
 # each gene region for each tissue.
 wb <- loadWorkbook("Data\\Arabidopsis NLRs.xlsx")
 
 for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K27ac","H3K9ac")) {
-  template <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 4))
+  template <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx", sheet = 2))
   
   for (tissue in c("leaves", "root", "seedlings")) {
-    df <- resultsProportions[["PlantExp data"]][grepl("NLRs", resultsProportions[["PlantExp data"]]$dataToAnalyse) &
-                                           grepl(tissue, resultsProportions[["PlantExp data"]]$dataToAnalyse) &
-                                           grepl(mod, resultsProportions[["PlantExp data"]]$Modification),]
+    df <- resultsProportions[["RNA-seq data"]][grepl("NLRs", resultsProportions[["RNA-seq data"]]$dataToAnalyse) &
+                                           grepl(tissue, resultsProportions[["RNA-seq data"]]$dataToAnalyse) &
+                                           grepl(mod, resultsProportions[["RNA-seq data"]]$Modification),]
     
     df <- df[order(df$Gene),]
     
@@ -212,7 +334,7 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
         } else ETI_ACR <- append(ETI_ACR, "No")
       }
       
-      template[,which(grepl(r, names(template)) & grepl(tissue, names(template)))] <- df1$Proportion
+      template[,which(grepl(r, names(template)) & grepl(tissue, names(template)) & grepl("Enrichment", names(template)))] <- df1$Proportion
       template[,which(grepl("Control_ACR", names(template)) & grepl(r, names(template)) & grepl(tissue, names(template)))] <- control_ACR
       template[,which(grepl("ETI_ACR", names(template)) & grepl(r, names(template)) & grepl(tissue, names(template)))] <- ETI_ACR
     }
@@ -223,6 +345,8 @@ for (mod in c("H3K9me2","H3K27me3","H2A-Z","H2AK121ub","H3K4me3","H3K36me3","H3K
   writeData(wb,mod,template)
   saveWorkbook(wb,"Data\\Arabidopsis NLRs.xlsx", overwrite = TRUE)
 }
+
+
 
 # Determine whether the enrichment of each chromatin mark is significantly more similar between genes within a cluster 
 # than between all genes.

@@ -1,11 +1,13 @@
 library(ggplot2)
 library(gggenes)
+library(readr)
+library(readxl)
 
 genomicData <- as.data.frame(read_csv("Data\\Protein coding genes.csv"))
 genomicData <- genomicData[,-1]
 
 clusterGenes <- as.data.frame(read_xlsx("Data\\Arabidopsis NLRs.xlsx"))
-clusterGenes <- clusterGenes[grepl("cluster", clusterGenes$Clustering),-c(5:10, 12)]
+clusterGenes <- clusterGenes[grepl("cluster", clusterGenes$Clustering),-c(5:6, 8:9)]
 
 clusterGenes$Clustering <- unlist(strsplit(clusterGenes$Clustering, " cluster"))
 
